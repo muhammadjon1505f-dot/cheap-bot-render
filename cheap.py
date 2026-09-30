@@ -537,10 +537,21 @@ def start(message):
         f"{now}"
     )
 
+    web_app_url = os.getenv("RENDER_EXTERNAL_URL", "https://cheap-bot-gahc.onrender.com")
+
+    inline_kb = types.InlineKeyboardMarkup()
+    inline_kb.add(
+        types.InlineKeyboardButton(
+            "🚀 Mini Appni Ochish (Web App)",
+            web_app=types.WebAppInfo(url=web_app_url)
+        )
+    )
+
     keyboard = types.ReplyKeyboardMarkup(
         resize_keyboard=True,
     )
 
+    keyboard.row(types.KeyboardButton("🚀 Mini Appni Ochish", web_app=types.WebAppInfo(url=web_app_url)))
     keyboard.row("📦 Avto buyurtma ulash")
     keyboard.row("💵 Pul kiritish", "👤 Kabinet")
     keyboard.row("🆘 Support", "📕 Qo'llanma")
@@ -549,8 +560,32 @@ def start(message):
         message.chat.id,
         text,
         parse_mode="HTML",
-        reply_markup=keyboard
+        reply_markup=inline_kb
     )
+
+
+@bot.message_handler(content_types=["web_app_data"])
+def handle_web_app_data(message):
+    try:
+        import json
+        data = json.loads(message.web_app_data.data)
+        if data.get("action") == "order":
+            order_id = data.get("order_id", "000")
+            service = data.get("service", "SMM Xizmati")
+            link = data.get("link", "-")
+            qty = data.get("qty", "100")
+            msg_text = (
+                f"🎉 <b>Web App orqali yangi buyurtma qabul qilindi!</b>\n\n"
+                f"🆔 <b>Buyurtma ID:</b> #{order_id}\n"
+                f"📦 <b>Xizmat:</b> {service}\n"
+                f"🔗 <b>Havola:</b> {link}\n"
+                f"🔢 <b>Miqdor:</b> {qty} ta\n"
+                f"🟡 <b>Holati:</b> Kutilmoqda (Tez orada bajariladi)"
+            )
+            bot.send_message(message.chat.id, msg_text, parse_mode="HTML")
+    except Exception as e:
+        print("❌ WEB APP DATA XATOSI:", e)
+
 
 @bot.message_handler(
     func=lambda m: m.text == "🏠 Asosiy menyu"
@@ -10850,6 +10885,19 @@ async def run_all():
     global MAIN_LOOP
 
     MAIN_LOOP = asyncio.get_running_loop()
+
+    try:
+        web_app_url = os.getenv("RENDER_EXTERNAL_URL", "https://cheap-bot-gahc.onrender.com")
+        bot.set_chat_menu_button(
+            menu_button=types.MenuButtonWebApp(
+                type="web_app",
+                text="🚀 Mini App",
+                web_app=types.WebAppInfo(url=web_app_url)
+            )
+        )
+        print("✅ TELEGRAM MENU BUTTON: Web App muvaffaqiyatli o'rnatildi")
+    except Exception as e:
+        print("⚠️ Menu button xatosi:", e)
 
     bot_task = asyncio.create_task(
         asyncio.to_thread(
