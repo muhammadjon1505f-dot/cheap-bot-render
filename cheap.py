@@ -10693,6 +10693,17 @@ async def userbot_schedule_worker():
         await asyncio.sleep(10)
 
 
+async def keep_alive_worker():
+    render_url = os.getenv("RENDER_EXTERNAL_URL", "https://cheap-bot-gahc.onrender.com")
+    while True:
+        await asyncio.sleep(480)
+        try:
+            r = requests.get(render_url, timeout=10)
+            print(f"💓 KEEP-ALIVE PING: {r.status_code}")
+        except Exception as e:
+            print("⚠️ KEEP-ALIVE PING XATOSI:", e)
+
+
 async def run_all():
     global MAIN_LOOP
 
@@ -10723,12 +10734,17 @@ async def run_all():
         auto_order_status_worker()
     )
 
+    keep_alive_task = asyncio.create_task(
+        keep_alive_worker()
+    )
+
     await asyncio.gather(
         bot_task,
         userbot_task,
         api_sync_task,
         userbot_schedule_task,
-        auto_order_status_task
+        auto_order_status_task,
+        keep_alive_task
     )
 
 
