@@ -10693,6 +10693,148 @@ async def userbot_schedule_worker():
         await asyncio.sleep(10)
 
 
+# ============================================================
+# 🌟 AUTO GROUP FACT POSTER (5 DAQIQA)
+# ============================================================
+
+FALLBACK_FACTS = [
+    "🧠 <b>BILASIZMI?</b>\n\nInson miyasi tunda kunduzgiga qaraganda faolroq ishlaydi. Uyqu vaqtida u xotiralarni tartibga soladi va yangi g'oyalarni shakllantiradi.\n\n#qiziqarli #fakt #miya",
+    "🌌 <b>BILASIZMI?</b>\n\nKoinotda Yerdagi barcha qum zarralaridan ko'ra ko'proq yulduzlar mavjud. Somon yo'li galaktikasining o'zida 100 milliarddan ortiq yulduz bor!\n\n#koinot #fakt #fazo",
+    "🌊 <b>BILASIZMI?</b>\n\nOkeanlarning 80 foizdan ortig'i insoniyat tomonidan hali o'rganilmagan. Biz Oy yuzasini okean tubidan yaxshiroq bilamiz.\n\n#tabiat #okean #dunyo",
+    "⚡ <b>BILASIZMI?</b>\n\nBitta chaqmoq chaqnashi taxminan 100 000 dona nonni bir zumda qovurishga yetadigan elektr energiyasini ishlab chiqaradi!\n\n#fizika #tabiat #energiya",
+    "🍯 <b>BILASIZMI?</b>\n\nAsal hech qachon buzilmaydi. Qadimgi Misr piramidalaridan topilgan 3000 yillik asal hali ham iste'molga yaroqli holatda saqlangan!\n\n#tarix #asal #mojiza",
+    "🦅 <b>BILASIZMI?</b>\n\nBurgutlar 3 kilometr uzoqlikdagi kichik quyonni bemalol ko'ra oladi. Ularning ko'rish qobiliyati insonnikidan 8 barobar kuchliroqdir.\n\n#hayvonot #qushlar #fakt",
+    "⏱ <b>BILASIZMI?</b>\n\nYorug'lik Quyoshdan Yerga yetib kelishi uchun roppa-rosa 8 daqiqa 20 soniya vaqt sarflaydi. Demak, biz Quyoshni doim 8 daqiqa oldingi holatida ko'ramiz!\n\n#quyosh #fizika #vaqt",
+    "🐬 <b>BILASIZMI?</b>\n\nDelfinlar uxlaganda ularning miyasining faqat bitta yarmi uxlaydi, ikkinchi yarmi esa nafas olish va xavfni sezish uchun uyg'oq turadi.\n\n#tabiat #delfin #hayot",
+    "📱 <b>BILASIZMI?</b>\n\nBugungi kunda har qanday oddiy smartfon 1969-yilda odamni Oyga uchirgan NASA ning barcha superkompyuterlaridan millionlab marta kuchliroqdir!\n\n#texnologiya #tarix #smartfon",
+    "🌲 <b>BILASIZMI?</b>\n\nBitta katta eman daraxti bir yilda taxminan 4 nafar odam uchun bir yillik toza kislorod ishlab chiqaradi.\n\n#tabiat #ekologiya #daraxt"
+]
+
+def generate_interesting_fact():
+    if GROQ_API_KEY:
+        try:
+            prompt = (
+                "Telegram guruhi uchun o'zbek tilida 1 ta juda qiziqarli, ajoyib va hayratlanarli fakt yoz. "
+                "Format:\n"
+                "🧠 <b>BILASIZMI?</b>\n\n"
+                "[Fakt matni 2-3 qatorda]\n\n"
+                "#qiziqarli #fakt\n"
+                "Faqat shu formatda qaytar."
+            )
+            res = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "model": "qwen/qwen3.8-27b",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 300,
+                    "temperature": 0.85
+                },
+                timeout=10
+            )
+            fact = res.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            if fact and len(fact) > 20:
+                return fact
+        except Exception as e:
+            print("⚠️ GROQ FAKT XATOSI:", e)
+    return random.choice(FALLBACK_FACTS)
+
+
+def register_group_for_posts(chat_id, title):
+    try:
+        conn = db()
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS auto_post_groups (
+                chat_id INTEGER PRIMARY KEY,
+                title TEXT,
+                active INTEGER DEFAULT 1,
+                last_post_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("""
+            INSERT INTO auto_post_groups (chat_id, title, active)
+            VALUES (?, ?, 1)
+            ON CONFLICT(chat_id) DO UPDATE SET title = ?, active = 1
+        """, (chat_id, title, title))
+        conn.commit()
+        conn.close()
+        print(f"✅ GURUH RO'YXATGA OLINDI: '{title}' ({chat_id})")
+    except Exception as e:
+        print("❌ register_group_for_posts xatosi:", e)
+
+
+@bot.my_chat_member_handler()
+def handle_group_member_event(update):
+    try:
+        chat = update.chat
+        if chat.type in ["group", "supergroup"]:
+            register_group_for_posts(chat.id, chat.title)
+            fact = generate_interesting_fact()
+            bot.send_message(
+                chat.id,
+                f"🎉 <b>Salom, {html.escape(chat.title or 'Guruh')} ahli!</b>\n\n"
+                f"Bot guruhga muvaffaqiyatli ulandi. Endi har 5 daqiqada ajoyib va qiziqarli faktlar ulashib boraman! 🚀\n\n"
+                f"{fact}",
+                parse_mode="HTML"
+            )
+    except Exception as e:
+        print("❌ handle_group_member_event xatosi:", e)
+
+
+@bot.message_handler(func=lambda m: m.chat.type in ["group", "supergroup"])
+def handle_group_messages(m):
+    try:
+        register_group_for_posts(m.chat.id, m.chat.title)
+        if m.text and (m.text.startswith(("/start", "/fakt", "/post", "/id")) or "@" in m.text):
+            fact = generate_interesting_fact()
+            bot.reply_to(
+                m,
+                f"💡 <b>Qiziqarli fakt:</b>\n\n{fact}",
+                parse_mode="HTML"
+            )
+    except Exception as e:
+        print("❌ handle_group_messages xatosi:", e)
+
+
+async def auto_group_post_worker():
+    while True:
+        await asyncio.sleep(300)  # Har 5 daqiqada
+        try:
+            conn = db()
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS auto_post_groups (
+                    chat_id INTEGER PRIMARY KEY,
+                    title TEXT,
+                    active INTEGER DEFAULT 1,
+                    last_post_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            rows = conn.execute("SELECT chat_id, title FROM auto_post_groups WHERE active = 1").fetchall()
+            conn.close()
+
+            if rows:
+                fact = generate_interesting_fact()
+                for row in rows:
+                    chat_id = row["chat_id"]
+                    title = row["title"]
+                    try:
+                        bot.send_message(chat_id, fact, parse_mode="HTML")
+                        print(f"📢 5-DAQIQA POSTI YUBORILDI: {title} ({chat_id})")
+                    except Exception as send_err:
+                        print(f"⚠️ Guruhga yuborishda xatolik {title}: {send_err}")
+
+            render_url = os.getenv("RENDER_EXTERNAL_URL", "https://cheap-bot-gahc.onrender.com")
+            try:
+                requests.get(render_url, timeout=10)
+            except Exception:
+                pass
+
+        except Exception as e:
+            print("❌ AUTO GROUP POST WORKER XATOSI:", e)
+
+
 async def keep_alive_worker():
     render_url = os.getenv("RENDER_EXTERNAL_URL", "https://cheap-bot-gahc.onrender.com")
     while True:
@@ -10738,13 +10880,18 @@ async def run_all():
         keep_alive_worker()
     )
 
+    auto_group_post_task = asyncio.create_task(
+        auto_group_post_worker()
+    )
+
     await asyncio.gather(
         bot_task,
         userbot_task,
         api_sync_task,
         userbot_schedule_task,
         auto_order_status_task,
-        keep_alive_task
+        keep_alive_task,
+        auto_group_post_task
     )
 
 
