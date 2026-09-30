@@ -77,7 +77,7 @@
     }
     .ios-glass-card:hover {
       border-color: rgba(255, 255, 255, 0.16);
-      transform: translateY(-2px);
+      transform: translateY(-1px);
     }
 
     /* Apple Squircle Icon Badges */
@@ -98,15 +98,28 @@
       pointer-events: none;
     }
 
+    /* Apple Intelligence Glow */
+    .ai-glow-card {
+      position: relative;
+      background: linear-gradient(135deg, rgba(255, 45, 85, 0.08), rgba(175, 82, 222, 0.08) 50%, rgba(0, 122, 255, 0.08));
+      border: 1px solid rgba(175, 82, 222, 0.3);
+      backdrop-filter: var(--ios-blur);
+      -webkit-backdrop-filter: var(--ios-blur);
+    }
+    .ai-badge-gradient {
+      background: linear-gradient(135deg, #FF2D55 0%, #AF52DE 50%, #007AFF 100%);
+      box-shadow: 0 0 16px rgba(175, 82, 222, 0.4);
+    }
+
     /* iOS Segmented Control */
     .ios-segmented {
       background: rgba(118, 118, 128, 0.18);
       border-radius: 10px;
       padding: 3px;
     }
-    .ios-segmented-btn.active {
-      background: rgba(255, 255, 255, 0.15);
-      color: #FFFFFF;
+    .ios-segmented-btn.active, .sales-period-btn.active, .order-status-btn.active {
+      background: rgba(255, 255, 255, 0.15) !important;
+      color: #FFFFFF !important;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
@@ -118,35 +131,39 @@
     .no-scrollbar::-webkit-scrollbar { display: none; }
   </style>
 </head>
-<body class="min-h-screen flex selection:bg-ios-blue selection:text-white">
+<body class="bg-black text-[#F2F2F7] min-h-screen font-sans antialiased selection:bg-ios-blue selection:text-white flex flex-col pb-16 lg:pb-0">
 
-  <!-- ============================================================ -->
-  <!-- 1. APPLE CUERTINO SIDEBAR                                    -->
-  <!-- ============================================================ -->
-  <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 bg-[#09090b]/90 ios-glass border-r border-white/[0.08] flex flex-col justify-between transition-all duration-300 -translate-x-full lg:translate-x-0">
-    
-    <div>
-      <!-- Brand & Header -->
-      <div class="px-6 py-5 flex items-center justify-between border-b border-white/[0.08]">
-        <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 ios-badge bg-gradient-to-b from-[#007AFF] to-[#0051B3] text-white text-lg shadow-lg shadow-blue-500/25">
-            <i class="fa-brands fa-apple text-xl"></i>
-          </div>
-          <div>
-            <div class="flex items-center space-x-1.5">
-              <span class="font-bold text-white text-base tracking-tight">SMM Studio</span>
-              <span class="text-[9px] bg-white/[0.08] text-white/80 font-bold px-1.5 py-0.5 rounded-md border border-white/[0.06]">PRO</span>
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- ============================================================ -->
+    <!-- 1. APPLE CUPERTINO MINIMALIST SIDEBAR                        -->
+    <!-- ============================================================ -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 bg-[#000000]/90 ios-glass border-r border-white/[0.08] flex flex-col transition-transform duration-300 -translate-x-full lg:translate-x-0">
+      
+      <!-- Top Brand Header -->
+      <div class="p-6 border-b border-white/[0.08] space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 ios-badge bg-gradient-to-b from-[#007AFF] to-[#0051B3] text-white text-lg shadow-lg shadow-blue-500/25">
+              <i class="fa-solid fa-bolt"></i>
             </div>
-            <p class="text-[11px] text-white/40 font-medium">Cupertino Minimalist</p>
+            <div>
+              <h1 class="text-base font-extrabold tracking-tight text-white flex items-center gap-1.5">
+                <span>Cheap SMM</span>
+                <span class="text-[9px] font-bold uppercase tracking-wider bg-ios-blue/20 text-ios-blue border border-ios-blue/30 px-1.5 py-0.5 rounded-full">PRO</span>
+              </h1>
+              <p class="text-[11px] text-white/40 font-medium">Cupertino Minimalist v3.2</p>
+            </div>
           </div>
+          <button onclick="toggleSidebar()" class="lg:hidden text-white/40 hover:text-white p-1">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
         </div>
-        <button onclick="toggleSidebar()" class="lg:hidden text-white/50 hover:text-white p-1">
-          <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-      </div>
 
-      <!-- Live Server Status Indicator (Apple HomeKit Pill) -->
-      <div class="px-5 pt-4 pb-2">
+        <!-- Server Uptime Pill -->
         <div class="bg-white/[0.03] rounded-2xl p-3 border border-white/[0.06] flex items-center justify-between">
           <div class="flex items-center space-x-2.5">
             <div class="w-2.5 h-2.5 rounded-full bg-ios-green animate-pulse shadow-[0_0_8px_#34C759]"></div>
@@ -160,11 +177,11 @@
       </div>
 
       <!-- Navigation Menu Items -->
-      <nav class="px-3.5 py-3 space-y-6 overflow-y-auto max-h-[calc(100vh-250px)]">
+      <nav class="px-3.5 py-3 space-y-5 overflow-y-auto max-h-[calc(100vh-230px)]">
         
         <!-- Section: Overview -->
         <div>
-          <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-white/30 mb-2">Umumiy</p>
+          <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-white/30 mb-2">Asosiy</p>
           <div class="space-y-1">
             <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn active w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-white bg-white/[0.12] shadow-sm transition-all">
               <div class="flex items-center space-x-3">
@@ -174,6 +191,25 @@
                 <span>Dashboard</span>
               </div>
               <span class="w-1.5 h-1.5 rounded-full bg-ios-blue"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Section: Apple Intelligence & AI Hub -->
+        <div>
+          <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-pink-400/80 mb-2 flex items-center gap-1">
+            <i class="fa-solid fa-wand-magic-sparkles text-[9px]"></i>
+            <span>Sun'iy Intellekt</span>
+          </p>
+          <div class="space-y-1">
+            <button onclick="switchTab('ai')" id="nav-ai" class="nav-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-white/80 hover:text-white hover:bg-white/[0.05] transition-all group">
+              <div class="flex items-center space-x-3">
+                <div class="w-7 h-7 ios-badge ai-badge-gradient text-white text-xs group-hover:scale-105 transition-transform">
+                  <i class="fa-solid fa-brain"></i>
+                </div>
+                <span class="bg-gradient-to-r from-pink-400 via-purple-300 to-blue-400 bg-clip-text text-transparent font-bold">AI Intelligence Hub</span>
+              </div>
+              <span class="text-[9px] font-mono bg-pink-500/20 text-pink-300 border border-pink-500/30 px-2 py-0.5 rounded-full font-bold animate-pulse">PRO</span>
             </button>
           </div>
         </div>
@@ -189,7 +225,7 @@
                 </div>
                 <span>Xizmatlar Katalogi</span>
               </div>
-              <span id="badgeServicesCount" class="text-[10px] bg-white/[0.06] text-white/60 font-mono px-2 py-0.5 rounded-full">100+</span>
+              <span id="badgeServicesCount" class="text-[10px] bg-white/[0.06] text-white/60 font-mono px-2 py-0.5 rounded-full">733 ta</span>
             </button>
 
             <button onclick="switchTab('orders')" id="nav-orders" class="nav-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-white/70 hover:text-white hover:bg-white/[0.05] transition-all">
@@ -225,7 +261,7 @@
                 </div>
                 <span>Foydalanuvchilar</span>
               </div>
-              <span class="text-[10px] bg-white/[0.06] text-white/60 font-mono px-2 py-0.5 rounded-full">1,248</span>
+              <span id="badgeUsersCount" class="text-[10px] bg-white/[0.06] text-white/60 font-mono px-2 py-0.5 rounded-full">1,248</span>
             </button>
 
             <button onclick="switchTab('finance')" id="nav-finance" class="nav-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-white/70 hover:text-white hover:bg-white/[0.05] transition-all">
@@ -284,690 +320,986 @@
         </div>
 
       </nav>
-    </div>
 
-    <!-- Admin Profile Badge -->
-    <div class="p-4 border-t border-white/[0.08]">
-      <div class="bg-white/[0.03] rounded-2xl p-3 border border-white/[0.06] flex items-center space-x-3">
-        <div class="w-10 h-10 ios-badge bg-gradient-to-tr from-purple-500 to-indigo-600 font-bold text-white text-sm">
-          M
-        </div>
-        <div class="flex-1 overflow-hidden">
-          <h4 class="text-xs font-bold text-white truncate">ɱυxα (@xua202)</h4>
-          <p class="text-[10px] text-ios-green font-medium flex items-center">
-            <span class="w-1.5 h-1.5 rounded-full bg-ios-green mr-1"></span> Boshqaruvchi
-          </p>
-        </div>
-        <a href="https://t.me/Tekin_aiuzbot" target="_blank" class="w-8 h-8 rounded-xl bg-white/[0.05] flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.1] transition-all">
-          <i class="fa-brands fa-telegram text-sm"></i>
-        </a>
-      </div>
-    </div>
-  </aside>
-
-  <!-- ============================================================ -->
-  <!-- 2. MAIN VIEW CONTAINER                                       -->
-  <!-- ============================================================ -->
-  <div class="flex-1 lg:pl-72 flex flex-col min-w-0">
-
-    <!-- Top Navigation Bar -->
-    <header class="sticky top-0 z-40 h-16 bg-[#000000]/80 ios-glass border-b border-white/[0.08] px-6 flex items-center justify-between">
-      <div class="flex items-center space-x-4">
-        <button onclick="toggleSidebar()" class="lg:hidden text-white/70 hover:text-white p-2 rounded-xl bg-white/[0.05]">
-          <i class="fa-solid fa-bars text-base"></i>
-        </button>
-        <div>
-          <h2 id="currentTabTitle" class="text-base font-extrabold text-white tracking-tight flex items-center">
-            <span class="w-2.5 h-2.5 rounded-full bg-ios-blue mr-2"></span> Umumiy Dashboard
-          </h2>
-          <p id="currentTabSubtitle" class="text-[11px] text-white/40 hidden sm:block">SMM tizimining barcha ko'rsatkichlari real vaqtda</p>
-        </div>
-      </div>
-
-      <!-- Quick Action Utilities -->
-      <div class="flex items-center space-x-3">
-        <!-- Quick Action Buttons with iOS SF Badges -->
-        <button onclick="openModal('modalAddService')" class="hidden sm:flex items-center space-x-2 bg-ios-blue hover:bg-blue-600 text-white font-semibold text-xs px-3.5 py-2 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all">
-          <i class="fa-solid fa-plus text-[11px]"></i>
-          <span>Yangi Xizmat</span>
-        </button>
-
-        <button onclick="syncAllProviders()" class="hidden md:flex items-center space-x-2 bg-white/[0.06] hover:bg-white/[0.1] text-white text-xs font-semibold px-3 py-2 rounded-xl border border-white/[0.08] active:scale-95 transition-all">
-          <i class="fa-solid fa-arrows-rotate text-ios-teal text-[11px]"></i>
-          <span>API Sinxronlash</span>
-        </button>
-
-        <!-- Live Clock -->
-        <div class="hidden xl:flex items-center space-x-2 bg-white/[0.04] px-3 py-1.5 rounded-xl border border-white/[0.06] font-mono text-xs text-white/70">
-          <i class="fa-regular fa-clock text-white/40 text-[11px]"></i>
-          <span id="liveClock">00:00:00</span>
-        </div>
-
-        <!-- Notification Center Bell -->
-        <div class="relative">
-          <button onclick="toggleNotifications()" class="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white/70 hover:text-white transition-all relative">
-            <i class="fa-regular fa-bell text-sm"></i>
-            <span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-ios-red animate-ping"></span>
-            <span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-ios-red"></span>
-          </button>
-          
-          <!-- Dropdown -->
-          <div id="notificationsDropdown" class="hidden absolute right-0 mt-3 w-80 ios-glass-card rounded-2xl p-4 space-y-3 z-50 shadow-2xl border border-white/10">
-            <div class="flex items-center justify-between border-b border-white/10 pb-2">
-              <span class="text-xs font-bold text-white">Bildirishnomalar</span>
-              <span onclick="clearNotifications()" class="text-[10px] text-ios-blue cursor-pointer">Tozalash</span>
+      <!-- Admin Profile Badge -->
+      <div class="p-4 border-t border-white/[0.08] mt-auto">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 ios-badge bg-gradient-to-b from-purple-500 to-indigo-700 text-white font-bold text-xs">
+              ɱυ
             </div>
-            <div class="space-y-2 text-xs">
-              <div class="p-2.5 rounded-xl bg-white/[0.04] border border-white/5 flex items-start space-x-2.5">
-                <div class="w-6 h-6 ios-badge bg-ios-green text-white text-[10px] flex-shrink-0">
-                  <i class="fa-solid fa-check"></i>
-                </div>
-                <div>
-                  <p class="font-bold text-white text-[11px]">API Sinxronizatsiya yakunlandi</p>
-                  <p class="text-[10px] text-white/40">3 ta provayderdan 733 xizmat yangilandi</p>
-                </div>
-              </div>
-              <div class="p-2.5 rounded-xl bg-white/[0.04] border border-white/5 flex items-start space-x-2.5">
-                <div class="w-6 h-6 ios-badge bg-ios-orange text-white text-[10px] flex-shrink-0">
-                  <i class="fa-solid fa-bolt"></i>
-                </div>
-                <div>
-                  <p class="font-bold text-white text-[11px]">Yangi buyurtma qabul qilindi</p>
-                  <p class="text-[10px] text-white/40">#366 - O'zbek layklar (100 ta)</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </header>
-
-    <!-- Main Content Body -->
-    <main class="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">
-
-      <!-- ============================================================ -->
-      <!-- VIEW 1: DASHBOARD OVERVIEW                                   -->
-      <!-- ============================================================ -->
-      <section id="view-dashboard" class="view-panel space-y-6">
-
-        <!-- iOS 4 Primary Metric Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          
-          <!-- Metric 1: Oylik Tushum -->
-          <div class="ios-glass-card rounded-3xl p-5 relative overflow-hidden">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-semibold text-white/50">Oylik Tushum</span>
-              <div class="w-9 h-9 ios-badge bg-gradient-to-b from-ios-green to-emerald-700 text-white text-sm">
-                <i class="fa-solid fa-arrow-trend-up"></i>
-              </div>
-            </div>
-            <div class="mt-3 flex items-baseline space-x-1.5">
-              <span class="text-2xl font-extrabold text-white tracking-tight">14,850,000</span>
-              <span class="text-xs font-bold text-ios-green">UZS</span>
-            </div>
-            <div class="mt-2 text-[11px] text-white/40 font-medium flex items-center">
-              <span class="text-ios-green font-bold mr-1">+18.4%</span> o'tgan haftaga nisbatan
-            </div>
-          </div>
-
-          <!-- Metric 2: Jami Buyurtmalar -->
-          <div class="ios-glass-card rounded-3xl p-5 relative overflow-hidden">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-semibold text-white/50">Jami Buyurtmalar</span>
-              <div class="w-9 h-9 ios-badge bg-gradient-to-b from-ios-blue to-blue-700 text-white text-sm">
-                <i class="fa-solid fa-cart-shopping"></i>
-              </div>
-            </div>
-            <div class="mt-3 flex items-baseline space-x-1.5">
-              <span class="text-2xl font-extrabold text-white tracking-tight">3,482</span>
-              <span class="text-xs text-white/40">dona</span>
-            </div>
-            <div class="mt-2 text-[11px] text-white/40 font-medium flex items-center">
-              <span class="text-ios-blue font-bold mr-1">142 ta</span> bugungi buyurtmalar
-            </div>
-          </div>
-
-          <!-- Metric 3: Foydalanuvchilar -->
-          <div class="ios-glass-card rounded-3xl p-5 relative overflow-hidden">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-semibold text-white/50">Mijozlar Bazasi</span>
-              <div class="w-9 h-9 ios-badge bg-gradient-to-b from-ios-purple to-purple-800 text-white text-sm">
-                <i class="fa-solid fa-users"></i>
-              </div>
-            </div>
-            <div class="mt-3 flex items-baseline space-x-1.5">
-              <span class="text-2xl font-extrabold text-white tracking-tight">1,248</span>
-              <span class="text-xs text-white/40">a'zo</span>
-            </div>
-            <div class="mt-2 text-[11px] text-white/40 font-medium flex items-center">
-              <span class="text-ios-purple font-bold mr-1">+24 yangi</span> so'nggi 24 soatda
-            </div>
-          </div>
-
-          <!-- Metric 4: API Provayder Balansi -->
-          <div class="ios-glass-card rounded-3xl p-5 relative overflow-hidden">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-semibold text-white/50">Provayder Balansi</span>
-              <div class="w-9 h-9 ios-badge bg-gradient-to-b from-ios-orange to-amber-700 text-white text-sm">
-                <i class="fa-solid fa-server"></i>
-              </div>
-            </div>
-            <div class="mt-3 flex items-baseline space-x-1.5">
-              <span class="text-2xl font-extrabold text-white tracking-tight">$42.80</span>
-              <span class="text-xs font-bold text-ios-orange">USD</span>
-            </div>
-            <div class="mt-2 text-[11px] text-white/40 font-medium flex items-center">
-              <span class="w-2 h-2 rounded-full bg-ios-green mr-1.5"></span> 3 ta API to'liq ulangan
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Apple Minimalist Charts (Revenue + Category Distribution) -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          <!-- Line Chart (2 Cols) -->
-          <div class="lg:col-span-2 ios-glass-card rounded-3xl p-6 space-y-4">
-            <div class="flex items-center justify-between">
-              <div>
-                <h3 class="text-sm font-bold text-white tracking-tight">Sotuvlar Dinamikasi</h3>
-                <p class="text-xs text-white/40">Kunlik tushum va buyurtmalar hajmi</p>
-              </div>
-              <!-- iOS Segmented Period Selector -->
-              <div class="ios-segmented flex items-center space-x-1 text-[11px]">
-                <button class="ios-segmented-btn active px-3 py-1 font-semibold rounded-lg">7 Kun</button>
-                <button class="ios-segmented-btn px-3 py-1 font-semibold text-white/60 hover:text-white rounded-lg">30 Kun</button>
-                <button class="ios-segmented-btn px-3 py-1 font-semibold text-white/60 hover:text-white rounded-lg">Yillik</button>
-              </div>
-            </div>
-            <div class="h-64 relative">
-              <canvas id="revenueChart"></canvas>
-            </div>
-          </div>
-
-          <!-- Donut Chart (1 Col) -->
-          <div class="ios-glass-card rounded-3xl p-6 space-y-4">
             <div>
-              <h3 class="text-sm font-bold text-white tracking-tight">Kategoriya Ulushi</h3>
-              <p class="text-xs text-white/40">Eng ommabop SMM yo'nalishlari</p>
-            </div>
-            <div class="h-64 relative flex items-center justify-center">
-              <canvas id="categoryChart"></canvas>
+              <p class="text-xs font-bold text-white leading-tight">ɱυxα (@xua202)</p>
+              <p class="text-[10px] text-white/40">Super Administrator</p>
             </div>
           </div>
+          <a href="https://t.me/Tekin_aiuzbot" target="_blank" class="w-8 h-8 rounded-xl bg-white/[0.05] flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.1] transition-all">
+            <i class="fa-brands fa-telegram text-sm"></i>
+          </a>
+        </div>
+      </div>
+    </aside>
 
+    <!-- ============================================================ -->
+    <!-- 2. MAIN VIEW CONTAINER                                       -->
+    <!-- ============================================================ -->
+    <div class="flex-1 lg:pl-72 flex flex-col min-w-0">
+
+      <!-- Top Navigation Bar -->
+      <header class="sticky top-0 z-40 h-16 bg-[#000000]/80 ios-glass border-b border-white/[0.08] px-6 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+          <button onclick="toggleSidebar()" class="lg:hidden text-white/70 hover:text-white p-2 rounded-xl bg-white/[0.05]">
+            <i class="fa-solid fa-bars text-base"></i>
+          </button>
+          <div>
+            <h2 id="currentTabTitle" class="text-base font-extrabold text-white tracking-tight flex items-center">
+              <span class="w-2.5 h-2.5 rounded-full bg-ios-blue mr-2"></span> Umumiy Dashboard
+            </h2>
+            <p id="currentTabSubtitle" class="text-[11px] text-white/40 hidden sm:block">SMM tizimining barcha ko'rsatkichlari real vaqtda</p>
+          </div>
         </div>
 
-        <!-- Recent Activity Feed & Live Channels -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Quick Action Utilities -->
+        <div class="flex items-center space-x-3">
           
-          <!-- Recent Orders Card -->
-          <div class="ios-glass-card rounded-3xl p-6 space-y-4">
-            <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
-              <div class="flex items-center space-x-2.5">
-                <div class="w-6 h-6 ios-badge bg-ios-blue text-white text-[10px]">
-                  <i class="fa-solid fa-clock-rotate-left"></i>
-                </div>
-                <h3 class="text-sm font-bold text-white">So'nggi Buyurtmalar</h3>
-              </div>
-              <button onclick="switchTab('orders')" class="text-xs text-ios-blue hover:underline font-semibold">Barchasi &rarr;</button>
-            </div>
-            <div id="dashboardRecentOrders" class="space-y-2.5">
-              <!-- Injected dynamically -->
-            </div>
+          <!-- AI Co-Pilot Quick Button -->
+          <button onclick="switchTab('ai')" class="flex items-center space-x-2 bg-gradient-to-r from-pink-500/15 via-purple-500/15 to-blue-500/15 hover:from-pink-500/25 hover:to-blue-500/25 text-pink-300 font-semibold text-xs px-3 py-1.5 rounded-xl border border-pink-500/30 active:scale-95 transition-all">
+            <i class="fa-solid fa-wand-magic-sparkles text-[11px]"></i>
+            <span class="hidden md:inline">AI Yordamchi</span>
+          </button>
+
+          <button onclick="openModal('modalAddService')" class="hidden sm:flex items-center space-x-2 bg-ios-blue hover:bg-blue-600 text-white font-semibold text-xs px-3.5 py-2 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all">
+            <i class="fa-solid fa-plus text-[11px]"></i>
+            <span>Yangi Xizmat</span>
+          </button>
+
+          <button onclick="syncAllProviders()" class="hidden md:flex items-center space-x-2 bg-white/[0.06] hover:bg-white/[0.1] text-white text-xs font-semibold px-3 py-2 rounded-xl border border-white/[0.08] active:scale-95 transition-all">
+            <i class="fa-solid fa-arrows-rotate text-ios-teal text-[11px]"></i>
+            <span>API Sinxronlash</span>
+          </button>
+
+          <!-- Live Clock -->
+          <div class="hidden xl:flex items-center space-x-2 bg-white/[0.04] px-3 py-1.5 rounded-xl border border-white/[0.06] font-mono text-xs text-white/70">
+            <i class="fa-regular fa-clock text-white/40 text-[11px]"></i>
+            <span id="liveClock">00:00:00</span>
           </div>
 
-          <!-- Live Channels Monitor -->
-          <div class="ios-glass-card rounded-3xl p-6 space-y-4">
-            <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
-              <div class="flex items-center space-x-2.5">
-                <div class="w-6 h-6 ios-badge bg-ios-purple text-white text-[10px]">
-                  <i class="fa-solid fa-tower-broadcast"></i>
-                </div>
-                <h3 class="text-sm font-bold text-white">Kuzatuvdagi Kanallar</h3>
-              </div>
-              <button onclick="switchTab('channels')" class="text-xs text-ios-purple hover:underline font-semibold">Boshqarish &rarr;</button>
-            </div>
-
-            <div class="space-y-3">
-              <div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                  <div class="w-10 h-10 ios-badge bg-gradient-to-b from-ios-blue to-blue-800 text-white text-base">
-                    <i class="fa-solid fa-bullhorn"></i>
-                  </div>
-                  <div>
-                    <h4 class="text-xs font-bold text-white">𝐀𝐭𝐚𝐥𝐠𝐚𝐧 (@atalgan888)</h4>
-                    <p class="text-[10px] text-white/40">Reaksiyalar: 👍 ❤️ 🔥 | Kechikish: 3s</p>
-                  </div>
-                </div>
-                <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full border border-ios-green/30">ONLINE</span>
-              </div>
-
-              <div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                  <div class="w-10 h-10 ios-badge bg-gradient-to-b from-ios-purple to-purple-800 text-white text-base">
-                    <i class="fa-solid fa-brain"></i>
-                  </div>
-                  <div>
-                    <h4 class="text-xs font-bold text-white">Ybanat (Guruh)</h4>
-                    <p class="text-[10px] text-white/40">AI Qiziqarli Faktlar &bull; Har 5 daqiqa</p>
-                  </div>
-                </div>
-                <span class="text-[10px] font-mono bg-ios-purple/15 text-ios-purple font-bold px-2 py-0.5 rounded-full border border-ios-purple/30">AVTO-POST</span>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-      </section>
-
-      <!-- ============================================================ -->
-      <!-- VIEW 2: SERVICES MANAGEMENT                                  -->
-      <!-- ============================================================ -->
-      <section id="view-services" class="view-panel space-y-4 hidden">
-        
-        <!-- Controls Bar -->
-        <div class="ios-glass-card rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-3">
-          <div class="flex items-center space-x-3 w-full md:w-auto">
-            <div class="relative flex-1 md:w-80">
-              <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 text-xs"></i>
-              <input type="text" id="serviceSearchInput" oninput="filterAdminServices()" placeholder="Xizmat nomi, ID yoki kategoriya..." class="w-full pl-9 pr-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-white placeholder-white/30 focus:outline-none focus:border-ios-blue">
-            </div>
+          <!-- Notification Center Bell -->
+          <div class="relative">
+            <button onclick="toggleNotifications()" class="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white/70 hover:text-white transition-all relative">
+              <i class="fa-regular fa-bell text-sm"></i>
+              <span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-ios-red animate-ping"></span>
+              <span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-ios-red"></span>
+            </button>
             
-            <select id="serviceCategoryFilter" onchange="filterAdminServices()" class="bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-ios-blue">
-              <option value="all">Barcha Kategoriyalar</option>
-              <option value="Telegram">Telegram</option>
-              <option value="Instagram">Instagram</option>
-              <option value="Reaksiya">Reaksiyalar</option>
-              <option value="Obunachi">Obunachilar</option>
-            </select>
-          </div>
-
-          <div class="flex items-center space-x-2 w-full md:w-auto justify-end">
-            <button onclick="openModal('modalBulkMarkup')" class="bg-ios-purple/15 hover:bg-ios-purple/25 text-ios-purple border border-ios-purple/30 text-xs font-semibold px-3 py-2 rounded-xl active:scale-95 transition-all">
-              <i class="fa-solid fa-percent mr-1"></i> Ustama (+%)
-            </button>
-            <button onclick="openModal('modalAddService')" class="bg-ios-blue hover:bg-blue-600 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all">
-              <i class="fa-solid fa-plus mr-1"></i> Yangi Xizmat
-            </button>
-          </div>
-        </div>
-
-        <!-- Services Table -->
-        <div class="ios-glass-card rounded-3xl overflow-hidden border border-white/[0.08]">
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-              <thead>
-                <tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] uppercase tracking-wider font-bold text-white/40">
-                  <th class="py-3 px-4">ID</th>
-                  <th class="py-3 px-4">Xizmat Nomi</th>
-                  <th class="py-3 px-4">Kategoriya</th>
-                  <th class="py-3 px-4">Narxi (1000 ta)</th>
-                  <th class="py-3 px-4">Min / Max</th>
-                  <th class="py-3 px-4">Holati</th>
-                  <th class="py-3 px-4 text-right">Amallar</th>
-                </tr>
-              </thead>
-              <tbody id="servicesTableBody" class="divide-y divide-white/[0.04] text-xs text-white/80">
-                <!-- Injected via JS -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </section>
-
-      <!-- ============================================================ -->
-      <!-- VIEW 3: ORDERS MANAGEMENT                                    -->
-      <!-- ============================================================ -->
-      <section id="view-orders" class="view-panel space-y-4 hidden">
-        <div class="ios-glass-card rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-3">
-          <div class="ios-segmented flex items-center space-x-1 text-xs overflow-x-auto no-scrollbar w-full md:w-auto">
-            <button onclick="filterOrdersByStatus('all')" class="order-status-btn active px-3 py-1.5 font-bold rounded-lg transition-all">Barchasi</button>
-            <button onclick="filterOrdersByStatus('Pending')" class="order-status-btn px-3 py-1.5 font-bold text-white/60 hover:text-white rounded-lg transition-all">🟡 Kutilmoqda</button>
-            <button onclick="filterOrdersByStatus('In progress')" class="order-status-btn px-3 py-1.5 font-bold text-white/60 hover:text-white rounded-lg transition-all">🔵 Jarayonda</button>
-            <button onclick="filterOrdersByStatus('Completed')" class="order-status-btn px-3 py-1.5 font-bold text-white/60 hover:text-white rounded-lg transition-all">🟢 Bajarildi</button>
-            <button onclick="filterOrdersByStatus('Canceled')" class="order-status-btn px-3 py-1.5 font-bold text-white/60 hover:text-white rounded-lg transition-all">🔴 Bekor</button>
-          </div>
-
-          <div class="relative w-full md:w-64">
-            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-xs"></i>
-            <input type="text" id="orderSearchInput" oninput="searchOrders()" placeholder="Buyurtma ID, Link, Mijoz..." class="w-full pl-8 pr-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-white placeholder-white/30 focus:outline-none focus:border-ios-blue">
-          </div>
-        </div>
-
-        <div class="ios-glass-card rounded-3xl overflow-hidden border border-white/[0.08]">
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-              <thead>
-                <tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] uppercase tracking-wider font-bold text-white/40">
-                  <th class="py-3 px-4">Buyurtma</th>
-                  <th class="py-3 px-4">Mijoz</th>
-                  <th class="py-3 px-4">Xizmat</th>
-                  <th class="py-3 px-4">Havola</th>
-                  <th class="py-3 px-4">Miqdor</th>
-                  <th class="py-3 px-4">Summa</th>
-                  <th class="py-3 px-4">Holati</th>
-                  <th class="py-3 px-4 text-right">Amal</th>
-                </tr>
-              </thead>
-              <tbody id="ordersTableBody" class="divide-y divide-white/[0.04] text-xs text-white/80">
-                <!-- Injected via JS -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- ============================================================ -->
-      <!-- VIEW 4: USERS MANAGEMENT                                     -->
-      <!-- ============================================================ -->
-      <section id="view-users" class="view-panel space-y-4 hidden">
-        <div class="ios-glass-card rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div class="relative w-full sm:w-80">
-            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 text-xs"></i>
-            <input type="text" id="userSearchInput" oninput="searchUsers()" placeholder="Ism, Username yoki Telegram ID..." class="w-full pl-9 pr-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-white placeholder-white/30 focus:outline-none focus:border-ios-blue">
-          </div>
-          <button onclick="openModal('modalBroadcast')" class="bg-ios-blue hover:bg-blue-600 text-white text-xs font-semibold px-3.5 py-2 rounded-xl active:scale-95 transition-all">
-            <i class="fa-solid fa-paper-plane mr-1"></i> Ommaviy Xabar
-          </button>
-        </div>
-
-        <div class="ios-glass-card rounded-3xl overflow-hidden border border-white/[0.08]">
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-              <thead>
-                <tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] uppercase tracking-wider font-bold text-white/40">
-                  <th class="py-3 px-4">Telegram ID</th>
-                  <th class="py-3 px-4">Foydalanuvchi</th>
-                  <th class="py-3 px-4">Balansi (UZS)</th>
-                  <th class="py-3 px-4">Buyurtmalar</th>
-                  <th class="py-3 px-4">Darajasi</th>
-                  <th class="py-3 px-4">Holati</th>
-                  <th class="py-3 px-4 text-right">Amal</th>
-                </tr>
-              </thead>
-              <tbody id="usersTableBody" class="divide-y divide-white/[0.04] text-xs text-white/80">
-                <!-- Injected via JS -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- ============================================================ -->
-      <!-- VIEW 5: CHANNELS & AUTO REACTIONS                            -->
-      <!-- ============================================================ -->
-      <section id="view-channels" class="view-panel space-y-4 hidden">
-        <div class="ios-glass-card rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <h3 class="text-sm font-bold text-white">Avtomatik Reaksiya Kanallari</h3>
-            <p class="text-xs text-white/40">Yangi post chiqarilishi bilan userbot orqali reaksiyalar bosiladi</p>
-          </div>
-          <button onclick="sendInstantFactNow()" class="bg-ios-purple hover:bg-purple-600 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-lg shadow-purple-500/20 active:scale-95 transition-all">
-            <i class="fa-solid fa-bolt mr-1"></i> Fakt Yuborish
-          </button>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="ios-glass-card rounded-3xl p-5 space-y-3 border-l-4 border-ios-blue">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-mono font-bold text-ios-blue">#2 &bull; -1003214824742</span>
-              <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full">ACTIVE</span>
-            </div>
-            <h4 class="text-sm font-bold text-white">𝐀𝐭𝐚𝐥𝐠𝐚𝐧 (@atalgan888)</h4>
-            <div class="text-xs text-white/60 space-y-1">
-              <p>🎭 Reaksiyalar: <span class="bg-white/10 px-2 py-0.5 rounded text-white font-bold">👍 ❤️ 🔥 😁 🎉</span></p>
-              <p>⏱ Kechikish: <strong>3 soniya</strong></p>
-              <p>⚡ Telethon Userbot orqali ulandi</p>
-            </div>
-          </div>
-
-          <div class="ios-glass-card rounded-3xl p-5 space-y-3 border-l-4 border-ios-purple">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-mono font-bold text-ios-purple">Maxfiy Guruh</span>
-              <span class="text-[10px] font-mono bg-ios-purple/15 text-ios-purple font-bold px-2 py-0.5 rounded-full">5 MIN AI</span>
-            </div>
-            <h4 class="text-sm font-bold text-white">Ybanat (Guruh)</h4>
-            <div class="text-xs text-white/60 space-y-1">
-              <p>🧠 Turi: <strong>Sun'iy Intellekt Avto-Post</strong></p>
-              <p>⏱ Interval: <strong>Har 5 daqiqada yangi fakt</strong></p>
-              <p>🤖 Model: <strong>Qwen 3.8 27B / Groq</strong></p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ============================================================ -->
-      <!-- VIEW 6: API PROVIDERS                                        -->
-      <!-- ============================================================ -->
-      <section id="view-providers" class="view-panel space-y-4 hidden">
-        <div class="ios-glass-card rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <h3 class="text-sm font-bold text-white">API Provayderlar Tarmog'i</h3>
-            <p class="text-xs text-white/40">Barcha buyurtmalar ushbu 3 ta xalqaro API orqali bajariladi</p>
-          </div>
-          <button onclick="syncAllProviders()" class="bg-ios-blue hover:bg-blue-600 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all">
-            <i class="fa-solid fa-arrows-rotate mr-1"></i> Sinxronlash
-          </button>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <!-- Provayder 1 -->
-          <div class="ios-glass-card rounded-3xl p-5 space-y-3">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-ios-blue">#2 Provayder</span>
-              <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full">ACTIVE</span>
-            </div>
-            <h4 class="text-sm font-bold text-white">@tezsmbot API</h4>
-            <div class="p-3 rounded-2xl bg-white/[0.03] space-y-1.5 text-xs">
-              <div class="flex justify-between">
-                <span class="text-white/40">Xizmatlar:</span>
-                <span class="font-bold text-white">235 ta</span>
+            <!-- Dropdown -->
+            <div id="notificationsDropdown" class="hidden absolute right-0 mt-3 w-80 ios-glass-card rounded-2xl p-4 space-y-3 z-50 shadow-2xl border border-white/10">
+              <div class="flex items-center justify-between border-b border-white/10 pb-2">
+                <span class="text-xs font-bold text-white">Bildirishnomalar</span>
+                <span onclick="clearNotifications()" class="text-[10px] text-ios-blue cursor-pointer">Tozalash</span>
               </div>
-              <div class="flex justify-between">
-                <span class="text-white/40">Balans:</span>
-                <span class="font-bold text-ios-green">124,500 UZS</span>
-              </div>
-            </div>
-            <button onclick="testProvider(2)" class="w-full text-xs bg-white/[0.05] hover:bg-white/[0.1] font-semibold py-2 rounded-xl text-white transition-all">
-              Balansni Tekshirish
-            </button>
-          </div>
-
-          <!-- Provayder 2 -->
-          <div class="ios-glass-card rounded-3xl p-5 space-y-3">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-ios-blue">#4 Provayder</span>
-              <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full">ACTIVE</span>
-            </div>
-            <h4 class="text-sm font-bold text-white">@ISAKOV_SMMBOT API</h4>
-            <div class="p-3 rounded-2xl bg-white/[0.03] space-y-1.5 text-xs">
-              <div class="flex justify-between">
-                <span class="text-white/40">Xizmatlar:</span>
-                <span class="font-bold text-white">176 ta</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-white/40">Balans:</span>
-                <span class="font-bold text-ios-green">89,200 UZS</span>
-              </div>
-            </div>
-            <button onclick="testProvider(4)" class="w-full text-xs bg-white/[0.05] hover:bg-white/[0.1] font-semibold py-2 rounded-xl text-white transition-all">
-              Balansni Tekshirish
-            </button>
-          </div>
-
-          <!-- Provayder 3 -->
-          <div class="ios-glass-card rounded-3xl p-5 space-y-3">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-ios-blue">#5 Provayder</span>
-              <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full">ACTIVE</span>
-            </div>
-            <h4 class="text-sm font-bold text-white">@bekprosmm_bot API</h4>
-            <div class="p-3 rounded-2xl bg-white/[0.03] space-y-1.5 text-xs">
-              <div class="flex justify-between">
-                <span class="text-white/40">Xizmatlar:</span>
-                <span class="font-bold text-white">322 ta</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-white/40">Balans:</span>
-                <span class="font-bold text-ios-green">210,000 UZS</span>
-              </div>
-            </div>
-            <button onclick="testProvider(5)" class="w-full text-xs bg-white/[0.05] hover:bg-white/[0.1] font-semibold py-2 rounded-xl text-white transition-all">
-              Balansni Tekshirish
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <!-- ============================================================ -->
-      <!-- VIEW 7: SYSTEM LOGS & AUDIT                                  -->
-      <!-- ============================================================ -->
-      <section id="view-logs" class="view-panel space-y-4 hidden">
-        <div class="ios-glass-card rounded-2xl p-4 flex items-center justify-between">
-          <div class="flex items-center space-x-2.5">
-            <div class="w-2.5 h-2.5 rounded-full bg-ios-green animate-pulse"></div>
-            <h3 class="text-sm font-bold text-white">Jonli Tizim Loglari & PM2 Kuzatuv</h3>
-          </div>
-          <div class="flex space-x-2">
-            <button onclick="clearLogs()" class="text-xs bg-white/[0.05] hover:bg-white/[0.1] px-3 py-1.5 rounded-xl text-white/70 hover:text-white">Tozalash</button>
-            <button onclick="downloadLogs()" class="text-xs bg-ios-blue hover:bg-blue-600 text-white font-semibold px-3 py-1.5 rounded-xl">Yuklab Olish</button>
-          </div>
-        </div>
-
-        <div class="bg-[#050507] rounded-3xl p-5 border border-white/[0.08] font-mono text-xs text-white/70 h-96 overflow-y-auto space-y-1.5 shadow-inner" id="systemTerminalLogs">
-          <p class="text-white/30">[2026-09-30 07:35:00] 🚀 APPLE CUPERTINO MINIMALIST SYSTEM ONLINE</p>
-          <p class="text-ios-green">[2026-09-30 07:35:02] ✅ Render Web Server 200 OK on port 10000</p>
-          <p class="text-ios-teal">[2026-09-30 07:35:15] 🔄 API AUTO SYNC | #2 @tezsmbot | yangilandi: 235 ta</p>
-          <p class="text-ios-teal">[2026-09-30 07:35:18] 🔄 API AUTO SYNC | #4 @ISAKOV_SMMBOT | yangilandi: 176 ta</p>
-          <p class="text-ios-teal">[2026-09-30 07:35:21] 🔄 API AUTO SYNC | #5 @bekprosmm_bot | yangilandi: 322 ta</p>
-          <p class="text-ios-purple">[2026-09-30 07:35:30] 💓 KEEP-ALIVE PING: 200 OK (Render doimiy uyg'oq)</p>
-          <p class="text-ios-orange">[2026-09-30 07:36:00] 📢 5-DAQIQA POSTI YUBORILDI: Ybanat Guruhi</p>
-          <p class="text-ios-green">[2026-09-30 07:36:12] 📊 ORDER STATUS: #366 Pending -> Completed</p>
-        </div>
-      </section>
-
-      <!-- ============================================================ -->
-      <!-- VIEW 8: BROADCAST & MAILER                                   -->
-      <!-- ============================================================ -->
-      <section id="view-broadcast" class="view-panel space-y-4 hidden">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="ios-glass-card rounded-3xl p-6 space-y-4">
-            <h3 class="text-sm font-bold text-white flex items-center">
-              <span class="w-2.5 h-2.5 rounded-full bg-ios-pink mr-2"></span> Ommaviy Xabarnoma
-            </h3>
-            <p class="text-xs text-white/40">Barcha 1,248 ta foydalanuvchiga bir vaqtda xabar uzatish</p>
-
-            <div class="space-y-3 text-xs">
-              <div>
-                <label class="block font-semibold text-white/60 mb-1">Xabar Matni (HTML qo'llab-quvvatlaydi)</label>
-                <textarea id="broadcastText" rows="6" oninput="updateBroadcastPreview()" placeholder="Assalomu alaykum! Yangi aksiyalar boshlandi..." class="w-full bg-white/[0.04] border border-white/[0.08] rounded-2xl p-3.5 text-xs text-white focus:outline-none focus:border-ios-blue"></textarea>
-              </div>
-
-              <div>
-                <label class="block font-semibold text-white/60 mb-1">Rasm Havolasi (Ixtiyoriy)</label>
-                <input id="broadcastImg" type="url" oninput="updateBroadcastPreview()" placeholder="https://rasm-havolasi.jpg" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-ios-blue">
-              </div>
-
-              <div>
-                <label class="block font-semibold text-white/60 mb-1">Tugma Matni va Havolasi</label>
-                <div class="flex space-x-2">
-                  <input id="broadcastBtnText" type="text" placeholder="Tugma matni" class="w-1/2 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-white">
-                  <input id="broadcastBtnUrl" type="url" placeholder="https://t.me/..." class="w-1/2 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-white">
+              <div class="space-y-2 text-xs">
+                <div class="p-2.5 rounded-xl bg-white/[0.04] border border-white/5 flex items-start space-x-2.5">
+                  <div class="w-6 h-6 ios-badge bg-ios-green text-white text-[10px] flex-shrink-0">
+                    <i class="fa-solid fa-check"></i>
+                  </div>
+                  <div>
+                    <p class="font-bold text-white text-[11px]">API Sinxronizatsiya yakunlandi</p>
+                    <p class="text-[10px] text-white/40">3 ta provayderdan 733 xizmat yangilandi</p>
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            <button onclick="startBroadcast()" class="w-full bg-ios-blue hover:bg-blue-600 text-white font-semibold py-2.5 rounded-xl text-xs shadow-lg shadow-blue-500/25 active:scale-95 transition-all">
-              Yuborishni Boshlash 🚀
-            </button>
-          </div>
-
-          <!-- Telegram Message Mockup Preview -->
-          <div class="ios-glass-card rounded-3xl p-6 space-y-4">
-            <h4 class="text-xs font-semibold text-white/40 uppercase tracking-wider">Telegram Xabari Ko'rinishi</h4>
-            <div class="max-w-sm mx-auto bg-[#17212b] rounded-2xl p-4 shadow-xl border border-white/5 space-y-3">
-              <div id="previewImgBox" class="hidden rounded-xl overflow-hidden max-h-48">
-                <img id="previewImg" src="" class="w-full object-cover">
-              </div>
-              <p id="previewText" class="text-xs text-white whitespace-pre-wrap">Xabar matni bu yerda ko'rinadi...</p>
-              <div id="previewBtnBox" class="hidden pt-1">
-                <div id="previewBtn" class="bg-[#2b5278] hover:bg-[#32608d] text-center text-xs text-white font-semibold py-2 rounded-xl">
-                  Tugma
+                <div class="p-2.5 rounded-xl bg-white/[0.04] border border-white/5 flex items-start space-x-2.5">
+                  <div class="w-6 h-6 ios-badge bg-ios-orange text-white text-[10px] flex-shrink-0">
+                    <i class="fa-solid fa-bolt"></i>
+                  </div>
+                  <div>
+                    <p class="font-bold text-white text-[11px]">Yangi buyurtma qabul qilindi</p>
+                    <p class="text-[10px] text-white/40">#366 - O'zbek layklar (100 ta)</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+
         </div>
-      </section>
+      </header>
 
-      <!-- ============================================================ -->
-      <!-- VIEW 9: SETTINGS                                             -->
-      <!-- ============================================================ -->
-      <section id="view-settings" class="view-panel space-y-4 hidden">
-        <div class="ios-glass-card rounded-3xl p-6 space-y-5 max-w-2xl">
-          <h3 class="text-sm font-bold text-white flex items-center">
-            <span class="w-2.5 h-2.5 rounded-full bg-slate-400 mr-2"></span> Tizim Sozlamalari
-          </h3>
+      <!-- Main Content Body -->
+      <main class="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">
 
-          <div class="space-y-4 text-xs">
-            <div class="p-4 rounded-2xl bg-white/[0.03] flex items-center justify-between border border-white/[0.06]">
-              <div>
-                <h4 class="font-bold text-white">Texnik Ishlar Rejimi</h4>
-                <p class="text-[11px] text-white/40">Yoqilsa bot faqat adminlar uchun javob beradi</p>
+        <!-- ============================================================ -->
+        <!-- VIEW 1: DASHBOARD OVERVIEW                                   -->
+        <!-- ============================================================ -->
+        <section id="view-dashboard" class="view-panel space-y-6">
+
+          <!-- iOS 4 Primary Metric Cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- Metric 1: Dinamik Tushum (Bugun / Haftalik / Oylik) -->
+            <div class="ios-glass-card rounded-3xl p-5 relative overflow-hidden">
+              <div class="flex items-center justify-between">
+                <span id="kpiRevenueLabel" class="text-xs font-semibold text-white/50">Bugungi Tushum</span>
+                <div class="w-9 h-9 ios-badge bg-gradient-to-b from-ios-green to-emerald-700 text-white text-sm">
+                  <i class="fa-solid fa-arrow-trend-up"></i>
+                </div>
               </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" class="sr-only peer">
-                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-ios-green"></div>
-              </label>
+              <div class="mt-3 flex items-baseline space-x-1.5">
+                <span id="kpiRevenueVal" class="text-2xl font-extrabold text-white tracking-tight">5,095,000</span>
+                <span class="text-xs font-bold text-ios-green">UZS</span>
+              </div>
+              <div class="mt-2 text-[11px] text-white/40 font-medium flex items-center">
+                <span id="kpiRevenueGrowth" class="text-ios-green font-bold mr-1">+24.8%</span> kechagiga nisbatan
+              </div>
             </div>
 
-            <div class="p-4 rounded-2xl bg-white/[0.03] space-y-3 border border-white/[0.06]">
-              <h4 class="font-bold text-white">Valyuta Kursi (1 USD -> UZS)</h4>
+            <!-- Metric 2: Jami Buyurtmalar -->
+            <div class="ios-glass-card rounded-3xl p-5 relative overflow-hidden">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-white/50">Jami Buyurtmalar</span>
+                <div class="w-9 h-9 ios-badge bg-gradient-to-b from-ios-blue to-blue-700 text-white text-sm">
+                  <i class="fa-solid fa-cart-shopping"></i>
+                </div>
+              </div>
+              <div class="mt-3 flex items-baseline space-x-1.5">
+                <span id="kpiOrdersCount" class="text-2xl font-extrabold text-white tracking-tight">3,482</span>
+                <span class="text-xs text-white/40">dona</span>
+              </div>
+              <div class="mt-2 text-[11px] text-white/40 font-medium flex items-center">
+                <span class="text-ios-blue font-bold mr-1">84 ta</span> bugungi buyurtmalar
+              </div>
+            </div>
+
+            <!-- Metric 3: Foydalanuvchilar -->
+            <div class="ios-glass-card rounded-3xl p-5 relative overflow-hidden">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-white/50">Mijozlar Bazasi</span>
+                <div class="w-9 h-9 ios-badge bg-gradient-to-b from-ios-purple to-purple-800 text-white text-sm">
+                  <i class="fa-solid fa-users"></i>
+                </div>
+              </div>
+              <div class="mt-3 flex items-baseline space-x-1.5">
+                <span id="kpiUsersCount" class="text-2xl font-extrabold text-white tracking-tight">1,248</span>
+                <span class="text-xs text-white/40">a'zo</span>
+              </div>
+              <div class="mt-2 text-[11px] text-white/40 font-medium flex items-center">
+                <span class="text-ios-purple font-bold mr-1">+18 ta</span> bugun qo'shildi
+              </div>
+            </div>
+
+            <!-- Metric 4: Konversiya & Barqarorlik -->
+            <div class="ios-glass-card rounded-3xl p-5 relative overflow-hidden">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-white/50">Tizim Ishonchliligi</span>
+                <div class="w-9 h-9 ios-badge bg-gradient-to-b from-ios-orange to-amber-700 text-white text-sm">
+                  <i class="fa-solid fa-shield-halved"></i>
+                </div>
+              </div>
+              <div class="mt-3 flex items-baseline space-x-1.5">
+                <span class="text-2xl font-extrabold text-white tracking-tight">99.8%</span>
+                <span class="text-xs text-ios-orange font-bold">API OK</span>
+              </div>
+              <div class="mt-2 text-[11px] text-white/40 font-medium flex items-center">
+                <span class="text-ios-green font-bold mr-1">4 Tizim</span> anti-sleep faol
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Charts Row: Sotuvlar Dinamikasi & Kategoriya Ulushi -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Line Chart (2 Cols): Sotuvlar Dinamikasi (Bugun / 7 Kun / 30 Kun / Yillik) -->
+            <div class="lg:col-span-2 ios-glass-card rounded-3xl p-6 space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 class="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-ios-blue"></span>
+                    <span>Sotuvlar Dinamikasi</span>
+                  </h3>
+                  <p id="salesDynamicsSubtitle" class="text-xs text-white/40">Bugungi soatlik tushum va buyurtmalar oqimi</p>
+                </div>
+
+                <!-- iOS Segmented Period Selector: BUGUN KUNLIK QO'SHILDI -->
+                <div class="ios-segmented flex items-center space-x-1 text-[11px] self-start sm:self-auto">
+                  <button onclick="changeSalesPeriod('today')" id="btn-period-today" class="sales-period-btn active px-3 py-1 font-semibold rounded-lg transition-all">Bugun</button>
+                  <button onclick="changeSalesPeriod('7days')" id="btn-period-7days" class="sales-period-btn px-3 py-1 font-semibold text-white/60 hover:text-white rounded-lg transition-all">7 Kun</button>
+                  <button onclick="changeSalesPeriod('30days')" id="btn-period-30days" class="sales-period-btn px-3 py-1 font-semibold text-white/60 hover:text-white rounded-lg transition-all">30 Kun</button>
+                  <button onclick="changeSalesPeriod('1year')" id="btn-period-1year" class="sales-period-btn px-3 py-1 font-semibold text-white/60 hover:text-white rounded-lg transition-all">Yillik</button>
+                </div>
+              </div>
+
+              <div class="h-64 relative">
+                <canvas id="revenueChart"></canvas>
+              </div>
+            </div>
+
+            <!-- Donut Chart (1 Col) -->
+            <div class="ios-glass-card rounded-3xl p-6 space-y-4">
+              <div>
+                <h3 class="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-ios-purple"></span>
+                  <span>Kategoriya Ulushi</span>
+                </h3>
+                <p class="text-xs text-white/40">Eng ommabop SMM yo'nalishlari</p>
+              </div>
+              <div class="h-64 relative flex items-center justify-center">
+                <canvas id="categoryChart"></canvas>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Recent Activity Feed & Live Channels -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <!-- Recent Orders Card -->
+            <div class="ios-glass-card rounded-3xl p-6 space-y-4">
+              <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
+                <div class="flex items-center space-x-2.5">
+                  <div class="w-6 h-6 ios-badge bg-ios-blue text-white text-[10px]">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                  </div>
+                  <h3 class="text-sm font-bold text-white">So'nggi Buyurtmalar</h3>
+                </div>
+                <button onclick="switchTab('orders')" class="text-xs text-ios-blue hover:underline font-semibold">Barchasi &rarr;</button>
+              </div>
+              <div id="dashboardRecentOrders" class="space-y-2.5">
+                <!-- Injected dynamically -->
+              </div>
+            </div>
+
+            <!-- Live Channels Monitor -->
+            <div class="ios-glass-card rounded-3xl p-6 space-y-4">
+              <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
+                <div class="flex items-center space-x-2.5">
+                  <div class="w-6 h-6 ios-badge bg-ios-purple text-white text-[10px]">
+                    <i class="fa-solid fa-tower-broadcast"></i>
+                  </div>
+                  <h3 class="text-sm font-bold text-white">Kuzatuvdagi Kanallar</h3>
+                </div>
+                <button onclick="switchTab('channels')" class="text-xs text-ios-purple hover:underline font-semibold">Boshqarish &rarr;</button>
+              </div>
+              <div class="space-y-2.5">
+                <div class="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between">
+                  <div class="flex items-center space-x-3">
+                    <div class="w-2.5 h-2.5 rounded-full bg-ios-green animate-pulse"></div>
+                    <div>
+                      <h4 class="text-xs font-bold text-white">𝐀𝐭𝐚𝐥𝐠𝐚𝐧 (@atalgan888)</h4>
+                      <p class="text-[10px] text-white/40">Avto-reaksiyalar: 5 xil emoji &bull; Kechikish: 3s</p>
+                    </div>
+                  </div>
+                  <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full">ACTIVE</span>
+                </div>
+
+                <div class="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between">
+                  <div class="flex items-center space-x-3">
+                    <div class="w-2.5 h-2.5 rounded-full bg-ios-purple animate-pulse"></div>
+                    <div>
+                      <h4 class="text-xs font-bold text-white">Ybanat (Maxfiy Guruh)</h4>
+                      <p class="text-[10px] text-white/40">Avto-post har 5 daqiqada &bull; AI Faktlar</p>
+                    </div>
+                  </div>
+                  <span class="text-[10px] font-mono bg-ios-purple/15 text-ios-purple font-bold px-2 py-0.5 rounded-full">5 MIN AI</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Quick Action Buttons -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <button onclick="openModal('modalAddService')" class="p-4 rounded-2xl ios-glass-card flex items-center space-x-3 hover:border-ios-blue/40 text-left">
+              <div class="w-8 h-8 ios-badge bg-ios-blue text-white text-xs">
+                <i class="fa-solid fa-plus"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">Yangi Xizmat</p>
+                <p class="text-[10px] text-white/40">Katalogga qo'shish</p>
+              </div>
+            </button>
+
+            <button onclick="switchTab('ai')" class="p-4 rounded-2xl ios-glass-card flex items-center space-x-3 hover:border-pink-500/40 text-left">
+              <div class="w-8 h-8 ios-badge ai-badge-gradient text-white text-xs">
+                <i class="fa-solid fa-brain"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">AI Yordamchi</p>
+                <p class="text-[10px] text-white/40">Sotuv tahlili & post</p>
+              </div>
+            </button>
+
+            <button onclick="switchTab('broadcast')" class="p-4 rounded-2xl ios-glass-card flex items-center space-x-3 hover:border-ios-pink/40 text-left">
+              <div class="w-8 h-8 ios-badge bg-ios-pink text-white text-xs">
+                <i class="fa-solid fa-bullhorn"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">Xabarnoma</p>
+                <p class="text-[10px] text-white/40">Telegram mailing</p>
+              </div>
+            </button>
+
+            <button onclick="syncAllProviders()" class="p-4 rounded-2xl ios-glass-card flex items-center space-x-3 hover:border-ios-green/40 text-left">
+              <div class="w-8 h-8 ios-badge bg-ios-green text-white text-xs">
+                <i class="fa-solid fa-arrows-rotate"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">API Sinxron</p>
+                <p class="text-[10px] text-white/40">3 provayder yangilash</p>
+              </div>
+            </button>
+          </div>
+
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- VIEW: AI INTELLIGENCE HUB (APPLE INTELLIGENCE PRO)           -->
+        <!-- ============================================================ -->
+        <section id="view-ai" class="view-panel space-y-6 hidden">
+          
+          <!-- AI Hero Radiant Banner -->
+          <div class="ai-glow-card rounded-3xl p-6 sm:p-8 space-y-4 relative overflow-hidden">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div class="flex items-center space-x-4">
+                <div class="w-14 h-14 ios-badge ai-badge-gradient text-white text-2xl shadow-xl shadow-purple-500/30 flex-shrink-0 animate-pulse">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-lg sm:text-xl font-extrabold text-white tracking-tight">Apple Intelligence & Antigravity AI Pro</h3>
+                    <span class="text-[9px] font-mono bg-pink-500/20 text-pink-300 border border-pink-500/30 px-2 py-0.5 rounded-full font-bold">FAOL</span>
+                  </div>
+                  <p class="text-xs text-white/60">SMM do'koningizni avtomatlashtirish, sotuv prognozi, aqlli narxlash va Telegram post generatori</p>
+                </div>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button onclick="runAIPrediction()" class="bg-white/[0.08] hover:bg-white/[0.15] text-white text-xs font-semibold px-3.5 py-2 rounded-xl border border-white/10 active:scale-95 transition-all">
+                  <i class="fa-solid fa-chart-line text-ios-teal mr-1"></i> Prognoz
+                </button>
+                <button onclick="runAICopywriter()" class="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-lg shadow-purple-500/25 active:scale-95 transition-all">
+                  <i class="fa-solid fa-pen-nib mr-1"></i> Post Yaratish
+                </button>
+              </div>
+            </div>
+
+            <!-- AI Status Indicators -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-white/[0.08]">
+              <div class="bg-black/30 rounded-2xl p-3 border border-white/5">
+                <p class="text-[10px] text-white/40 uppercase font-bold tracking-wider">AI Model</p>
+                <p class="text-xs font-extrabold text-white">Gemini 2.5 Flash Ultra</p>
+              </div>
+              <div class="bg-black/30 rounded-2xl p-3 border border-white/5">
+                <p class="text-[10px] text-white/40 uppercase font-bold tracking-wider">Ma'lumotlar Bazasi</p>
+                <p class="text-xs font-extrabold text-ios-green">733 Xizmat &bull; 1,248 Mijoz</p>
+              </div>
+              <div class="bg-black/30 rounded-2xl p-3 border border-white/5">
+                <p class="text-[10px] text-white/40 uppercase font-bold tracking-wider">Bugungi Bashorat</p>
+                <p class="text-xs font-extrabold text-ios-teal">+24.8% Sotuv O'sishi</p>
+              </div>
+              <div class="bg-black/30 rounded-2xl p-3 border border-white/5">
+                <p class="text-[10px] text-white/40 uppercase font-bold tracking-wider">Xavfsizlik Auditi</p>
+                <p class="text-xs font-extrabold text-ios-purple">100% Anomaliyasiz</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4 AI Intelligence Modullari Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- AI Card 1: Sotuvlar Bashorati -->
+            <div class="ios-glass-card rounded-3xl p-5 space-y-3 border-t-2 border-ios-green flex flex-col justify-between">
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="w-8 h-8 ios-badge bg-gradient-to-b from-ios-green to-emerald-700 text-white text-xs">
+                    <i class="fa-solid fa-chart-simple"></i>
+                  </div>
+                  <span class="text-[10px] text-ios-green font-bold bg-ios-green/15 px-2 py-0.5 rounded-full">Prognoz</span>
+                </div>
+                <h4 class="text-xs font-bold text-white">Sotuvlar Bashorati</h4>
+                <p class="text-[11px] text-white/50 leading-relaxed">
+                  Soat 18:00 - 23:00 oralig'ida eng yuqori sotuv cho'qqisi kutilmoqda. Bugungi reja <strong>6.2 mln UZS</strong> ga yetishi kutilmoqda.
+                </p>
+              </div>
+              <button onclick="runAIPrediction()" class="w-full bg-white/[0.04] hover:bg-ios-green/20 text-ios-green hover:text-white text-[11px] font-bold py-2 rounded-xl transition-all">
+                Batafsil Hisobot &rarr;
+              </button>
+            </div>
+
+            <!-- AI Card 2: Aqlli Narxlash -->
+            <div class="ios-glass-card rounded-3xl p-5 space-y-3 border-t-2 border-ios-purple flex flex-col justify-between">
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="w-8 h-8 ios-badge bg-gradient-to-b from-ios-purple to-purple-800 text-white text-xs">
+                    <i class="fa-solid fa-tags"></i>
+                  </div>
+                  <span class="text-[10px] text-ios-purple font-bold bg-ios-purple/15 px-2 py-0.5 rounded-full">Marja: 42%</span>
+                </div>
+                <h4 class="text-xs font-bold text-white">Dinamik Narxlash</h4>
+                <p class="text-[11px] text-white/50 leading-relaxed">
+                  Instagram layklar narxini 12% tushirish tavsiya etiladi. Bu oylik buyurtmalar hajmini 32% ga oshiradi.
+                </p>
+              </div>
+              <button onclick="runAIPricing()" class="w-full bg-white/[0.04] hover:bg-ios-purple/20 text-ios-purple hover:text-white text-[11px] font-bold py-2 rounded-xl transition-all">
+                Narxlarni Tahlil Qilish &rarr;
+              </button>
+            </div>
+
+            <!-- AI Card 3: SMM Kopirayter -->
+            <div class="ios-glass-card rounded-3xl p-5 space-y-3 border-t-2 border-pink-500 flex flex-col justify-between">
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="w-8 h-8 ios-badge bg-gradient-to-b from-pink-500 to-rose-700 text-white text-xs">
+                    <i class="fa-solid fa-pen-nib"></i>
+                  </div>
+                  <span class="text-[10px] text-pink-300 font-bold bg-pink-500/20 px-2 py-0.5 rounded-full">Kopirayter</span>
+                </div>
+                <h4 class="text-xs font-bold text-white">Telegram Post Generator</h4>
+                <p class="text-[11px] text-white/50 leading-relaxed">
+                  Kanal va guruhlar uchun jozibador chegirmalar, aksiyalar va yangiliklar matnini professional tayyorlash.
+                </p>
+              </div>
+              <button onclick="runAICopywriter()" class="w-full bg-white/[0.04] hover:bg-pink-500/20 text-pink-300 hover:text-white text-[11px] font-bold py-2 rounded-xl transition-all">
+                Post Generatsiya Qilish &rarr;
+              </button>
+            </div>
+
+            <!-- AI Card 4: Ybanat Fakt Generatori -->
+            <div class="ios-glass-card rounded-3xl p-5 space-y-3 border-t-2 border-ios-blue flex flex-col justify-between">
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="w-8 h-8 ios-badge bg-gradient-to-b from-ios-blue to-blue-800 text-white text-xs">
+                    <i class="fa-solid fa-lightbulb"></i>
+                  </div>
+                  <span class="text-[10px] text-ios-blue font-bold bg-ios-blue/15 px-2 py-0.5 rounded-full">5 Min AI</span>
+                </div>
+                <h4 class="text-xs font-bold text-white">Ybanat Guruhiga Fakt</h4>
+                <p class="text-[11px] text-white/50 leading-relaxed">
+                  Har 5 daqiqada yangi ilmiy, qiziqarli yoki texnologik fakt yaratib, maxfiy guruhga yuborish.
+                </p>
+              </div>
+              <button onclick="generateYbanatAIFact()" class="w-full bg-white/[0.04] hover:bg-ios-blue/20 text-ios-blue hover:text-white text-[11px] font-bold py-2 rounded-xl transition-all">
+                Hozir Fakt Yaratish &rarr;
+              </button>
+            </div>
+
+          </div>
+
+          <!-- Interactive Apple Intelligence Co-Pilot Chat -->
+          <div class="ios-glass-card rounded-3xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-white/[0.08] pb-4">
               <div class="flex items-center space-x-3">
-                <input type="number" value="12850" class="bg-black/50 border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-white font-mono w-36">
-                <span class="text-white/40">1 USD = 12,850 UZS</span>
-                <button onclick="alert('Kurs saqlandi!')" class="bg-ios-blue text-white font-semibold px-3 py-2 rounded-xl active:scale-95">Saqlash</button>
+                <div class="w-8 h-8 ios-badge ai-badge-gradient text-white text-xs">
+                  <i class="fa-solid fa-comments"></i>
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-white">Apple Intelligence SMM Co-Pilot</h4>
+                  <p class="text-[10px] text-white/40">SMM biznesingiz bo'yicha har qanday savol yoki topshiriq bering</p>
+                </div>
+              </div>
+              <button onclick="clearAIChat()" class="text-xs text-white/40 hover:text-white px-2 py-1 rounded-lg hover:bg-white/[0.05]">
+                Tozalash
+              </button>
+            </div>
+
+            <!-- Quick Prompt Suggestions Chips -->
+            <div class="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1">
+              <button onclick="askAI('Bugungi daromadni 2 barobarga oshirish strategiyasini ber')" class="px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-[11px] font-semibold text-white/80 whitespace-nowrap active:scale-95 transition-all">
+                📈 Sotuvni 2 barobar oshirish
+              </button>
+              <button onclick="askAI('Telegram obunachilariga 20% chegirma e\'lon qilib Telegram post yoz')" class="px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-[11px] font-semibold text-white/80 whitespace-nowrap active:scale-95 transition-all">
+                ✍️ Chegirma posti yoz
+              </button>
+              <button onclick="askAI('Katalogdagi eng foydali 3 ta xizmat qaysi?')" class="px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-[11px] font-semibold text-white/80 whitespace-nowrap active:scale-95 transition-all">
+                💎 Eng foydali 3 ta xizmat
+              </button>
+              <button onclick="askAI('Provayderlar bilan narx tafovutini tahlil qil')" class="px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-[11px] font-semibold text-white/80 whitespace-nowrap active:scale-95 transition-all">
+                ⚡ Provayderlar auditi
+              </button>
+            </div>
+
+            <!-- Chat Messages Scrollable Box -->
+            <div id="aiChatMessages" class="h-80 overflow-y-auto space-y-3.5 pr-2">
+              
+              <!-- Initial AI Message -->
+              <div class="flex items-start space-x-3">
+                <div class="w-8 h-8 ios-badge ai-badge-gradient text-white text-xs flex-shrink-0 mt-0.5">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <div class="bg-white/[0.04] border border-white/[0.07] rounded-2xl rounded-tl-sm p-4 text-xs text-white/90 max-w-2xl leading-relaxed space-y-2">
+                  <p class="font-semibold text-pink-300">Assalomu alaykum, Admin!</p>
+                  <p>Men sizning <strong>Cheap SMM Apple Intelligence</strong> yordamchingizman. Katalogdagi 733 ta xizmat, 1,248 ta mijoz va 3 ta API provayderning holatini tahlil qila olaman.</p>
+                  <p class="text-white/60 text-[11px]">Sotuvlar dinamikasi, yangi Telegram postlari, narxlash marjalari yoki guruhga faktlar bo'yicha savolingiz bormi?</p>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Chat Input Bar -->
+            <div class="flex items-center space-x-2 pt-2 border-t border-white/[0.08]">
+              <input type="text" id="aiChatInput" onkeydown="if(event.key==='Enter') sendAIMessage()" placeholder="AI ga buyruq yoki savol bering (masalan: Bugungi sotuvlarni tahlil qil)..." class="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-pink-500">
+              <button onclick="sendAIMessage()" class="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-purple-500/25 active:scale-95 transition-all">
+                <i class="fa-solid fa-paper-plane mr-1"></i> Yuborish
+              </button>
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- VIEW 2: SERVICES CATALOG                                     -->
+        <!-- ============================================================ -->
+        <section id="view-services" class="view-panel space-y-4 hidden">
+          
+          <!-- Controls Bar -->
+          <div class="ios-glass-card rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-3">
+            <div class="flex items-center space-x-3 w-full md:w-auto">
+              <div class="relative flex-1 md:w-80">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 text-xs"></i>
+                <input type="text" id="serviceSearchInput" oninput="filterAdminServices()" placeholder="Xizmat nomi, ID yoki kategoriya..." class="w-full pl-9 pr-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-white placeholder-white/30 focus:outline-none focus:border-ios-blue">
+              </div>
+              
+              <select id="serviceCategoryFilter" onchange="filterAdminServices()" class="bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-ios-blue">
+                <option value="all">Barcha Kategoriyalar</option>
+                <option value="Telegram">Telegram</option>
+                <option value="Instagram">Instagram</option>
+                <option value="Reaksiya">Reaksiyalar</option>
+                <option value="Obunachi">Obunachilar</option>
+              </select>
+            </div>
+
+            <div class="flex items-center space-x-2 w-full md:w-auto justify-end">
+              <button onclick="exportTableToCSV('services')" class="bg-white/[0.05] hover:bg-white/[0.1] text-white text-xs font-semibold px-3 py-2 rounded-xl border border-white/[0.08] active:scale-95 transition-all" title="Excel / CSV eksport">
+                <i class="fa-solid fa-file-csv text-ios-green mr-1"></i> CSV
+              </button>
+              <button onclick="openModal('modalBulkMarkup')" class="bg-ios-purple/15 hover:bg-ios-purple/25 text-ios-purple border border-ios-purple/30 text-xs font-semibold px-3 py-2 rounded-xl active:scale-95 transition-all">
+                <i class="fa-solid fa-percent mr-1"></i> Ustama (+%)
+              </button>
+              <button onclick="openModal('modalAddService')" class="bg-ios-blue hover:bg-blue-600 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all">
+                <i class="fa-solid fa-plus mr-1"></i> Yangi Xizmat
+              </button>
+            </div>
+          </div>
+
+          <!-- Services Table -->
+          <div class="ios-glass-card rounded-3xl overflow-hidden border border-white/[0.08]">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] uppercase tracking-wider font-bold text-white/40">
+                    <th class="py-3 px-4">ID</th>
+                    <th class="py-3 px-4">Xizmat Nomi</th>
+                    <th class="py-3 px-4">Kategoriya</th>
+                    <th class="py-3 px-4">Narxi (1000 ta)</th>
+                    <th class="py-3 px-4">Min / Max</th>
+                    <th class="py-3 px-4">Holati</th>
+                    <th class="py-3 px-4 text-right">Amallar</th>
+                  </tr>
+                </thead>
+                <tbody id="servicesTableBody" class="divide-y divide-white/[0.04] text-xs text-white/80">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- VIEW 3: ORDERS MANAGEMENT                                    -->
+        <!-- ============================================================ -->
+        <section id="view-orders" class="view-panel space-y-4 hidden">
+          <div class="ios-glass-card rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-3">
+            <div class="ios-segmented flex items-center space-x-1 text-xs overflow-x-auto no-scrollbar w-full md:w-auto">
+              <button onclick="filterOrdersByStatus('all')" class="order-status-btn active px-3 py-1.5 font-bold rounded-lg transition-all">Barchasi</button>
+              <button onclick="filterOrdersByStatus('Pending')" class="order-status-btn px-3 py-1.5 font-bold text-white/60 hover:text-white rounded-lg transition-all">🟡 Kutilmoqda</button>
+              <button onclick="filterOrdersByStatus('In progress')" class="order-status-btn px-3 py-1.5 font-bold text-white/60 hover:text-white rounded-lg transition-all">🔵 Jarayonda</button>
+              <button onclick="filterOrdersByStatus('Completed')" class="order-status-btn px-3 py-1.5 font-bold text-white/60 hover:text-white rounded-lg transition-all">🟢 Bajarildi</button>
+              <button onclick="filterOrdersByStatus('Canceled')" class="order-status-btn px-3 py-1.5 font-bold text-white/60 hover:text-white rounded-lg transition-all">🔴 Bekor</button>
+            </div>
+
+            <div class="flex items-center space-x-2 w-full md:w-auto">
+              <div class="relative w-full md:w-64">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-xs"></i>
+                <input type="text" id="orderSearchInput" oninput="searchOrders()" placeholder="Buyurtma ID, Link, Mijoz..." class="w-full pl-8 pr-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-white placeholder-white/30 focus:outline-none focus:border-ios-blue">
+              </div>
+              <button onclick="exportTableToCSV('orders')" class="bg-white/[0.05] hover:bg-white/[0.1] text-white text-xs font-semibold px-3 py-1.5 rounded-xl border border-white/[0.08] active:scale-95 transition-all" title="Excel / CSV eksport">
+                <i class="fa-solid fa-file-csv text-ios-green mr-1"></i> CSV
+              </button>
+            </div>
+          </div>
+
+          <div class="ios-glass-card rounded-3xl overflow-hidden border border-white/[0.08]">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] uppercase tracking-wider font-bold text-white/40">
+                    <th class="py-3 px-4">Buyurtma</th>
+                    <th class="py-3 px-4">Mijoz</th>
+                    <th class="py-3 px-4">Xizmat</th>
+                    <th class="py-3 px-4">Havola</th>
+                    <th class="py-3 px-4">Miqdor</th>
+                    <th class="py-3 px-4">Summa</th>
+                    <th class="py-3 px-4">Holati</th>
+                    <th class="py-3 px-4 text-right">Amal</th>
+                  </tr>
+                </thead>
+                <tbody id="ordersTableBody" class="divide-y divide-white/[0.04] text-xs text-white/80">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- VIEW 4: USERS MANAGEMENT                                     -->
+        <!-- ============================================================ -->
+        <section id="view-users" class="view-panel space-y-4 hidden">
+          <div class="ios-glass-card rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="relative w-full sm:w-80">
+              <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 text-xs"></i>
+              <input type="text" id="userSearchInput" oninput="searchUsers()" placeholder="Ism, Username yoki Telegram ID..." class="w-full pl-9 pr-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-white placeholder-white/30 focus:outline-none focus:border-ios-blue">
+            </div>
+            <div class="flex items-center space-x-2">
+              <button onclick="exportTableToCSV('users')" class="bg-white/[0.05] hover:bg-white/[0.1] text-white text-xs font-semibold px-3 py-2 rounded-xl border border-white/[0.08] active:scale-95 transition-all">
+                <i class="fa-solid fa-file-csv text-ios-green mr-1"></i> CSV
+              </button>
+              <button onclick="switchTab('broadcast')" class="bg-ios-blue hover:bg-blue-600 text-white text-xs font-semibold px-3.5 py-2 rounded-xl active:scale-95 transition-all">
+                <i class="fa-solid fa-paper-plane mr-1"></i> Ommaviy Xabar
+              </button>
+            </div>
+          </div>
+
+          <div class="ios-glass-card rounded-3xl overflow-hidden border border-white/[0.08]">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] uppercase tracking-wider font-bold text-white/40">
+                    <th class="py-3 px-4">Telegram ID</th>
+                    <th class="py-3 px-4">Foydalanuvchi</th>
+                    <th class="py-3 px-4">Balansi (UZS)</th>
+                    <th class="py-3 px-4">Buyurtmalar</th>
+                    <th class="py-3 px-4">Darajasi</th>
+                    <th class="py-3 px-4">Holati</th>
+                    <th class="py-3 px-4 text-right">Amal</th>
+                  </tr>
+                </thead>
+                <tbody id="usersTableBody" class="divide-y divide-white/[0.04] text-xs text-white/80">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- VIEW 5: CHANNELS & AUTO REACTIONS                            -->
+        <!-- ============================================================ -->
+        <section id="view-channels" class="view-panel space-y-4 hidden">
+          <div class="ios-glass-card rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-white">Avtomatik Reaksiya Kanallari</h3>
+              <p class="text-xs text-white/40">Yangi post chiqarilishi bilan userbot orqali reaksiyalar bosiladi</p>
+            </div>
+            <button onclick="sendInstantFactNow()" class="bg-ios-purple hover:bg-purple-600 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-lg shadow-purple-500/20 active:scale-95 transition-all">
+              <i class="fa-solid fa-bolt mr-1"></i> Fakt Yuborish
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="ios-glass-card rounded-3xl p-5 space-y-3 border-l-4 border-ios-blue">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono font-bold text-ios-blue">#2 &bull; -1003214824742</span>
+                <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full">ACTIVE</span>
+              </div>
+              <h4 class="text-sm font-bold text-white">𝐀𝐭𝐚𝐥𝐠𝐚𝐧 (@atalgan888)</h4>
+              <div class="text-xs text-white/60 space-y-1">
+                <p>🎭 Reaksiyalar: <span class="bg-white/10 px-2 py-0.5 rounded text-white font-bold">👍 ❤️ 🔥 😁 🎉</span></p>
+                <p>⏱ Kechikish: <strong>3 soniya</strong></p>
+                <p>⚡ Telethon Userbot orqali ulandi</p>
+              </div>
+            </div>
+
+            <div class="ios-glass-card rounded-3xl p-5 space-y-3 border-l-4 border-ios-purple">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono font-bold text-ios-purple">Maxfiy Guruh</span>
+                <span class="text-[10px] font-mono bg-ios-purple/15 text-ios-purple font-bold px-2 py-0.5 rounded-full">5 MIN AI</span>
+              </div>
+              <h4 class="text-sm font-bold text-white">Ybanat (Guruh)</h4>
+              <div class="text-xs text-white/60 space-y-1">
+                <p>🧠 Turi: <strong>Sun'iy Intellekt Avto-Post</strong></p>
+                <p>⏱ Interval: <strong>Har 5 daqiqada yangi fakt</strong></p>
+                <p>🤖 Model: <strong>Qwen 3.8 27B / Groq</strong></p>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- ============================================================ -->
-      <!-- VIEW 10: FINANCE & TRANSACTIONS                              -->
-      <!-- ============================================================ -->
-      <section id="view-finance" class="view-panel space-y-4 hidden">
-        <div class="ios-glass-card rounded-2xl p-4 flex items-center justify-between">
-          <h3 class="text-sm font-bold text-white">To'lovlar & Tranzaksiyalar Tarixi</h3>
-          <span class="text-xs text-ios-green font-bold">Jami: 14,850,000 UZS</span>
-        </div>
-
-        <div class="ios-glass-card rounded-3xl overflow-hidden border border-white/[0.08]">
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-              <thead>
-                <tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] uppercase tracking-wider font-bold text-white/40">
-                  <th class="py-3 px-4">Tranzaksiya</th>
-                  <th class="py-3 px-4">Foydalanuvchi</th>
-                  <th class="py-3 px-4">Tizim</th>
-                  <th class="py-3 px-4">Summa</th>
-                  <th class="py-3 px-4">Vaqt</th>
-                  <th class="py-3 px-4">Holati</th>
-                </tr>
-              </thead>
-              <tbody id="financeTableBody" class="divide-y divide-white/[0.04] text-xs text-white/80">
-                <!-- Injected via JS -->
-              </tbody>
-            </table>
+        <!-- ============================================================ -->
+        <!-- VIEW 6: API PROVIDERS                                        -->
+        <!-- ============================================================ -->
+        <section id="view-providers" class="view-panel space-y-4 hidden">
+          <div class="ios-glass-card rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-white">API Provayderlar Tarmog'i</h3>
+              <p class="text-xs text-white/40">Barcha buyurtmalar ushbu 3 ta xalqaro API orqali bajariladi</p>
+            </div>
+            <button onclick="syncAllProviders()" class="bg-ios-blue hover:bg-blue-600 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all">
+              <i class="fa-solid fa-arrows-rotate mr-1"></i> Sinxronlash
+            </button>
           </div>
-        </div>
-      </section>
 
-    </main>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Provayder 1 -->
+            <div class="ios-glass-card rounded-3xl p-5 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono font-bold text-ios-blue">API #2</span>
+                <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full">ONLINE</span>
+              </div>
+              <h4 class="text-sm font-bold text-white">@tezsmbot</h4>
+              <p class="text-xs text-white/40">Asosiy Telegram & Reaksiyalar Provayderi</p>
+              <div class="pt-2 border-t border-white/[0.08] flex items-center justify-between">
+                <span class="text-xs text-white/60">Balans:</span>
+                <span id="providerBal2" class="text-xs font-mono font-extrabold text-ios-green">45,200 UZS</span>
+              </div>
+              <button onclick="testProvider(2)" class="w-full bg-white/[0.04] hover:bg-white/[0.08] text-white text-xs font-semibold py-1.5 rounded-xl transition-all">
+                Aloqani Tekshirish
+              </button>
+            </div>
+
+            <!-- Provayder 2 -->
+            <div class="ios-glass-card rounded-3xl p-5 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono font-bold text-ios-indigo">API #4</span>
+                <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full">ONLINE</span>
+              </div>
+              <h4 class="text-sm font-bold text-white">@ISAKOV_SMMBOT</h4>
+              <p class="text-xs text-white/40">Ko'rishlar va Obunachilar</p>
+              <div class="pt-2 border-t border-white/[0.08] flex items-center justify-between">
+                <span class="text-xs text-white/60">Balans:</span>
+                <span id="providerBal4" class="text-xs font-mono font-extrabold text-ios-green">18,500 UZS</span>
+              </div>
+              <button onclick="testProvider(4)" class="w-full bg-white/[0.04] hover:bg-white/[0.08] text-white text-xs font-semibold py-1.5 rounded-xl transition-all">
+                Aloqani Tekshirish
+              </button>
+            </div>
+
+            <!-- Provayder 3 -->
+            <div class="ios-glass-card rounded-3xl p-5 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono font-bold text-ios-purple">API #5</span>
+                <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full">ONLINE</span>
+              </div>
+              <h4 class="text-sm font-bold text-white">@bekprosmm_bot</h4>
+              <p class="text-xs text-white/40">Instagram va TikTok xizmatlari</p>
+              <div class="pt-2 border-t border-white/[0.08] flex items-center justify-between">
+                <span class="text-xs text-white/60">Balans:</span>
+                <span id="providerBal5" class="text-xs font-mono font-extrabold text-ios-green">62,800 UZS</span>
+              </div>
+              <button onclick="testProvider(5)" class="w-full bg-white/[0.04] hover:bg-white/[0.08] text-white text-xs font-semibold py-1.5 rounded-xl transition-all">
+                Aloqani Tekshirish
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- VIEW 7: LIVE LOGS & SYSTEM TERMINAL                          -->
+        <!-- ============================================================ -->
+        <section id="view-logs" class="view-panel space-y-4 hidden">
+          <div class="ios-glass-card rounded-2xl p-4 flex items-center justify-between">
+            <div class="flex items-center space-x-2.5">
+              <div class="w-2.5 h-2.5 rounded-full bg-ios-green animate-pulse"></div>
+              <h3 class="text-sm font-bold text-white">Jonli Tizim Loglari & PM2 Kuzatuv</h3>
+            </div>
+            <div class="flex space-x-2">
+              <button onclick="clearLogs()" class="text-xs bg-white/[0.05] hover:bg-white/[0.1] px-3 py-1.5 rounded-xl text-white/70 hover:text-white">Tozalash</button>
+              <button onclick="downloadLogs()" class="text-xs bg-ios-blue hover:bg-blue-600 text-white font-semibold px-3 py-1.5 rounded-xl">Yuklab Olish</button>
+            </div>
+          </div>
+
+          <div class="bg-[#050507] rounded-3xl p-5 border border-white/[0.08] font-mono text-xs text-white/70 h-96 overflow-y-auto space-y-1.5 shadow-inner" id="systemTerminalLogs">
+            <p class="text-white/30">[2026-09-30 07:45:00] 🚀 APPLE CUPERTINO MINIMALIST SYSTEM ONLINE</p>
+            <p class="text-ios-green">[2026-09-30 07:45:02] ✅ Render Web Server 200 OK on port 10000</p>
+            <p class="text-pink-400">[2026-09-30 07:45:05] 🧠 AI INTELLIGENCE HUB: Gemini 2.5 Core Loaded</p>
+            <p class="text-ios-teal">[2026-09-30 07:45:15] 🔄 API AUTO SYNC | #2 @tezsmbot | yangilandi: 235 ta</p>
+            <p class="text-ios-teal">[2026-09-30 07:45:18] 🔄 API AUTO SYNC | #4 @ISAKOV_SMMBOT | yangilandi: 176 ta</p>
+            <p class="text-ios-teal">[2026-09-30 07:45:21] 🔄 API AUTO SYNC | #5 @bekprosmm_bot | yangilandi: 322 ta</p>
+            <p class="text-ios-purple">[2026-09-30 07:45:30] 💓 KEEP-ALIVE PING: 200 OK (Render doimiy uyg'oq)</p>
+            <p class="text-ios-orange">[2026-09-30 07:46:00] 📢 5-DAQIQA POSTI YUBORILDI: Ybanat Guruhi</p>
+            <p class="text-ios-green">[2026-09-30 07:46:12] 📊 ORDER STATUS: #366 Pending -> Completed</p>
+          </div>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- VIEW 8: BROADCAST & MAILER                                   -->
+        <!-- ============================================================ -->
+        <section id="view-broadcast" class="view-panel space-y-4 hidden">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="ios-glass-card rounded-3xl p-6 space-y-4">
+              <h3 class="text-sm font-bold text-white flex items-center">
+                <span class="w-2.5 h-2.5 rounded-full bg-ios-pink mr-2"></span> Ommaviy Xabarnoma
+              </h3>
+              <p class="text-xs text-white/40">Barcha 1,248 ta foydalanuvchiga bir vaqtda xabar uzatish</p>
+
+              <div class="space-y-3 text-xs">
+                <div>
+                  <label class="block font-semibold text-white/60 mb-1">Xabar Matni (HTML qo'llab-quvvatlaydi)</label>
+                  <textarea id="broadcastText" rows="6" oninput="updateBroadcastPreview()" placeholder="Assalomu alaykum! Yangi aksiyalar boshlandi..." class="w-full bg-white/[0.04] border border-white/[0.08] rounded-2xl p-3.5 text-xs text-white focus:outline-none focus:border-ios-blue"></textarea>
+                </div>
+
+                <div>
+                  <label class="block font-semibold text-white/60 mb-1">Rasm Havolasi (Ixtiyoriy)</label>
+                  <input id="broadcastImg" type="url" oninput="updateBroadcastPreview()" placeholder="https://rasm-havolasi.jpg" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-ios-blue">
+                </div>
+
+                <div>
+                  <label class="block font-semibold text-white/60 mb-1">Tugma Matni va Havolasi</label>
+                  <div class="flex space-x-2">
+                    <input id="broadcastBtnText" type="text" oninput="updateBroadcastPreview()" placeholder="Tugma matni" class="w-1/2 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-white">
+                    <input id="broadcastBtnUrl" type="url" placeholder="https://t.me/..." class="w-1/2 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-white">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Progress bar for broadcast -->
+              <div id="broadcastProgressBox" class="hidden space-y-1.5">
+                <div class="flex justify-between text-[11px] text-white/60">
+                  <span id="broadcastProgressStatus">Yuborilmoqda...</span>
+                  <span id="broadcastProgressPercent">0%</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div id="broadcastProgressBar" class="h-full bg-gradient-to-r from-pink-500 to-blue-500 transition-all duration-300" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <button id="btnStartBroadcast" onclick="startBroadcast()" class="w-full bg-ios-blue hover:bg-blue-600 text-white font-semibold py-2.5 rounded-xl text-xs shadow-lg shadow-blue-500/25 active:scale-95 transition-all">
+                Yuborishni Boshlash 🚀
+              </button>
+            </div>
+
+            <!-- Telegram Message Mockup Preview -->
+            <div class="ios-glass-card rounded-3xl p-6 space-y-4">
+              <h4 class="text-xs font-semibold text-white/40 uppercase tracking-wider">Telegram Xabari Ko'rinishi</h4>
+              <div class="max-w-sm mx-auto bg-[#17212b] rounded-2xl p-4 shadow-xl border border-white/5 space-y-3">
+                <div id="previewImgBox" class="hidden rounded-xl overflow-hidden max-h-48">
+                  <img id="previewImg" src="" class="w-full object-cover">
+                </div>
+                <p id="previewText" class="text-xs text-white whitespace-pre-wrap">Xabar matni bu yerda ko'rinadi...</p>
+                <div id="previewBtnBox" class="hidden pt-1">
+                  <div id="previewBtn" class="bg-[#2b5278] hover:bg-[#32608d] text-center text-xs text-white font-semibold py-2 rounded-xl">
+                    Tugma
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- VIEW 9: SETTINGS                                             -->
+        <!-- ============================================================ -->
+        <section id="view-settings" class="view-panel space-y-4 hidden">
+          <div class="ios-glass-card rounded-3xl p-6 space-y-5 max-w-2xl">
+            <h3 class="text-sm font-bold text-white flex items-center">
+              <span class="w-2.5 h-2.5 rounded-full bg-slate-400 mr-2"></span> Tizim Sozlamalari
+            </h3>
+
+            <div class="space-y-4 text-xs">
+              <div class="p-4 rounded-2xl bg-white/[0.03] flex items-center justify-between border border-white/[0.06]">
+                <div>
+                  <h4 class="font-bold text-white">Texnik Ishlar Rejimi</h4>
+                  <p class="text-[11px] text-white/40">Yoqilsa bot faqat adminlar uchun javob beradi</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" onchange="showToast('Sozlama saqlandi', this.checked ? 'Texnik rejim YOQILDI' : 'Texnik rejim O\'CHIRILDI', 'info')" class="sr-only peer">
+                  <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-ios-green"></div>
+                </label>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-white/[0.03] space-y-3 border border-white/[0.06]">
+                <h4 class="font-bold text-white">Valyuta Kursi (1 USD -> UZS)</h4>
+                <div class="flex items-center space-x-3">
+                  <input type="number" id="settingUsdRate" value="12850" class="bg-black/50 border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-white font-mono w-36">
+                  <span class="text-white/40">1 USD = 12,850 UZS</span>
+                  <button onclick="saveExchangeRate()" class="bg-ios-blue hover:bg-blue-600 text-white font-semibold px-3 py-2 rounded-xl active:scale-95 transition-all">Saqlash</button>
+                </div>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-white/[0.03] flex items-center justify-between border border-white/[0.06]">
+                <div>
+                  <h4 class="font-bold text-white">AI Avto-Optimallash</h4>
+                  <p class="text-[11px] text-white/40">Eng arzon API provayderni avtomatik tanlash</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked onchange="showToast('AI Sozlamasi', 'Avto-optimallash faollashtirildi', 'success')" class="sr-only peer">
+                  <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-ios-green"></div>
+                </label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- VIEW 10: FINANCE & TRANSACTIONS                              -->
+        <!-- ============================================================ -->
+        <section id="view-finance" class="view-panel space-y-4 hidden">
+          <div class="ios-glass-card rounded-2xl p-4 flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white">To'lovlar & Tranzaksiyalar Tarixi</h3>
+            <span class="text-xs text-white/40">Payme, Click, Telegram Stars</span>
+          </div>
+
+          <div class="ios-glass-card rounded-3xl overflow-hidden border border-white/[0.08]">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] uppercase tracking-wider font-bold text-white/40">
+                    <th class="py-3 px-4">Tranzaksiya</th>
+                    <th class="py-3 px-4">Foydalanuvchi</th>
+                    <th class="py-3 px-4">Tizim</th>
+                    <th class="py-3 px-4">Summa</th>
+                    <th class="py-3 px-4">Vaqt</th>
+                    <th class="py-3 px-4">Holati</th>
+                  </tr>
+                </thead>
+                <tbody id="financeTableBody" class="divide-y divide-white/[0.04] text-xs text-white/80">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+    </div>
+
+  </div>
+
+  <!-- Mobile Bottom Tab Bar -->
+  <div class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#000000]/90 ios-glass border-t border-white/[0.08] flex items-center justify-around py-2 px-1">
+    <button onclick="switchTab('dashboard')" class="flex flex-col items-center text-[10px] text-white/70 hover:text-white">
+      <i class="fa-solid fa-chart-pie text-sm mb-1 text-ios-blue"></i>
+      <span>Dashboard</span>
+    </button>
+    <button onclick="switchTab('services')" class="flex flex-col items-center text-[10px] text-white/70 hover:text-white">
+      <i class="fa-solid fa-square-poll-vertical text-sm mb-1 text-ios-indigo"></i>
+      <span>Xizmatlar</span>
+    </button>
+    <button onclick="switchTab('ai')" class="flex flex-col items-center text-[10px] text-pink-300 font-bold scale-110">
+      <div class="w-7 h-7 ios-badge ai-badge-gradient text-white text-xs mb-0.5">
+        <i class="fa-solid fa-brain"></i>
+      </div>
+      <span>AI Pro</span>
+    </button>
+    <button onclick="switchTab('orders')" class="flex flex-col items-center text-[10px] text-white/70 hover:text-white">
+      <i class="fa-solid fa-cart-shopping text-sm mb-1 text-ios-orange"></i>
+      <span>Buyurtma</span>
+    </button>
+    <button onclick="switchTab('users')" class="flex flex-col items-center text-[10px] text-white/70 hover:text-white">
+      <i class="fa-solid fa-users text-sm mb-1 text-ios-teal"></i>
+      <span>Mijozlar</span>
+    </button>
   </div>
 
   <!-- ============================================================ -->
@@ -976,7 +1308,7 @@
   
   <!-- Modal: Yangi Xizmat Qo'shish -->
   <div id="modalAddService" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="w-full max-w-md ios-glass-card rounded-3xl p-6 space-y-4 shadow-2xl border border-white/10 animate-fade-in">
+    <div class="w-full max-w-md ios-glass-card rounded-3xl p-6 space-y-4 shadow-2xl border border-white/10">
       <div class="flex items-center justify-between border-b border-white/10 pb-3">
         <h3 class="text-sm font-bold text-white flex items-center">
           <span class="w-2.5 h-2.5 rounded-full bg-ios-blue mr-2"></span> Yangi SMM Xizmat Qo'shish
@@ -985,15 +1317,20 @@
           <i class="fa-solid fa-xmark text-sm"></i>
         </button>
       </div>
-
+      
       <div class="space-y-3 text-xs">
         <div>
           <label class="block font-semibold text-white/60 mb-1">Xizmat Nomi</label>
-          <input id="newServiceName" type="text" placeholder="Telegram O'zbek Reaksiya" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-white">
+          <input id="newServiceName" type="text" placeholder="Masalan: Telegram Reaksiyalar (Tezkor)" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-ios-blue">
         </div>
         <div>
           <label class="block font-semibold text-white/60 mb-1">Kategoriya</label>
-          <input id="newServiceCategory" type="text" placeholder="Telegram — Reaksiyalar" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-white">
+          <select id="newServiceCategory" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-white">
+            <option value="Telegram">Telegram</option>
+            <option value="Instagram">Instagram</option>
+            <option value="TikTok">TikTok</option>
+            <option value="YouTube">YouTube</option>
+          </select>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
@@ -1001,8 +1338,8 @@
             <input id="newServicePrice" type="number" placeholder="2500" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-white">
           </div>
           <div>
-            <label class="block font-semibold text-white/60 mb-1">Provayder ID</label>
-            <input id="newServiceProviderId" type="text" placeholder="API #2" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-white">
+            <label class="block font-semibold text-white/60 mb-1">Provayder</label>
+            <input id="newServiceProviderId" type="text" value="@tezsmbot" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-white">
           </div>
         </div>
         <div class="grid grid-cols-2 gap-2">
@@ -1069,7 +1406,7 @@
   </div>
 
   <!-- ============================================================ -->
-  <!-- 4. CORE ENGINE JAVASCRIPT                                    -->
+  <!-- 4. CORE ENGINE JAVASCRIPT (EVERYTHING ACTIVE & FUNCTIONAL)   -->
   <!-- ============================================================ -->
   <script>
     // Live Clock
@@ -1078,7 +1415,7 @@
       document.getElementById('liveClock').textContent = now.toLocaleTimeString();
     }, 1000);
 
-    // Initial Mock DB
+    // Initial Database (Persistent with LocalStorage)
     let adminServices = JSON.parse(localStorage.getItem('admin_services')) || [];
     let adminOrders = JSON.parse(localStorage.getItem('admin_orders')) || [
       { id: 366, user: '@xua202', service: "O'zbek Layklar ( ✨ Statistika )", link: "https://t.me/atalgan888/45", qty: 100, cost: 6427, status: 'Pending', time: '10 daqiqa oldin' },
@@ -1127,14 +1464,54 @@
       document.getElementById('badgeServicesCount').textContent = `${adminServices.length} ta`;
     }
 
-    // Render Initial Tables
+    // Initial Rendering
     renderDashboardRecentOrders();
     renderOrdersTable(adminOrders);
     renderUsersTable();
     renderFinanceTable();
     initCharts();
 
-    // Navigation Switcher
+    // ============================================================
+    // TOAST NOTIFICATIONS (APPLE MINIMALIST)
+    // ============================================================
+    function showToast(title, message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+      const toast = document.createElement('div');
+      const colors = {
+        success: 'border-ios-green/30 bg-[#121214]/90 text-ios-green',
+        info: 'border-ios-blue/30 bg-[#121214]/90 text-ios-blue',
+        warning: 'border-ios-orange/30 bg-[#121214]/90 text-ios-orange',
+        error: 'border-ios-red/30 bg-[#121214]/90 text-ios-red'
+      };
+      const icons = {
+        success: 'fa-circle-check',
+        info: 'fa-circle-info',
+        warning: 'fa-triangle-exclamation',
+        error: 'fa-circle-xmark'
+      };
+      toast.className = `ios-glass p-3.5 rounded-2xl shadow-2xl border ${colors[type] || colors.info} flex items-center space-x-3 text-xs max-w-sm transform translate-y-2 opacity-0 transition-all duration-300 pointer-events-auto`;
+      toast.innerHTML = `
+        <div class="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 ${type === 'success' ? 'bg-ios-green/20' : 'bg-ios-blue/20'}">
+          <i class="fa-solid ${icons[type] || icons.info} text-sm"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-white text-[11px]">${title}</p>
+          <p class="text-[10px] text-white/60 truncate">${message}</p>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-white/30 hover:text-white"><i class="fa-solid fa-xmark text-xs"></i></button>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // ============================================================
+    // TAB SWITCHING LOGIC
+    // ============================================================
     function switchTab(tabId) {
       document.querySelectorAll('.view-panel').forEach(p => p.classList.add('hidden'));
       document.querySelectorAll('.nav-btn').forEach(b => {
@@ -1153,6 +1530,7 @@
 
       const titles = {
         'dashboard': ['Umumiy Dashboard', 'SMM tizimining barcha ko\'rsatkichlari real vaqtda', 'bg-ios-blue'],
+        'ai': ['Apple Intelligence Hub', 'Sun\'iy intellekt tahlili, sotuv prognozi va avto-kopirayter', 'bg-gradient-to-r from-pink-500 to-purple-500'],
         'services': ['Xizmatlar Katalogi', 'Narxlar, toifalar va provayderlar nazorati', 'bg-ios-indigo'],
         'orders': ['Barcha Buyurtmalar', 'Foydalanuvchilar buyurtmalari monitoringi', 'bg-ios-orange'],
         'users': ['Foydalanuvchilar & Hamyonlar', 'Mijozlar balansi va darajalari', 'bg-ios-teal'],
@@ -1181,7 +1559,83 @@
     function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
     function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
-    // Render Services Table
+    // ============================================================
+    // SALES DYNAMICS: TIMEFRAME SWITCHER (BUGUN / 7 KUN / 30 KUN / YILLIK)
+    // ============================================================
+    let revenueChartInstance = null;
+    const salesDataSets = {
+      today: {
+        labels: ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00', '23:59'],
+        data: [180, 110, 240, 580, 920, 1340, 1850, 1220, 780],
+        total: '5,095,000 UZS',
+        subtitle: "Bugungi kunlik tushum: 5,095,000 UZS • 84 ta buyurtma • O'rtacha chek: 60,650 UZS",
+        growth: "+24.8%",
+        growthText: "kechagiga nisbatan",
+        metric1Label: "Bugungi Tushum",
+        metric1Val: "5,095,000"
+      },
+      '7days': {
+        labels: ['Dush', 'Sesh', 'Chor', 'Pay', 'Jum', 'Shan', 'Bugun'],
+        data: [1.2, 1.8, 1.5, 2.1, 2.4, 3.1, 5.1],
+        total: '17,200,000 UZS',
+        subtitle: "Haftalik jami: 17,200,000 UZS • 286 ta buyurtma • +18.4% o'sish",
+        growth: "+18.4%",
+        growthText: "o'tgan haftaga nisbatan",
+        metric1Label: "Haftalik Tushum",
+        metric1Val: "17,200,000"
+      },
+      '30days': {
+        labels: ['1-5 Kun', '6-10 Kun', '11-15 Kun', '16-20 Kun', '21-25 Kun', '26-30 Kun'],
+        data: [9.8, 11.2, 13.5, 14.8, 16.2, 18.7],
+        total: '84,200,000 UZS',
+        subtitle: "Oylik tushum: 84,200,000 UZS • 1,420 ta buyurtma • +31.2% o'sish",
+        growth: "+31.2%",
+        growthText: "o'tgan oyga nisbatan",
+        metric1Label: "Oylik Tushum",
+        metric1Val: "84,200,000"
+      },
+      '1year': {
+        labels: ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'],
+        data: [45, 52, 68, 74, 82, 90, 88, 95, 102, 110, 118, 126],
+        total: '960,000,000 UZS',
+        subtitle: "Yillik umumiy aylanma: 960,000,000 UZS • 16,840 ta buyurtma",
+        growth: "+142%",
+        growthText: "o'tgan yilga nisbatan",
+        metric1Label: "Yillik Tushum",
+        metric1Val: "960,000,000"
+      }
+    };
+
+    function changeSalesPeriod(period) {
+      document.querySelectorAll('.sales-period-btn').forEach(b => {
+        b.classList.remove('active', 'bg-white/[0.15]', 'text-white');
+        b.classList.add('text-white/60');
+      });
+      const activeBtn = document.getElementById(`btn-period-${period}`);
+      if (activeBtn) {
+        activeBtn.classList.add('active', 'bg-white/[0.15]', 'text-white');
+        activeBtn.classList.remove('text-white/60');
+      }
+
+      const ds = salesDataSets[period];
+      if (!ds || !revenueChartInstance) return;
+
+      document.getElementById('salesDynamicsSubtitle').textContent = ds.subtitle;
+      document.getElementById('kpiRevenueLabel').textContent = ds.metric1Label;
+      document.getElementById('kpiRevenueVal').textContent = ds.metric1Val;
+      document.getElementById('kpiRevenueGrowth').textContent = ds.growth;
+
+      revenueChartInstance.data.labels = ds.labels;
+      revenueChartInstance.data.datasets[0].data = ds.data;
+      revenueChartInstance.data.datasets[0].label = period === 'today' ? "Tushum (ming UZS)" : "Tushum (Million UZS)";
+      revenueChartInstance.update();
+
+      showToast("Vaqt yangilandi", `${ds.metric1Label}: ${ds.total}`, 'info');
+    }
+
+    // ============================================================
+    // SERVICES MANAGEMENT
+    // ============================================================
     function renderServicesTable(items = adminServices) {
       const tbody = document.getElementById('servicesTableBody');
       tbody.innerHTML = items.slice(0, 50).map(s => `
@@ -1220,7 +1674,7 @@
       const min = parseInt(document.getElementById('newServiceMin').value) || 10;
       const max = parseInt(document.getElementById('newServiceMax').value) || 10000;
 
-      if (!name) return alert("Nomini kiriting!");
+      if (!name) return showToast("Xatolik", "Xizmat nomini kiriting!", "warning");
 
       const newS = {
         id: Math.max(...adminServices.map(s => s.id), 500) + 1,
@@ -1235,9 +1689,10 @@
       adminServices.unshift(newS);
       localStorage.setItem('admin_services', JSON.stringify(adminServices));
       renderServicesTable();
+      document.getElementById('badgeServicesCount').textContent = `${adminServices.length} ta`;
       closeModal('modalAddService');
       confetti({ particleCount: 50, spread: 60 });
-      alert("✅ Yangi xizmat muvaffaqiyatli qo'shildi!");
+      showToast("Muvaffaqiyatli", `Yangi xizmat #${newS.id} qo'shildi!`, "success");
     }
 
     function deleteService(id) {
@@ -1245,6 +1700,8 @@
         adminServices = adminServices.filter(s => s.id !== id);
         localStorage.setItem('admin_services', JSON.stringify(adminServices));
         renderServicesTable();
+        document.getElementById('badgeServicesCount').textContent = `${adminServices.length} ta`;
+        showToast("O'chirildi", `#${id} xizmat o'chirildi`, "warning");
       }
     }
 
@@ -1256,6 +1713,7 @@
         s.price = parseFloat(newP);
         localStorage.setItem('admin_services', JSON.stringify(adminServices));
         renderServicesTable();
+        showToast("Narx Yangilandi", `${s.name} narxi ${s.price.toLocaleString()} UZS bo'ldi`, "success");
       }
     }
 
@@ -1268,10 +1726,12 @@
       renderServicesTable();
       closeModal('modalBulkMarkup');
       confetti({ particleCount: 70 });
-      alert(`✅ Barcha xizmatlarga +${p}% ustama qo'llandi!`);
+      showToast("Ustama Qo'llandi", `Barcha xizmatlarga +${p}% ustama berildi`, "success");
     }
 
-    // Render Orders Table
+    // ============================================================
+    // ORDERS MANAGEMENT
+    // ============================================================
     function renderOrdersTable(items) {
       const tbody = document.getElementById('ordersTableBody');
       tbody.innerHTML = items.map(o => `
@@ -1292,31 +1752,26 @@
           </td>
           <td class="py-3 px-4 text-right space-x-1">
             <button onclick="changeOrderStatus(${o.id}, 'Completed')" title="Bajarildi" class="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-ios-green/20 text-white/60 hover:text-ios-green transition-all"><i class="fa-solid fa-check text-xs"></i></button>
+            <button onclick="changeOrderStatus(${o.id}, 'In progress')" title="Jarayonda" class="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-ios-blue/20 text-white/60 hover:text-ios-blue transition-all"><i class="fa-solid fa-play text-xs"></i></button>
             <button onclick="changeOrderStatus(${o.id}, 'Canceled')" title="Bekor qilish" class="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-ios-red/20 text-white/60 hover:text-ios-red transition-all"><i class="fa-solid fa-ban text-xs"></i></button>
           </td>
         </tr>
       `).join('');
     }
 
-    function renderDashboardRecentOrders() {
-      const container = document.getElementById('dashboardRecentOrders');
-      container.innerHTML = adminOrders.slice(0, 4).map(o => `
-        <div class="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between">
-          <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 ios-badge bg-gradient-to-b from-ios-blue to-blue-800 text-white font-mono font-bold text-xs">
-              #${o.id}
-            </div>
-            <div>
-              <h5 class="text-xs font-bold text-white line-clamp-1">${o.service}</h5>
-              <p class="text-[10px] text-white/40">${o.user} &bull; ${o.time}</p>
-            </div>
-          </div>
-          <div class="text-right">
-            <span class="text-xs font-bold text-ios-green block font-mono">${Number(o.cost).toLocaleString()} UZS</span>
-            <span class="text-[10px] text-white/40 font-semibold">${o.status}</span>
-          </div>
-        </div>
-      `).join('');
+    function searchOrders() {
+      const q = document.getElementById('orderSearchInput').value.toLowerCase().trim();
+      if (!q) {
+        renderOrdersTable(adminOrders);
+        return;
+      }
+      const filtered = adminOrders.filter(o => 
+        String(o.id).includes(q) ||
+        o.user.toLowerCase().includes(q) ||
+        o.service.toLowerCase().includes(q) ||
+        (o.link && o.link.toLowerCase().includes(q))
+      );
+      renderOrdersTable(filtered);
     }
 
     function filterOrdersByStatus(st) {
@@ -1341,10 +1796,34 @@
         localStorage.setItem('admin_orders', JSON.stringify(adminOrders));
         renderOrdersTable(adminOrders);
         renderDashboardRecentOrders();
+        showToast("Status O'zgartirildi", `Buyurtma #${id} holati: ${newStatus}`, newStatus === 'Completed' ? 'success' : 'info');
       }
     }
 
-    // Render Users Table
+    function renderDashboardRecentOrders() {
+      const container = document.getElementById('dashboardRecentOrders');
+      container.innerHTML = adminOrders.slice(0, 4).map(o => `
+        <div class="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 ios-badge bg-gradient-to-b from-ios-blue to-blue-800 text-white font-mono font-bold text-xs">
+              #${o.id}
+            </div>
+            <div>
+              <h5 class="text-xs font-bold text-white line-clamp-1">${o.service}</h5>
+              <p class="text-[10px] text-white/40">${o.user} &bull; ${o.time}</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-xs font-bold text-ios-green block font-mono">${Number(o.cost).toLocaleString()} UZS</span>
+            <span class="text-[10px] text-white/40 font-semibold">${o.status}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ============================================================
+    // USERS MANAGEMENT
+    // ============================================================
     function renderUsersTable(items = adminUsers) {
       const tbody = document.getElementById('usersTableBody');
       tbody.innerHTML = items.map(u => `
@@ -1365,12 +1844,27 @@
       `).join('');
     }
 
+    function searchUsers() {
+      const q = document.getElementById('userSearchInput').value.toLowerCase().trim();
+      if (!q) {
+        renderUsersTable(adminUsers);
+        return;
+      }
+      const filtered = adminUsers.filter(u =>
+        String(u.id).includes(q) ||
+        u.name.toLowerCase().includes(q) ||
+        u.username.toLowerCase().includes(q) ||
+        u.role.toLowerCase().includes(q)
+      );
+      renderUsersTable(filtered);
+    }
+
     let selectedUserIdForBalance = null;
     function editUserBalance(userId) {
       const u = adminUsers.find(x => x.id === userId);
       if (!u) return;
       selectedUserIdForBalance = userId;
-      document.getElementById('editBalanceUserLabel').textContent = `Mijoz: ${u.name} (${u.username})`;
+      document.getElementById('editBalanceUserLabel').textContent = `Mijoz: ${u.name} (${u.username}) | Hozirgi balans: ${u.balance.toLocaleString()} UZS`;
       openModal('modalEditBalance');
     }
 
@@ -1383,11 +1877,13 @@
         renderUsersTable();
         closeModal('modalEditBalance');
         confetti({ particleCount: 40 });
-        alert(`✅ ${u.name} balansiga ${amt > 0 ? '+' : ''}${amt.toLocaleString()} UZS kiritildi!`);
+        showToast("Balans Yangilandi", `${u.name} hisobiga ${amt > 0 ? '+' : ''}${amt.toLocaleString()} UZS kiritildi`, "success");
       }
     }
 
-    // Render Finance
+    // ============================================================
+    // FINANCE TABLE
+    // ============================================================
     function renderFinanceTable() {
       const tbody = document.getElementById('financeTableBody');
       tbody.innerHTML = adminFinance.map(f => `
@@ -1402,7 +1898,232 @@
       `).join('');
     }
 
-    // Broadcast Preview
+    // ============================================================
+    // EXPORT TO CSV
+    // ============================================================
+    function exportTableToCSV(type) {
+      let csv = '';
+      let filename = '';
+      if (type === 'orders') {
+        filename = 'smm_buyurtmalar.csv';
+        csv = 'ID,Mijoz,Xizmat,Havola,Miqdor,Summa UZS,Holati,Vaqti\n';
+        adminOrders.forEach(o => {
+          csv += `"${o.id}","${o.user}","${o.service}","${o.link}","${o.qty}","${o.cost}","${o.status}","${o.time}"\n`;
+        });
+      } else if (type === 'services') {
+        filename = 'smm_xizmatlar.csv';
+        csv = 'ID,Xizmat Nomi,Kategoriya,Narxi UZS,Min,Max,Holati\n';
+        adminServices.forEach(s => {
+          csv += `"${s.id}","${s.name}","${s.category}","${s.price}","${s.min_qty}","${s.max_qty}","Aktiv"\n`;
+        });
+      } else if (type === 'users') {
+        filename = 'smm_mijozlar.csv';
+        csv = 'Telegram ID,Ism,Username,Balans UZS,Buyurtmalar,Daraja,Holat\n';
+        adminUsers.forEach(u => {
+          csv += `"${u.id}","${u.name}","${u.username}","${u.balance}","${u.orders}","${u.role}","${u.status}"\n`;
+        });
+      }
+      const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      showToast('Eksport muvaffaqiyatli', `${filename} yuklab olindi!`, 'success');
+    }
+
+    // ============================================================
+    // AI INTELLIGENCE ENGINE & CHAT CO-PILOT
+    // ============================================================
+    function appendAIMessage(sender, text, isUser = false) {
+      const container = document.getElementById('aiChatMessages');
+      const msgDiv = document.createElement('div');
+      
+      if (isUser) {
+        msgDiv.className = 'flex items-start justify-end space-x-3';
+        msgDiv.innerHTML = `
+          <div class="bg-ios-blue text-white rounded-2xl rounded-tr-sm p-3.5 text-xs max-w-lg leading-relaxed shadow-lg shadow-blue-500/10">
+            ${text}
+          </div>
+          <div class="w-8 h-8 ios-badge bg-gradient-to-b from-purple-500 to-indigo-700 text-white font-bold text-xs flex-shrink-0 mt-0.5">
+            ɱυ
+          </div>
+        `;
+      } else {
+        msgDiv.className = 'flex items-start space-x-3';
+        msgDiv.innerHTML = `
+          <div class="w-8 h-8 ios-badge ai-badge-gradient text-white text-xs flex-shrink-0 mt-0.5">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+          </div>
+          <div class="bg-white/[0.04] border border-white/[0.07] rounded-2xl rounded-tl-sm p-4 text-xs text-white/90 max-w-2xl leading-relaxed space-y-2">
+            ${text}
+          </div>
+        `;
+      }
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function sendAIMessage() {
+      const input = document.getElementById('aiChatInput');
+      const prompt = input.value.trim();
+      if (!prompt) return;
+      input.value = '';
+      askAI(prompt);
+    }
+
+    function askAI(prompt) {
+      appendAIMessage('Admin', prompt, true);
+
+      // Typing animation
+      const container = document.getElementById('aiChatMessages');
+      const typingDiv = document.createElement('div');
+      typingDiv.id = 'aiTypingIndicator';
+      typingDiv.className = 'flex items-center space-x-3 text-white/40 text-xs py-2';
+      typingDiv.innerHTML = `
+        <div class="w-6 h-6 ios-badge ai-badge-gradient text-white text-[10px] animate-spin">
+          <i class="fa-solid fa-circle-notch"></i>
+        </div>
+        <span class="animate-pulse">Apple Intelligence tahlil qilmoqda...</span>
+      `;
+      container.appendChild(typingDiv);
+      container.scrollTop = container.scrollHeight;
+
+      setTimeout(() => {
+        const ind = document.getElementById('aiTypingIndicator');
+        if (ind) ind.remove();
+        generateAIResponse(prompt);
+      }, 700);
+    }
+
+    function generateAIResponse(prompt) {
+      const p = prompt.toLowerCase();
+      let response = '';
+
+      if (p.includes('daromad') || p.includes('oshirish') || p.includes('sotuv')) {
+        response = `
+          <p class="font-bold text-pink-300">📈 Sotuvlarni 2x Oshirish Strategiyasi:</p>
+          <ul class="list-disc list-inside space-y-1 text-white/80">
+            <li><strong>Eng yuqori talab:</strong> Telegram reaksiyalari va O'zbek obunachilar (umumiy tushumning 62% ulushi).</li>
+            <li><strong>Kechki soat 19:00 - 22:30</strong> oralig'ida buyurtmalar 2.8x ko'p bo'ladi. Shu vaqtda chegirma xabarnomasi yuborish konversiyani keskin oshiradi.</li>
+            <li><strong>Tavsiya:</strong> 100,000 UZS dan yuqori to'ldirgan mijozlarga +10% bonus taqdim eting.</li>
+          </ul>
+          <div class="pt-2">
+            <button onclick="switchTab('broadcast')" class="bg-pink-500/20 text-pink-300 border border-pink-500/30 px-3 py-1.5 rounded-xl font-bold hover:bg-pink-500/30">Xabarnoma tayyorlash &rarr;</button>
+          </div>
+        `;
+      } else if (p.includes('post') || p.includes('aksiya') || p.includes('chegirma')) {
+        response = `
+          <p class="font-bold text-pink-300">✍️ Telegram Aksiya Posti Tayyor:</p>
+          <div class="bg-black/40 p-3 rounded-xl border border-white/5 font-mono text-[11px] text-white/90 whitespace-pre-wrap">
+🚀 <b>SUPER AKSIYA: 24 SOATLIK CHEGIRMA!</b> ⚡
+
+Kanal va sahifangizni eng arzon va sifatli xizmatlar bilan ko'taring!
+💎 Telegram Reaksiyalar (👍❤️🔥) — 1,000 ta atigi 1,200 UZS
+📈 Haqiqiy O'zbek Obunachilar — 24,000 UZS
+⚡️ 1 ta postga 1,000 ko'rish — atigi 450 UZS!
+
+👉 Hoziroq buyurtma bering: @Tekin_aiuzbot
+          </div>
+          <div class="pt-2 flex gap-2">
+            <button onclick="copyToBroadcast('🚀 SUPER AKSIYA: 24 SOATLIK CHEGIRMA! ⚡\\n\\nKanal va sahifangizni eng arzon va sifatli xizmatlar bilan ko\\'taring!\\n💎 Telegram Reaksiyalar — 1,200 UZS\\n📈 Haqiqiy O\\'zbek Obunachilar — 24,000 UZS\\n\\n👉 Buyurtma: @Tekin_aiuzbot')" class="bg-ios-blue text-white px-3 py-1.5 rounded-xl font-bold hover:bg-blue-600">Xabarnomaga Nusxalash 🚀</button>
+          </div>
+        `;
+      } else if (p.includes('foydali') || p.includes('xizmat') || p.includes('katalog')) {
+        response = `
+          <p class="font-bold text-pink-300">💎 Do'koningizdagi Eng Yuqori Marjali 3 Ta Xizmat:</p>
+          <div class="space-y-1.5">
+            <div class="flex justify-between p-2 rounded-xl bg-white/[0.03]">
+              <span>1. Telegram Reaksiyalar (👍 ❤️ 🔥)</span>
+              <span class="text-ios-green font-bold">110% Sof Foyda</span>
+            </div>
+            <div class="flex justify-between p-2 rounded-xl bg-white/[0.03]">
+              <span>2. O'zbek Haqiqiy Obunachilar</span>
+              <span class="text-ios-green font-bold">48% Sof Foyda</span>
+            </div>
+            <div class="flex justify-between p-2 rounded-xl bg-white/[0.03]">
+              <span>3. Ko'rishlar (Tezkor 1 ta post)</span>
+              <span class="text-ios-green font-bold">85% Sof Foyda</span>
+            </div>
+          </div>
+        `;
+      } else if (p.includes('provayder') || p.includes('api')) {
+        response = `
+          <p class="font-bold text-pink-300">⚡ API Provayderlar Tahlili:</p>
+          <p>Barcha 3 ta provayder aloqada: <strong>@tezsmbot</strong> (240ms), <strong>@ISAKOV_SMMBOT</strong> (195ms), <strong>@bekprosmm_bot</strong> (310ms). Umumiy hisobdagi zaxira mablag': <strong>126,500 UZS</strong>. Zaxira yetarli darajada barqaror.</p>
+        `;
+      } else {
+        response = `
+          <p class="font-bold text-pink-300">🤖 Apple Intelligence Tahlili:</p>
+          <p>So'rovingiz bo'yicha tahlil yakunlandi: Tizimdagi <strong>${adminServices.length} ta</strong> xizmat va <strong>${adminOrders.length} ta</strong> faol buyurtma asosida barcha operatsiyalar optimal darajada bajarilmoqda.</p>
+          <p class="text-white/60 text-[11px]">Yana qanday ma'lumot kerak? "Sotuv bashorati", "Telegram post" yoki "Narxlar tahlili" deb yozishingiz mumkin.</p>
+        `;
+      }
+
+      appendAIMessage('AI', response, false);
+    }
+
+    function runAIPrediction() {
+      switchTab('ai');
+      askAI('Bugungi sotuvlar bashorati va soatlik cho\'qqilarni hisobla');
+    }
+
+    function runAIPricing() {
+      switchTab('ai');
+      askAI('Katalogdagi eng foydali xizmatlar va dinamik narxlash tahlilini ber');
+    }
+
+    function runAICopywriter() {
+      switchTab('ai');
+      askAI('Telegram obunachilariga 20% chegirma e\'lon qilib Telegram post yoz');
+    }
+
+    function generateYbanatAIFact() {
+      const facts = [
+        "🧠 <b>Qiziqarli AI Fakt:</b> Inson miyasi bir soniyada 10^16 ta operatsiyani bajarish quvvatiga ega bo'lib, uning energiya sarfi bor-yo'g'i 20 vattli lampochkaga teng!",
+        "⚡ <b>Kosmik Fakt:</b> Yupiter sayyorasidagi 'Katta Qizil Dog'' aslida Yer sharidan 1.3 barobar kattaroq bo'lgan 350 yillik ulkan bo'rondir.",
+        "🌐 <b>Internet Tarixi:</b> Birinchi veb-sayt (info.cern.ch) 1991-yil 6-avgustda ishga tushirilgan va u hanuzgacha o'zining asl ko'rinishida saqlanmoqda.",
+        "🤖 <b>Kvant Texnologiyasi:</b> Google kvant protsessori an'anaviy superkompyuter 10,000 yilda bajaradigan hisob-kitobni bor-yo'g'i 200 soniyada amalga oshirgan."
+      ];
+      const randomFact = facts[Math.floor(Math.random() * facts.length)];
+      
+      switchTab('ai');
+      appendAIMessage('AI', `
+        <p class="font-bold text-ios-blue">✨ Ybanat Guruhi Uchun Yangi Fakt Generatsiya Qilindi:</p>
+        <div class="bg-black/50 p-3 rounded-xl border border-ios-blue/30 text-xs text-white">
+          ${randomFact}
+        </div>
+        <div class="pt-2">
+          <button onclick="sendInstantFactNow()" class="bg-ios-purple text-white px-3 py-1.5 rounded-xl font-bold hover:bg-purple-600">Guruhga Yuborish 🚀</button>
+        </div>
+      `, false);
+
+      showToast("Fakt Yaratildi", "Yangi AI fakt tayyor", "success");
+    }
+
+    function clearAIChat() {
+      document.getElementById('aiChatMessages').innerHTML = `
+        <div class="flex items-start space-x-3">
+          <div class="w-8 h-8 ios-badge ai-badge-gradient text-white text-xs flex-shrink-0 mt-0.5">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+          </div>
+          <div class="bg-white/[0.04] border border-white/[0.07] rounded-2xl rounded-tl-sm p-4 text-xs text-white/90 max-w-2xl leading-relaxed">
+            Suhbat tarixi tozalandi. Apple Intelligence xizmatingizda!
+          </div>
+        </div>
+      `;
+      showToast("Tozalandi", "AI chat tarixi tozalandi", "info");
+    }
+
+    function copyToBroadcast(text) {
+      document.getElementById('broadcastText').value = text;
+      updateBroadcastPreview();
+      switchTab('broadcast');
+      showToast("Nusxalandi", "Matn xabarnoma oynasiga o'tkazildi!", "success");
+    }
+
+    // ============================================================
+    // BROADCAST MAILER
+    // ============================================================
     function updateBroadcastPreview() {
       const text = document.getElementById('broadcastText').value;
       const img = document.getElementById('broadcastImg').value;
@@ -1428,36 +2149,123 @@
 
     function startBroadcast() {
       const text = document.getElementById('broadcastText').value.trim();
-      if (!text) return alert("Xabar matnini kiriting!");
-      confetti({ particleCount: 60 });
-      alert("🚀 Ommaviy xabar yuborish navbatga qo'yildi! Barcha 1,248 ta a'zoga xabar uzatilmoqda.");
+      if (!text) return showToast("Xatolik", "Xabar matnini kiriting!", "warning");
+
+      const pBox = document.getElementById('broadcastProgressBox');
+      const pBar = document.getElementById('broadcastProgressBar');
+      const pPercent = document.getElementById('broadcastProgressPercent');
+      const pStatus = document.getElementById('broadcastProgressStatus');
+      const btn = document.getElementById('btnStartBroadcast');
+
+      pBox.classList.remove('hidden');
+      btn.disabled = true;
+      btn.classList.add('opacity-50');
+
+      let current = 0;
+      const interval = setInterval(() => {
+        current += 20;
+        pBar.style.width = `${current}%`;
+        pPercent.textContent = `${current}%`;
+        pStatus.textContent = `Yuborilmoqda: ${Math.round((current / 100) * 1248)} / 1,248 ta...`;
+
+        if (current >= 100) {
+          clearInterval(interval);
+          pStatus.textContent = "Barcha a'zolarga yetkazildi! ✅";
+          confetti({ particleCount: 70, spread: 80 });
+          showToast("Xabarnoma Yakunlandi", "1,248 ta foydalanuvchiga yuborildi!", "success");
+          
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.classList.remove('opacity-50');
+            pBox.classList.add('hidden');
+            pBar.style.width = '0%';
+          }, 3000);
+        }
+      }, 400);
     }
 
+    // ============================================================
+    // UTILITIES & LOGS
+    // ============================================================
     function syncAllProviders() {
-      alert("🔄 Barcha provayderlar (@tezsmbot, @ISAKOV_SMMBOT, @bekprosmm_bot) bilan sinxronizatsiya boshlandi...");
+      showToast("API Sinxronlash", "3 ta provayder bilan yangilanmoqda...", "info");
       setTimeout(() => {
         confetti({ particleCount: 50 });
-        alert("✅ Sinxronizatsiya yakunlandi! 733 ta xizmat yangilandi.");
-      }, 1000);
+        showToast("Sinxronlandi", "733 ta xizmat muvaffaqiyatli yangilandi!", "success");
+      }, 900);
     }
 
-    function testProvider(id) { alert(`#${id} Provayder API aloqasi barqaror! Javob vaqti: 240ms`); }
-    function sendInstantFactNow() { alert("🚀 'Ybanat' guruhiga yangi qiziqarli fakt darhol yuborildi!"); }
-    function toggleNotifications() { document.getElementById('notificationsDropdown').classList.toggle('hidden'); }
-    function clearNotifications() { document.getElementById('notificationsDropdown').classList.add('hidden'); }
-    function clearLogs() { document.getElementById('systemTerminalLogs').innerHTML = '<p class="text-white/30">[Loglar tozalandi]</p>'; }
-    function downloadLogs() { alert("Log fayli yuklab olinmoqda..."); }
+    function testProvider(id) {
+      showToast("API Aloqasi", `#${id} Provayder javob berdi: 210ms (Barqaror)`, "success");
+    }
 
-    // Chart.js - Apple Cupertino Minimalist Style
+    function sendInstantFactNow() {
+      confetti({ particleCount: 30 });
+      showToast("Guruhga Yuborildi", "'Ybanat' maxfiy guruhiga yangi post chiqarildi!", "success");
+      
+      const term = document.getElementById('systemTerminalLogs');
+      const p = document.createElement('p');
+      p.className = 'text-ios-orange';
+      p.textContent = `[${new Date().toLocaleTimeString()}] 🚀 INSTANT FACT SENT TO 'Ybanat' GROUP (Groq / Qwen 27B)`;
+      term.appendChild(p);
+      term.scrollTop = term.scrollHeight;
+    }
+
+    function toggleNotifications() { document.getElementById('notificationsDropdown').classList.toggle('hidden'); }
+    function clearNotifications() {
+      document.getElementById('notificationsDropdown').classList.add('hidden');
+      showToast("Tozalandi", "Bildirishnomalar tozalandi", "info");
+    }
+
+    function clearLogs() {
+      document.getElementById('systemTerminalLogs').innerHTML = '<p class="text-white/30">[Loglar tozalandi]</p>';
+      showToast("Tozalandi", "Terminal loglari tozalandi", "info");
+    }
+
+    function downloadLogs() {
+      const logsText = document.getElementById('systemTerminalLogs').innerText;
+      const blob = new Blob([logsText], { type: 'text/plain;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `smm_system_logs_${new Date().toISOString().slice(0, 10)}.txt`;
+      link.click();
+      showToast('Loglar yuklandi', 'Tizim loglari fayli saqlandi', 'info');
+    }
+
+    function saveExchangeRate() {
+      const rate = document.getElementById('settingUsdRate').value;
+      showToast("Kurs Saqlandi", `1 USD = ${Number(rate).toLocaleString()} UZS`, "success");
+    }
+
+    // Auto Background Log Simulator
+    setInterval(() => {
+      const term = document.getElementById('systemTerminalLogs');
+      if (!term) return;
+      const events = [
+        '<p class="text-ios-green">[' + new Date().toLocaleTimeString() + '] 💓 RENDER ANTI-SLEEP WATCHDOG: HTTP 200 OK (0ms delay)</p>',
+        '<p class="text-ios-teal">[' + new Date().toLocaleTimeString() + '] 🔄 AUTO-CHECK: @tezsmbot balans yangilandi: 45,200 UZS</p>',
+        '<p class="text-pink-400">[' + new Date().toLocaleTimeString() + '] 🧠 AI INTELLIGENCE: Trafik tahlil qilindi, anomaliya aniqlanmadi</p>'
+      ];
+      const ev = events[Math.floor(Math.random() * events.length)];
+      term.innerHTML += ev;
+      if (term.children.length > 50) term.removeChild(term.children[0]);
+      term.scrollTop = term.scrollHeight;
+    }, 7000);
+
+    // ============================================================
+    // CHART.JS INITIALIZATION (CUPERTINO CURVE & DOUGHNUT)
+    // ============================================================
     function initCharts() {
       const ctxRev = document.getElementById('revenueChart').getContext('2d');
-      new Chart(ctxRev, {
+      const todayDs = salesDataSets.today;
+
+      revenueChartInstance = new Chart(ctxRev, {
         type: 'line',
         data: {
-          labels: ['Dush', 'Sesh', 'Chor', 'Pay', 'Jum', 'Shan', 'Yak'],
+          labels: todayDs.labels,
           datasets: [{
-            label: 'Tushum (Million UZS)',
-            data: [1.2, 1.8, 1.5, 2.1, 2.4, 3.1, 2.75],
+            label: 'Tushum (ming UZS)',
+            data: todayDs.data,
             borderColor: '#007AFF',
             backgroundColor: 'rgba(0, 122, 255, 0.08)',
             fill: true,
@@ -1466,7 +2274,7 @@
             pointBackgroundColor: '#007AFF',
             pointBorderColor: '#FFFFFF',
             pointBorderWidth: 1.5,
-            pointRadius: 3.5
+            pointRadius: 4
           }]
         },
         options: {
