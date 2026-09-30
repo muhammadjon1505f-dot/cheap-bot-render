@@ -17,4 +17,4 @@ COPY . .
 
 EXPOSE 10000
 
-CMD ["python3", "cheap.py"]
+CMD ["sh", "-c", "python3 -m http.server ${PORT:-10000} & python3 cheap.py"]
