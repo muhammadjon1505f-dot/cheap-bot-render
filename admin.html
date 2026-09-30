@@ -2,22 +2,20 @@
 <html lang="uz" class="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cheap SMM | Ultimate Enterprise Admin Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Cheap SMM | Apple Cupertino Minimalist Admin</title>
 
-  <!-- Google Fonts: Plus Jakarta Sans -->
+  <!-- Apple SF Pro / Plus Jakarta Sans Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-  <!-- Tailwind CSS & FontAwesome Icons -->
+  <!-- Tailwind CSS & FontAwesome 6.5 -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-  <!-- Chart.js for Advanced Analytics -->
+  <!-- Chart.js & Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <!-- Canvas Confetti for celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
   <script>
@@ -26,22 +24,25 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-            mono: ['"JetBrains Mono"', 'monospace'],
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'SFMono-Regular', 'Menlo', 'monospace'],
           },
           colors: {
-            brand: {
-              50: '#eef2ff',
-              100: '#e0e7ff',
-              400: '#818cf8',
-              500: '#6366f1',
-              600: '#4f46e5',
-              700: '#4338ca',
-            },
-            darkBg: '#090d16',
-            cardBg: '#111726',
-            panelBg: '#151d30',
-            cardBorder: 'rgba(255, 255, 255, 0.08)',
+            ios: {
+              bg: '#000000',
+              card: '#121214',
+              secondary: '#1c1c1e',
+              tertiary: '#2c2c2e',
+              blue: '#007AFF',
+              green: '#34C759',
+              indigo: '#5856D6',
+              orange: '#FF9500',
+              pink: '#FF2D55',
+              purple: '#AF52DE',
+              red: '#FF3B30',
+              teal: '#5AC8FA',
+              yellow: '#FFCC00',
+            }
           }
         }
       }
@@ -49,275 +50,330 @@
   </script>
 
   <style>
+    :root {
+      --ios-blur: blur(24px);
+    }
     body {
-      background-color: #090d16;
-      color: #f3f4f6;
+      background-color: #000000;
+      color: #F2F2F7;
       font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
     }
-    .glass {
-      background: rgba(17, 23, 38, 0.85);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.07);
-    }
-    .glass-card {
-      background: linear-gradient(135deg, rgba(21, 29, 48, 0.9) 0%, rgba(17, 23, 38, 0.95) 100%);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
-    }
-    .glass-card:hover {
-      border-color: rgba(99, 102, 241, 0.3);
-      box-shadow: 0 15px 35px -5px rgba(99, 102, 241, 0.15);
-    }
-    .no-scrollbar::-webkit-scrollbar { display: none; }
-    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     
-    /* Custom Scrollbar for tables */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0b0f19; }
-    ::-webkit-scrollbar-thumb { background: #252f48; border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: #3e4c6e; }
+    /* Apple Cupertino Frosted Glass */
+    .ios-glass {
+      background: rgba(18, 18, 20, 0.78);
+      backdrop-filter: var(--ios-blur);
+      -webkit-backdrop-filter: var(--ios-blur);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .ios-glass-card {
+      background: rgba(22, 22, 26, 0.85);
+      backdrop-filter: var(--ios-blur);
+      -webkit-backdrop-filter: var(--ios-blur);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .ios-glass-card:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+      transform: translateY(-2px);
+    }
 
-    .pulse-dot {
-      box-shadow: 0 0 12px 2px #10b981;
+    /* Apple Squircle Icon Badges */
+    .ios-badge {
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.35);
+      position: relative;
     }
-    .gradient-text {
-      background: linear-gradient(135deg, #a5b4fc 0%, #c084fc 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+    .ios-badge::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      pointer-events: none;
     }
+
+    /* iOS Segmented Control */
+    .ios-segmented {
+      background: rgba(118, 118, 128, 0.18);
+      border-radius: 10px;
+      padding: 3px;
+    }
+    .ios-segmented-btn.active {
+      background: rgba(255, 255, 255, 0.15);
+      color: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Smooth Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
   </style>
 </head>
-<body class="min-h-screen flex antialiased selection:bg-indigo-500 selection:text-white">
+<body class="min-h-screen flex selection:bg-ios-blue selection:text-white">
 
   <!-- ============================================================ -->
-  <!-- 1. SIDEBAR (LEFT NAVIGATION)                                 -->
+  <!-- 1. APPLE CUERTINO SIDEBAR                                    -->
   <!-- ============================================================ -->
-  <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 bg-darkBg/95 backdrop-blur-2xl border-r border-white/10 flex flex-col justify-between transition-transform duration-300 -translate-x-full lg:translate-x-0">
+  <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 bg-[#09090b]/90 ios-glass border-r border-white/[0.08] flex flex-col justify-between transition-all duration-300 -translate-x-full lg:translate-x-0">
     
-    <!-- Sidebar Header -->
     <div>
-      <div class="px-6 py-5 flex items-center justify-between border-b border-white/10">
+      <!-- Brand & Header -->
+      <div class="px-6 py-5 flex items-center justify-between border-b border-white/[0.08]">
         <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-600 to-pink-500 p-0.5 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-            <div class="w-full h-full bg-darkBg rounded-[14px] flex items-center justify-center">
-              <i class="fa-solid fa-bolt text-indigo-400 text-lg"></i>
-            </div>
+          <div class="w-10 h-10 ios-badge bg-gradient-to-b from-[#007AFF] to-[#0051B3] text-white text-lg shadow-lg shadow-blue-500/25">
+            <i class="fa-brands fa-apple text-xl"></i>
           </div>
           <div>
             <div class="flex items-center space-x-1.5">
-              <h1 class="font-extrabold text-white text-base tracking-tight">CheapSMM</h1>
-              <span class="text-[9px] bg-indigo-500/20 text-indigo-300 font-extrabold px-1.5 py-0.5 rounded border border-indigo-500/30 uppercase">Enterprise</span>
+              <span class="font-bold text-white text-base tracking-tight">SMM Studio</span>
+              <span class="text-[9px] bg-white/[0.08] text-white/80 font-bold px-1.5 py-0.5 rounded-md border border-white/[0.06]">PRO</span>
             </div>
-            <p class="text-[11px] text-slate-400 font-medium">Boshqaruv Markazi</p>
+            <p class="text-[11px] text-white/40 font-medium">Cupertino Minimalist</p>
           </div>
         </div>
-        <button onclick="toggleSidebar()" class="lg:hidden text-slate-400 hover:text-white p-1">
+        <button onclick="toggleSidebar()" class="lg:hidden text-white/50 hover:text-white p-1">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
 
-      <!-- Quick Server Health Badge -->
-      <div class="px-6 pt-4 pb-2">
-        <div class="bg-cardBg rounded-xl p-3 border border-white/5 flex items-center justify-between">
-          <div class="flex items-center space-x-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 pulse-dot animate-pulse"></span>
-            <span class="text-xs font-bold text-white">Render Server</span>
+      <!-- Live Server Status Indicator (Apple HomeKit Pill) -->
+      <div class="px-5 pt-4 pb-2">
+        <div class="bg-white/[0.03] rounded-2xl p-3 border border-white/[0.06] flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-2.5 h-2.5 rounded-full bg-ios-green animate-pulse shadow-[0_0_8px_#34C759]"></div>
+            <div>
+              <p class="text-xs font-bold text-white">Render Cloud 24/7</p>
+              <p class="text-[10px] text-white/40">Frankfurt &bull; 0ms latency</p>
+            </div>
           </div>
-          <span class="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 font-bold px-2 py-0.5 rounded border border-emerald-500/20">200 OK (24/7)</span>
+          <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full border border-ios-green/30">ONLINE</span>
         </div>
       </div>
 
-      <!-- Navigation Menu Groups -->
-      <nav class="px-4 py-2 space-y-6 overflow-y-auto max-h-[calc(100vh-250px)]">
-        <!-- Group 1: Asosiy -->
+      <!-- Navigation Menu Items -->
+      <nav class="px-3.5 py-3 space-y-6 overflow-y-auto max-h-[calc(100vh-250px)]">
+        
+        <!-- Section: Overview -->
         <div>
-          <p class="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-2">Asosiy</p>
+          <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-white/30 mb-2">Umumiy</p>
           <div class="space-y-1">
-            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn active w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 shadow-md shadow-indigo-600/30 transition-all">
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn active w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-white bg-white/[0.12] shadow-sm transition-all">
               <div class="flex items-center space-x-3">
-                <i class="fa-solid fa-chart-pie text-sm"></i>
-                <span>Umumiy Dashboard</span>
+                <div class="w-7 h-7 ios-badge bg-gradient-to-b from-ios-blue to-blue-700 text-white text-xs">
+                  <i class="fa-solid fa-chart-pie"></i>
+                </div>
+                <span>Dashboard</span>
               </div>
-              <span class="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-bold">Jonli</span>
+              <span class="w-1.5 h-1.5 rounded-full bg-ios-blue"></span>
             </button>
           </div>
         </div>
 
-        <!-- Group 2: SMM Xizmatlar & Buyurtmalar -->
+        <!-- Section: SMM Services & Orders -->
         <div>
-          <p class="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-2">SMM Operatsiyalari</p>
+          <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-white/30 mb-2">Boshqaruv</p>
           <div class="space-y-1">
-            <button onclick="switchTab('services')" id="nav-services" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+            <button onclick="switchTab('services')" id="nav-services" class="nav-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-white/70 hover:text-white hover:bg-white/[0.05] transition-all">
               <div class="flex items-center space-x-3">
-                <i class="fa-solid fa-layer-group text-sm"></i>
-                <span>Xizmatlar Boshqaruvi</span>
+                <div class="w-7 h-7 ios-badge bg-gradient-to-b from-ios-indigo to-indigo-800 text-white text-xs">
+                  <i class="fa-solid fa-square-poll-vertical"></i>
+                </div>
+                <span>Xizmatlar Katalogi</span>
               </div>
-              <span id="badgeServicesCount" class="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-bold">100+</span>
+              <span id="badgeServicesCount" class="text-[10px] bg-white/[0.06] text-white/60 font-mono px-2 py-0.5 rounded-full">100+</span>
             </button>
 
-            <button onclick="switchTab('orders')" id="nav-orders" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+            <button onclick="switchTab('orders')" id="nav-orders" class="nav-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-white/70 hover:text-white hover:bg-white/[0.05] transition-all">
               <div class="flex items-center space-x-3">
-                <i class="fa-solid fa-cart-shopping text-sm"></i>
-                <span>Barcha Buyurtmalar</span>
+                <div class="w-7 h-7 ios-badge bg-gradient-to-b from-ios-orange to-amber-700 text-white text-xs">
+                  <i class="fa-solid fa-cart-shopping"></i>
+                </div>
+                <span>Buyurtmalar</span>
               </div>
-              <span class="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-bold border border-amber-500/30">Faol</span>
+              <span class="text-[10px] bg-ios-orange/20 text-ios-orange font-bold px-2 py-0.5 rounded-full">Faol</span>
             </button>
 
-            <button onclick="switchTab('channels')" id="nav-channels" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+            <button onclick="switchTab('channels')" id="nav-channels" class="nav-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-white/70 hover:text-white hover:bg-white/[0.05] transition-all">
               <div class="flex items-center space-x-3">
-                <i class="fa-solid fa-tower-broadcast text-sm"></i>
-                <span>Avto-Reaksiya Kanallari</span>
+                <div class="w-7 h-7 ios-badge bg-gradient-to-b from-ios-purple to-purple-800 text-white text-xs">
+                  <i class="fa-solid fa-bolt"></i>
+                </div>
+                <span>Avto-Reaksiyalar</span>
               </div>
-              <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold">Avto</span>
+              <span class="text-[10px] bg-ios-purple/20 text-ios-purple font-bold px-2 py-0.5 rounded-full">2 Kanal</span>
             </button>
           </div>
         </div>
 
-        <!-- Group 3: Moliya & Foydalanuvchilar -->
+        <!-- Section: Finance & Users -->
         <div>
-          <p class="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-2">Moliya & Foydalanuvchilar</p>
+          <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-white/30 mb-2">Moliya & Foydalanuvchilar</p>
           <div class="space-y-1">
-            <button onclick="switchTab('users')" id="nav-users" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+            <button onclick="switchTab('users')" id="nav-users" class="nav-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-white/70 hover:text-white hover:bg-white/[0.05] transition-all">
               <div class="flex items-center space-x-3">
-                <i class="fa-solid fa-users text-sm"></i>
+                <div class="w-7 h-7 ios-badge bg-gradient-to-b from-ios-teal to-teal-700 text-white text-xs">
+                  <i class="fa-solid fa-users"></i>
+                </div>
                 <span>Foydalanuvchilar</span>
               </div>
-              <span class="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-bold">Baza</span>
+              <span class="text-[10px] bg-white/[0.06] text-white/60 font-mono px-2 py-0.5 rounded-full">1,248</span>
             </button>
 
-            <button onclick="switchTab('finance')" id="nav-finance" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+            <button onclick="switchTab('finance')" id="nav-finance" class="nav-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-white/70 hover:text-white hover:bg-white/[0.05] transition-all">
               <div class="flex items-center space-x-3">
-                <i class="fa-solid fa-wallet text-sm"></i>
-                <span>Hisob To'ldirishlar</span>
+                <div class="w-7 h-7 ios-badge bg-gradient-to-b from-ios-green to-emerald-700 text-white text-xs">
+                  <i class="fa-solid fa-wallet"></i>
+                </div>
+                <span>To'lovlar & Tranzaksiyalar</span>
               </div>
             </button>
 
-            <button onclick="switchTab('providers')" id="nav-providers" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+            <button onclick="switchTab('providers')" id="nav-providers" class="nav-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-white/70 hover:text-white hover:bg-white/[0.05] transition-all">
               <div class="flex items-center space-x-3">
-                <i class="fa-solid fa-network-wired text-sm"></i>
+                <div class="w-7 h-7 ios-badge bg-gradient-to-b from-ios-pink to-rose-700 text-white text-xs">
+                  <i class="fa-solid fa-network-wired"></i>
+                </div>
                 <span>API Provayderlar</span>
               </div>
-              <span class="text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-bold">3 ta</span>
+              <span class="text-[10px] bg-ios-pink/20 text-ios-pink font-bold px-2 py-0.5 rounded-full">3 Ta</span>
             </button>
           </div>
         </div>
 
-        <!-- Group 4: Aloqa & Tizim -->
+        <!-- Section: Marketing & Tools -->
         <div>
-          <p class="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-2">Marketing & Tizim</p>
+          <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-white/30 mb-2">Tizim & Marketing</p>
           <div class="space-y-1">
-            <button onclick="switchTab('broadcast')" id="nav-broadcast" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+            <button onclick="switchTab('broadcast')" id="nav-broadcast" class="nav-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-white/70 hover:text-white hover:bg-white/[0.05] transition-all">
               <div class="flex items-center space-x-3">
-                <i class="fa-solid fa-bullhorn text-sm"></i>
+                <div class="w-7 h-7 ios-badge bg-gradient-to-b from-[#FF2D55] to-red-700 text-white text-xs">
+                  <i class="fa-solid fa-bullhorn"></i>
+                </div>
                 <span>Ommaviy Xabarnoma</span>
               </div>
             </button>
 
-            <button onclick="switchTab('logs')" id="nav-logs" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+            <button onclick="switchTab('logs')" id="nav-logs" class="nav-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-white/70 hover:text-white hover:bg-white/[0.05] transition-all">
               <div class="flex items-center space-x-3">
-                <i class="fa-solid fa-terminal text-sm"></i>
+                <div class="w-7 h-7 ios-badge bg-gradient-to-b from-slate-600 to-slate-800 text-white text-xs">
+                  <i class="fa-solid fa-terminal"></i>
+                </div>
                 <span>Jonli Loglar & Audit</span>
               </div>
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span class="w-2 h-2 rounded-full bg-ios-green"></span>
             </button>
 
-            <button onclick="switchTab('settings')" id="nav-settings" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all">
+            <button onclick="switchTab('settings')" id="nav-settings" class="nav-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-white/70 hover:text-white hover:bg-white/[0.05] transition-all">
               <div class="flex items-center space-x-3">
-                <i class="fa-solid fa-sliders text-sm"></i>
-                <span>Tizim Sozlamalari</span>
+                <div class="w-7 h-7 ios-badge bg-gradient-to-b from-slate-500 to-slate-700 text-white text-xs">
+                  <i class="fa-solid fa-gear"></i>
+                </div>
+                <span>Sozlamalar</span>
               </div>
             </button>
           </div>
         </div>
+
       </nav>
     </div>
 
-    <!-- Sidebar Footer / Admin Identity -->
-    <div class="p-4 border-t border-white/10">
-      <div class="bg-cardBg rounded-2xl p-3 border border-white/5 flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center font-bold text-white text-sm shadow-md">
+    <!-- Admin Profile Badge -->
+    <div class="p-4 border-t border-white/[0.08]">
+      <div class="bg-white/[0.03] rounded-2xl p-3 border border-white/[0.06] flex items-center space-x-3">
+        <div class="w-10 h-10 ios-badge bg-gradient-to-tr from-purple-500 to-indigo-600 font-bold text-white text-sm">
           M
         </div>
         <div class="flex-1 overflow-hidden">
           <h4 class="text-xs font-bold text-white truncate">ɱυxα (@xua202)</h4>
-          <p class="text-[10px] text-emerald-400 font-semibold flex items-center">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1"></span> Bosh Admin
+          <p class="text-[10px] text-ios-green font-medium flex items-center">
+            <span class="w-1.5 h-1.5 rounded-full bg-ios-green mr-1"></span> Boshqaruvchi
           </p>
         </div>
-        <a href="https://t.me/Tekin_aiuzbot" target="_blank" title="Telegram Botga o'tish" class="text-slate-400 hover:text-indigo-400 p-1.5 transition-colors">
-          <i class="fa-brands fa-telegram text-base"></i>
+        <a href="https://t.me/Tekin_aiuzbot" target="_blank" class="w-8 h-8 rounded-xl bg-white/[0.05] flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.1] transition-all">
+          <i class="fa-brands fa-telegram text-sm"></i>
         </a>
       </div>
     </div>
   </aside>
 
   <!-- ============================================================ -->
-  <!-- 2. MAIN CONTENT AREA                                         -->
+  <!-- 2. MAIN VIEW CONTAINER                                       -->
   <!-- ============================================================ -->
   <div class="flex-1 lg:pl-72 flex flex-col min-w-0">
 
-    <!-- Top App Navbar -->
-    <header class="sticky top-0 z-30 h-16 bg-darkBg/80 backdrop-blur-xl border-b border-white/10 px-6 flex items-center justify-between">
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-40 h-16 bg-[#000000]/80 ios-glass border-b border-white/[0.08] px-6 flex items-center justify-between">
       <div class="flex items-center space-x-4">
-        <button onclick="toggleSidebar()" class="lg:hidden text-slate-300 hover:text-white p-2 rounded-xl glass">
-          <i class="fa-solid fa-bars text-lg"></i>
+        <button onclick="toggleSidebar()" class="lg:hidden text-white/70 hover:text-white p-2 rounded-xl bg-white/[0.05]">
+          <i class="fa-solid fa-bars text-base"></i>
         </button>
         <div>
           <h2 id="currentTabTitle" class="text-base font-extrabold text-white tracking-tight flex items-center">
-            <i class="fa-solid fa-chart-pie text-indigo-400 mr-2"></i> Umumiy Dashboard
+            <span class="w-2.5 h-2.5 rounded-full bg-ios-blue mr-2"></span> Umumiy Dashboard
           </h2>
-          <p id="currentTabSubtitle" class="text-[11px] text-slate-400 hidden sm:block">SMM botning barcha ko'rsatkichlari real vaqtda</p>
+          <p id="currentTabSubtitle" class="text-[11px] text-white/40 hidden sm:block">SMM tizimining barcha ko'rsatkichlari real vaqtda</p>
         </div>
       </div>
 
-      <!-- Header Action Utilities -->
+      <!-- Quick Action Utilities -->
       <div class="flex items-center space-x-3">
-        <!-- Quick Action Buttons -->
-        <button onclick="openModal('modalAddService')" class="hidden md:flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-lg shadow-indigo-600/25 active:scale-95 transition-all">
-          <i class="fa-solid fa-plus text-[10px]"></i>
-          <span>Xizmat Qo'shish</span>
+        <!-- Quick Action Buttons with iOS SF Badges -->
+        <button onclick="openModal('modalAddService')" class="hidden sm:flex items-center space-x-2 bg-ios-blue hover:bg-blue-600 text-white font-semibold text-xs px-3.5 py-2 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all">
+          <i class="fa-solid fa-plus text-[11px]"></i>
+          <span>Yangi Xizmat</span>
         </button>
 
-        <button onclick="openModal('modalSyncProviders')" class="hidden sm:flex items-center space-x-1.5 glass text-slate-200 hover:text-white font-semibold text-xs px-3 py-2 rounded-xl active:scale-95 transition-all">
-          <i class="fa-solid fa-rotate text-[11px] text-indigo-400"></i>
-          <span>API Sinxronizatsiya</span>
+        <button onclick="syncAllProviders()" class="hidden md:flex items-center space-x-2 bg-white/[0.06] hover:bg-white/[0.1] text-white text-xs font-semibold px-3 py-2 rounded-xl border border-white/[0.08] active:scale-95 transition-all">
+          <i class="fa-solid fa-arrows-rotate text-ios-teal text-[11px]"></i>
+          <span>API Sinxronlash</span>
         </button>
 
         <!-- Live Clock -->
-        <div class="hidden xl:flex items-center space-x-2 glass px-3 py-1.5 rounded-xl border-white/5 font-mono text-xs text-slate-300">
-          <i class="fa-regular fa-clock text-indigo-400"></i>
+        <div class="hidden xl:flex items-center space-x-2 bg-white/[0.04] px-3 py-1.5 rounded-xl border border-white/[0.06] font-mono text-xs text-white/70">
+          <i class="fa-regular fa-clock text-white/40 text-[11px]"></i>
           <span id="liveClock">00:00:00</span>
         </div>
 
-        <!-- Notification Bell -->
+        <!-- Notification Center Bell -->
         <div class="relative">
-          <button onclick="toggleNotifications()" class="w-9 h-9 rounded-xl glass flex items-center justify-center text-slate-300 hover:text-white transition-colors relative">
+          <button onclick="toggleNotifications()" class="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white/70 hover:text-white transition-all relative">
             <i class="fa-regular fa-bell text-sm"></i>
-            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-pink-500 animate-ping"></span>
-            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-pink-500"></span>
+            <span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-ios-red animate-ping"></span>
+            <span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-ios-red"></span>
           </button>
           
-          <!-- Notifications Dropdown -->
-          <div id="notificationsDropdown" class="hidden absolute right-0 mt-2 w-80 glass-card rounded-2xl p-4 space-y-3 z-50 shadow-2xl border border-white/10">
+          <!-- Dropdown -->
+          <div id="notificationsDropdown" class="hidden absolute right-0 mt-3 w-80 ios-glass-card rounded-2xl p-4 space-y-3 z-50 shadow-2xl border border-white/10">
             <div class="flex items-center justify-between border-b border-white/10 pb-2">
-              <h5 class="text-xs font-bold text-white">Bildirishnomalar</h5>
-              <span class="text-[10px] text-indigo-400 cursor-pointer" onclick="clearNotifications()">Tozalash</span>
+              <span class="text-xs font-bold text-white">Bildirishnomalar</span>
+              <span onclick="clearNotifications()" class="text-[10px] text-ios-blue cursor-pointer">Tozalash</span>
             </div>
             <div class="space-y-2 text-xs">
-              <div class="p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-start space-x-2">
-                <i class="fa-solid fa-check text-emerald-400 mt-0.5"></i>
+              <div class="p-2.5 rounded-xl bg-white/[0.04] border border-white/5 flex items-start space-x-2.5">
+                <div class="w-6 h-6 ios-badge bg-ios-green text-white text-[10px] flex-shrink-0">
+                  <i class="fa-solid fa-check"></i>
+                </div>
                 <div>
-                  <p class="font-bold text-white text-[11px]">API Auto Sync muvaffaqiyatli</p>
-                  <p class="text-[10px] text-slate-400">3 ta provayderdan 733 xizmat yangilandi</p>
+                  <p class="font-bold text-white text-[11px]">API Sinxronizatsiya yakunlandi</p>
+                  <p class="text-[10px] text-white/40">3 ta provayderdan 733 xizmat yangilandi</p>
                 </div>
               </div>
-              <div class="p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-start space-x-2">
-                <i class="fa-solid fa-bolt text-indigo-400 mt-0.5"></i>
+              <div class="p-2.5 rounded-xl bg-white/[0.04] border border-white/5 flex items-start space-x-2.5">
+                <div class="w-6 h-6 ios-badge bg-ios-orange text-white text-[10px] flex-shrink-0">
+                  <i class="fa-solid fa-bolt"></i>
+                </div>
                 <div>
                   <p class="font-bold text-white text-[11px]">Yangi buyurtma qabul qilindi</p>
-                  <p class="text-[10px] text-slate-400">#366 - O'zbek layklar (100 ta)</p>
+                  <p class="text-[10px] text-white/40">#366 - O'zbek layklar (100 ta)</p>
                 </div>
               </div>
             </div>
@@ -327,7 +383,7 @@
       </div>
     </header>
 
-    <!-- Main Views Container -->
+    <!-- Main Content Body -->
     <main class="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">
 
       <!-- ============================================================ -->
@@ -335,95 +391,94 @@
       <!-- ============================================================ -->
       <section id="view-dashboard" class="view-panel space-y-6">
 
-        <!-- Top Metrics 4 Cards Grid -->
+        <!-- iOS 4 Primary Metric Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
-          <!-- Card 1: Jami Tushum -->
-          <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
+          <!-- Metric 1: Oylik Tushum -->
+          <div class="ios-glass-card rounded-3xl p-5 relative overflow-hidden">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Oylik Tushum</span>
-              <div class="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-                <i class="fa-solid fa-money-bill-wave text-sm"></i>
+              <span class="text-xs font-semibold text-white/50">Oylik Tushum</span>
+              <div class="w-9 h-9 ios-badge bg-gradient-to-b from-ios-green to-emerald-700 text-white text-sm">
+                <i class="fa-solid fa-arrow-trend-up"></i>
               </div>
             </div>
-            <div class="mt-3 flex items-baseline space-x-2">
+            <div class="mt-3 flex items-baseline space-x-1.5">
               <span class="text-2xl font-extrabold text-white tracking-tight">14,850,000</span>
-              <span class="text-xs font-semibold text-emerald-400">UZS</span>
+              <span class="text-xs font-bold text-ios-green">UZS</span>
             </div>
-            <div class="mt-2 flex items-center text-[11px] text-emerald-400 font-semibold">
-              <i class="fa-solid fa-arrow-trend-up mr-1"></i>
-              <span>+18.4% o'tgan haftaga nisbatan</span>
+            <div class="mt-2 text-[11px] text-white/40 font-medium flex items-center">
+              <span class="text-ios-green font-bold mr-1">+18.4%</span> o'tgan haftaga nisbatan
             </div>
           </div>
 
-          <!-- Card 2: Buyurtmalar -->
-          <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
+          <!-- Metric 2: Jami Buyurtmalar -->
+          <div class="ios-glass-card rounded-3xl p-5 relative overflow-hidden">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Jami Buyurtmalar</span>
-              <div class="w-9 h-9 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
-                <i class="fa-solid fa-cart-shopping text-sm"></i>
+              <span class="text-xs font-semibold text-white/50">Jami Buyurtmalar</span>
+              <div class="w-9 h-9 ios-badge bg-gradient-to-b from-ios-blue to-blue-700 text-white text-sm">
+                <i class="fa-solid fa-cart-shopping"></i>
               </div>
             </div>
-            <div class="mt-3 flex items-baseline space-x-2">
+            <div class="mt-3 flex items-baseline space-x-1.5">
               <span class="text-2xl font-extrabold text-white tracking-tight">3,482</span>
-              <span class="text-xs font-semibold text-slate-400">dona</span>
+              <span class="text-xs text-white/40">dona</span>
             </div>
-            <div class="mt-2 flex items-center text-[11px] text-indigo-400 font-semibold">
-              <i class="fa-solid fa-check-double mr-1"></i>
-              <span>Bugun: 142 ta buyurtma</span>
+            <div class="mt-2 text-[11px] text-white/40 font-medium flex items-center">
+              <span class="text-ios-blue font-bold mr-1">142 ta</span> bugungi buyurtmalar
             </div>
           </div>
 
-          <!-- Card 3: Faol Foydalanuvchilar -->
-          <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
+          <!-- Metric 3: Foydalanuvchilar -->
+          <div class="ios-glass-card rounded-3xl p-5 relative overflow-hidden">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Mijozlar Bazasi</span>
-              <div class="w-9 h-9 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400">
-                <i class="fa-solid fa-users text-sm"></i>
+              <span class="text-xs font-semibold text-white/50">Mijozlar Bazasi</span>
+              <div class="w-9 h-9 ios-badge bg-gradient-to-b from-ios-purple to-purple-800 text-white text-sm">
+                <i class="fa-solid fa-users"></i>
               </div>
             </div>
-            <div class="mt-3 flex items-baseline space-x-2">
+            <div class="mt-3 flex items-baseline space-x-1.5">
               <span class="text-2xl font-extrabold text-white tracking-tight">1,248</span>
-              <span class="text-xs font-semibold text-slate-400">a'zo</span>
+              <span class="text-xs text-white/40">a'zo</span>
             </div>
-            <div class="mt-2 flex items-center text-[11px] text-purple-400 font-semibold">
-              <i class="fa-solid fa-user-plus mr-1"></i>
-              <span>+24 ta yangi mijoz bugun</span>
+            <div class="mt-2 text-[11px] text-white/40 font-medium flex items-center">
+              <span class="text-ios-purple font-bold mr-1">+24 yangi</span> so'nggi 24 soatda
             </div>
           </div>
 
-          <!-- Card 4: API Provayderlar Balansi -->
-          <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
+          <!-- Metric 4: API Provayder Balansi -->
+          <div class="ios-glass-card rounded-3xl p-5 relative overflow-hidden">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Provayder Qoldig'i</span>
-              <div class="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400">
-                <i class="fa-solid fa-server text-sm"></i>
+              <span class="text-xs font-semibold text-white/50">Provayder Balansi</span>
+              <div class="w-9 h-9 ios-badge bg-gradient-to-b from-ios-orange to-amber-700 text-white text-sm">
+                <i class="fa-solid fa-server"></i>
               </div>
             </div>
-            <div class="mt-3 flex items-baseline space-x-2">
+            <div class="mt-3 flex items-baseline space-x-1.5">
               <span class="text-2xl font-extrabold text-white tracking-tight">$42.80</span>
-              <span class="text-xs font-semibold text-amber-400">USD</span>
+              <span class="text-xs font-bold text-ios-orange">USD</span>
             </div>
-            <div class="mt-2 flex items-center text-[11px] text-slate-400">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block mr-1.5"></span>
-              <span>3 ta API ulangan va aktiv</span>
+            <div class="mt-2 text-[11px] text-white/40 font-medium flex items-center">
+              <span class="w-2 h-2 rounded-full bg-ios-green mr-1.5"></span> 3 ta API to'liq ulangan
             </div>
           </div>
 
         </div>
 
-        <!-- Charts Section (2 Column) -->
+        <!-- Apple Minimalist Charts (Revenue + Category Distribution) -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          <!-- Chart 1: Revenue Timeline (2/3 width) -->
-          <div class="lg:col-span-2 glass-card rounded-3xl p-6 space-y-4">
+          <!-- Line Chart (2 Cols) -->
+          <div class="lg:col-span-2 ios-glass-card rounded-3xl p-6 space-y-4">
             <div class="flex items-center justify-between">
               <div>
-                <h3 class="text-sm font-bold text-white">Sotuvlar Dinamikasi (Oxirgi 7 kun)</h3>
-                <p class="text-xs text-slate-400">Buyurtmalar va kunlik tushum tahlili</p>
+                <h3 class="text-sm font-bold text-white tracking-tight">Sotuvlar Dinamikasi</h3>
+                <p class="text-xs text-white/40">Kunlik tushum va buyurtmalar hajmi</p>
               </div>
-              <div class="flex items-center space-x-2">
-                <span class="text-xs bg-indigo-500/20 text-indigo-400 font-bold px-2.5 py-1 rounded-lg border border-indigo-500/30">Haftalik</span>
+              <!-- iOS Segmented Period Selector -->
+              <div class="ios-segmented flex items-center space-x-1 text-[11px]">
+                <button class="ios-segmented-btn active px-3 py-1 font-semibold rounded-lg">7 Kun</button>
+                <button class="ios-segmented-btn px-3 py-1 font-semibold text-white/60 hover:text-white rounded-lg">30 Kun</button>
+                <button class="ios-segmented-btn px-3 py-1 font-semibold text-white/60 hover:text-white rounded-lg">Yillik</button>
               </div>
             </div>
             <div class="h-64 relative">
@@ -431,11 +486,11 @@
             </div>
           </div>
 
-          <!-- Chart 2: Category Distribution (1/3 width) -->
-          <div class="glass-card rounded-3xl p-6 space-y-4">
+          <!-- Donut Chart (1 Col) -->
+          <div class="ios-glass-card rounded-3xl p-6 space-y-4">
             <div>
-              <h3 class="text-sm font-bold text-white">Kategoriya Ulushi</h3>
-              <p class="text-xs text-slate-400">Eng ko'p sotilgan xizmat turlari</p>
+              <h3 class="text-sm font-bold text-white tracking-tight">Kategoriya Ulushi</h3>
+              <p class="text-xs text-white/40">Eng ommabop SMM yo'nalishlari</p>
             </div>
             <div class="h-64 relative flex items-center justify-center">
               <canvas id="categoryChart"></canvas>
@@ -444,56 +499,62 @@
 
         </div>
 
-        <!-- Recent Activity & Quick Controls -->
+        <!-- Recent Activity Feed & Live Channels -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          <!-- Recent Orders List -->
-          <div class="glass-card rounded-3xl p-6 space-y-4">
-            <div class="flex items-center justify-between border-b border-white/5 pb-3">
-              <h3 class="text-sm font-bold text-white flex items-center">
-                <i class="fa-solid fa-clock-rotate-left text-indigo-400 mr-2"></i> So'nggi Buyurtmalar
-              </h3>
-              <button onclick="switchTab('orders')" class="text-xs text-indigo-400 hover:text-indigo-300 font-bold">Barchasi &rarr;</button>
+          <!-- Recent Orders Card -->
+          <div class="ios-glass-card rounded-3xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-6 h-6 ios-badge bg-ios-blue text-white text-[10px]">
+                  <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <h3 class="text-sm font-bold text-white">So'nggi Buyurtmalar</h3>
+              </div>
+              <button onclick="switchTab('orders')" class="text-xs text-ios-blue hover:underline font-semibold">Barchasi &rarr;</button>
             </div>
             <div id="dashboardRecentOrders" class="space-y-2.5">
-              <!-- Dynamic Rows -->
+              <!-- Injected dynamically -->
             </div>
           </div>
 
-          <!-- Quick Auto Reaction Channels & Userbot Status -->
-          <div class="glass-card rounded-3xl p-6 space-y-4">
-            <div class="flex items-center justify-between border-b border-white/5 pb-3">
-              <h3 class="text-sm font-bold text-white flex items-center">
-                <i class="fa-solid fa-bolt text-purple-400 mr-2"></i> Faol Kuzatuvdagi Kanallar
-              </h3>
-              <button onclick="switchTab('channels')" class="text-xs text-purple-400 hover:text-purple-300 font-bold">Sozlash &rarr;</button>
+          <!-- Live Channels Monitor -->
+          <div class="ios-glass-card rounded-3xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-6 h-6 ios-badge bg-ios-purple text-white text-[10px]">
+                  <i class="fa-solid fa-tower-broadcast"></i>
+                </div>
+                <h3 class="text-sm font-bold text-white">Kuzatuvdagi Kanallar</h3>
+              </div>
+              <button onclick="switchTab('channels')" class="text-xs text-ios-purple hover:underline font-semibold">Boshqarish &rarr;</button>
             </div>
 
             <div class="space-y-3">
-              <div class="p-3.5 rounded-2xl glass flex items-center justify-between border border-white/5">
+              <div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                  <div class="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold">
-                    📢
+                  <div class="w-10 h-10 ios-badge bg-gradient-to-b from-ios-blue to-blue-800 text-white text-base">
+                    <i class="fa-solid fa-bullhorn"></i>
                   </div>
                   <div>
                     <h4 class="text-xs font-bold text-white">𝐀𝐭𝐚𝐥𝐠𝐚𝐧 (@atalgan888)</h4>
-                    <p class="text-[10px] text-slate-400">Reaksiyalar: 👍 ❤️ 🔥 | Tezlik: 3 soniya</p>
+                    <p class="text-[10px] text-white/40">Reaksiyalar: 👍 ❤️ 🔥 | Kechikish: 3s</p>
                   </div>
                 </div>
-                <span class="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded border border-emerald-500/30">ONLINE</span>
+                <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full border border-ios-green/30">ONLINE</span>
               </div>
 
-              <div class="p-3.5 rounded-2xl glass flex items-center justify-between border border-white/5">
+              <div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                  <div class="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold">
-                    👥
+                  <div class="w-10 h-10 ios-badge bg-gradient-to-b from-ios-purple to-purple-800 text-white text-base">
+                    <i class="fa-solid fa-brain"></i>
                   </div>
                   <div>
-                    <h4 class="text-xs font-bold text-white">Ybanat (Maxfiy Guruh)</h4>
-                    <p class="text-[10px] text-slate-400">Har 5 daqiqada: Sun'iy Intellekt Qiziqarli Faktlar</p>
+                    <h4 class="text-xs font-bold text-white">Ybanat (Guruh)</h4>
+                    <p class="text-[10px] text-white/40">AI Qiziqarli Faktlar &bull; Har 5 daqiqa</p>
                   </div>
                 </div>
-                <span class="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded border border-emerald-500/30">AVTO-POST</span>
+                <span class="text-[10px] font-mono bg-ios-purple/15 text-ios-purple font-bold px-2 py-0.5 rounded-full border border-ios-purple/30">AVTO-POST</span>
               </div>
             </div>
           </div>
@@ -508,14 +569,14 @@
       <section id="view-services" class="view-panel space-y-4 hidden">
         
         <!-- Controls Bar -->
-        <div class="glass-card rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-3">
+        <div class="ios-glass-card rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-3">
           <div class="flex items-center space-x-3 w-full md:w-auto">
             <div class="relative flex-1 md:w-80">
-              <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-              <input type="text" id="serviceSearchInput" oninput="filterAdminServices()" placeholder="Xizmat nomi, ID yoki kategoriya..." class="w-full pl-9 pr-4 py-2 rounded-xl bg-darkBg border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+              <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 text-xs"></i>
+              <input type="text" id="serviceSearchInput" oninput="filterAdminServices()" placeholder="Xizmat nomi, ID yoki kategoriya..." class="w-full pl-9 pr-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-white placeholder-white/30 focus:outline-none focus:border-ios-blue">
             </div>
             
-            <select id="serviceCategoryFilter" onchange="filterAdminServices()" class="bg-darkBg border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-indigo-500">
+            <select id="serviceCategoryFilter" onchange="filterAdminServices()" class="bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-ios-blue">
               <option value="all">Barcha Kategoriyalar</option>
               <option value="Telegram">Telegram</option>
               <option value="Instagram">Instagram</option>
@@ -525,44 +586,34 @@
           </div>
 
           <div class="flex items-center space-x-2 w-full md:w-auto justify-end">
-            <button onclick="openModal('modalBulkMarkup')" class="bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-bold px-3 py-2 rounded-xl active:scale-95 transition-all">
-              <i class="fa-solid fa-percent mr-1"></i> Ustama (% Narx)
+            <button onclick="openModal('modalBulkMarkup')" class="bg-ios-purple/15 hover:bg-ios-purple/25 text-ios-purple border border-ios-purple/30 text-xs font-semibold px-3 py-2 rounded-xl active:scale-95 transition-all">
+              <i class="fa-solid fa-percent mr-1"></i> Ustama (+%)
             </button>
-            <button onclick="openModal('modalAddService')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-lg shadow-indigo-600/25 active:scale-95 transition-all">
+            <button onclick="openModal('modalAddService')" class="bg-ios-blue hover:bg-blue-600 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all">
               <i class="fa-solid fa-plus mr-1"></i> Yangi Xizmat
             </button>
           </div>
         </div>
 
         <!-- Services Table -->
-        <div class="glass-card rounded-3xl overflow-hidden border border-white/10">
+        <div class="ios-glass-card rounded-3xl overflow-hidden border border-white/[0.08]">
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
               <thead>
-                <tr class="border-b border-white/10 bg-white/[0.02] text-[11px] uppercase tracking-wider font-extrabold text-slate-400">
-                  <th class="py-3.5 px-4">ID</th>
-                  <th class="py-3.5 px-4">Xizmat Nomi</th>
-                  <th class="py-3.5 px-4">Kategoriya</th>
-                  <th class="py-3.5 px-4">Narxi (1000 ta)</th>
-                  <th class="py-3.5 px-4">Min / Max</th>
-                  <th class="py-3.5 px-4">Holati</th>
-                  <th class="py-3.5 px-4 text-right">Amallar</th>
+                <tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] uppercase tracking-wider font-bold text-white/40">
+                  <th class="py-3 px-4">ID</th>
+                  <th class="py-3 px-4">Xizmat Nomi</th>
+                  <th class="py-3 px-4">Kategoriya</th>
+                  <th class="py-3 px-4">Narxi (1000 ta)</th>
+                  <th class="py-3 px-4">Min / Max</th>
+                  <th class="py-3 px-4">Holati</th>
+                  <th class="py-3 px-4 text-right">Amallar</th>
                 </tr>
               </thead>
-              <tbody id="servicesTableBody" class="divide-y divide-white/5 text-xs text-slate-300">
-                <!-- Injected via JavaScript -->
+              <tbody id="servicesTableBody" class="divide-y divide-white/[0.04] text-xs text-white/80">
+                <!-- Injected via JS -->
               </tbody>
             </table>
-          </div>
-          <!-- Pagination / Stats Footer -->
-          <div class="p-4 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
-            <span id="servicesShowingCount">Jami 100 ta xizmatdan ko'rsatilmoqda</span>
-            <div class="flex space-x-1.5">
-              <button class="px-2.5 py-1 rounded-lg glass text-slate-300 hover:text-white">&larr; Oldingi</button>
-              <button class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold">1</button>
-              <button class="px-2.5 py-1 rounded-lg glass text-slate-300 hover:text-white">2</button>
-              <button class="px-2.5 py-1 rounded-lg glass text-slate-300 hover:text-white">Keyingi &rarr;</button>
-            </div>
           </div>
         </div>
 
@@ -572,78 +623,74 @@
       <!-- VIEW 3: ORDERS MANAGEMENT                                    -->
       <!-- ============================================================ -->
       <section id="view-orders" class="view-panel space-y-4 hidden">
-        
-        <!-- Filter Tabs & Search -->
-        <div class="glass-card rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-3">
-          <div class="flex items-center space-x-2 overflow-x-auto no-scrollbar w-full md:w-auto">
-            <button onclick="filterOrdersByStatus('all')" class="order-status-btn active px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow">Barchasi</button>
-            <button onclick="filterOrdersByStatus('Pending')" class="order-status-btn px-3 py-1.5 rounded-xl text-xs font-bold glass text-slate-300">🟡 Kutilmoqda</button>
-            <button onclick="filterOrdersByStatus('In progress')" class="order-status-btn px-3 py-1.5 rounded-xl text-xs font-bold glass text-slate-300">🔵 Jarayonda</button>
-            <button onclick="filterOrdersByStatus('Completed')" class="order-status-btn px-3 py-1.5 rounded-xl text-xs font-bold glass text-slate-300">🟢 Bajarildi</button>
-            <button onclick="filterOrdersByStatus('Canceled')" class="order-status-btn px-3 py-1.5 rounded-xl text-xs font-bold glass text-slate-300">🔴 Bekor qilingan</button>
+        <div class="ios-glass-card rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-3">
+          <div class="ios-segmented flex items-center space-x-1 text-xs overflow-x-auto no-scrollbar w-full md:w-auto">
+            <button onclick="filterOrdersByStatus('all')" class="order-status-btn active px-3 py-1.5 font-bold rounded-lg transition-all">Barchasi</button>
+            <button onclick="filterOrdersByStatus('Pending')" class="order-status-btn px-3 py-1.5 font-bold text-white/60 hover:text-white rounded-lg transition-all">🟡 Kutilmoqda</button>
+            <button onclick="filterOrdersByStatus('In progress')" class="order-status-btn px-3 py-1.5 font-bold text-white/60 hover:text-white rounded-lg transition-all">🔵 Jarayonda</button>
+            <button onclick="filterOrdersByStatus('Completed')" class="order-status-btn px-3 py-1.5 font-bold text-white/60 hover:text-white rounded-lg transition-all">🟢 Bajarildi</button>
+            <button onclick="filterOrdersByStatus('Canceled')" class="order-status-btn px-3 py-1.5 font-bold text-white/60 hover:text-white rounded-lg transition-all">🔴 Bekor</button>
           </div>
 
           <div class="relative w-full md:w-64">
-            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-            <input type="text" id="orderSearchInput" oninput="searchOrders()" placeholder="Buyurtma ID, Link, Foydalanuvchi..." class="w-full pl-8 pr-3 py-2 rounded-xl bg-darkBg border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-xs"></i>
+            <input type="text" id="orderSearchInput" oninput="searchOrders()" placeholder="Buyurtma ID, Link, Mijoz..." class="w-full pl-8 pr-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-white placeholder-white/30 focus:outline-none focus:border-ios-blue">
           </div>
         </div>
 
-        <!-- Orders Table -->
-        <div class="glass-card rounded-3xl overflow-hidden border border-white/10">
+        <div class="ios-glass-card rounded-3xl overflow-hidden border border-white/[0.08]">
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
               <thead>
-                <tr class="border-b border-white/10 bg-white/[0.02] text-[11px] uppercase tracking-wider font-extrabold text-slate-400">
-                  <th class="py-3.5 px-4">Buyurtma ID</th>
-                  <th class="py-3.5 px-4">Mijoz</th>
-                  <th class="py-3.5 px-4">Xizmat</th>
-                  <th class="py-3.5 px-4">Havola (Link)</th>
-                  <th class="py-3.5 px-4">Miqdor</th>
-                  <th class="py-3.5 px-4">Summa</th>
-                  <th class="py-3.5 px-4">Holati</th>
-                  <th class="py-3.5 px-4 text-right">Amallar</th>
+                <tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] uppercase tracking-wider font-bold text-white/40">
+                  <th class="py-3 px-4">Buyurtma</th>
+                  <th class="py-3 px-4">Mijoz</th>
+                  <th class="py-3 px-4">Xizmat</th>
+                  <th class="py-3 px-4">Havola</th>
+                  <th class="py-3 px-4">Miqdor</th>
+                  <th class="py-3 px-4">Summa</th>
+                  <th class="py-3 px-4">Holati</th>
+                  <th class="py-3 px-4 text-right">Amal</th>
                 </tr>
               </thead>
-              <tbody id="ordersTableBody" class="divide-y divide-white/5 text-xs text-slate-300">
-                <!-- Dynamic Rows -->
+              <tbody id="ordersTableBody" class="divide-y divide-white/[0.04] text-xs text-white/80">
+                <!-- Injected via JS -->
               </tbody>
             </table>
           </div>
         </div>
-
       </section>
 
       <!-- ============================================================ -->
-      <!-- VIEW 4: USERS & WALLETS                                      -->
+      <!-- VIEW 4: USERS MANAGEMENT                                     -->
       <!-- ============================================================ -->
       <section id="view-users" class="view-panel space-y-4 hidden">
-        <div class="glass-card rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="ios-glass-card rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div class="relative w-full sm:w-80">
-            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-            <input type="text" id="userSearchInput" oninput="searchUsers()" placeholder="Ism, Username yoki Telegram ID..." class="w-full pl-9 pr-4 py-2 rounded-xl bg-darkBg border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 text-xs"></i>
+            <input type="text" id="userSearchInput" oninput="searchUsers()" placeholder="Ism, Username yoki Telegram ID..." class="w-full pl-9 pr-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-white placeholder-white/30 focus:outline-none focus:border-ios-blue">
           </div>
-          <button onclick="openModal('modalBroadcast')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl active:scale-95 transition-all">
-            <i class="fa-solid fa-paper-plane mr-1"></i> Ommaviy Xabar Yuborish
+          <button onclick="openModal('modalBroadcast')" class="bg-ios-blue hover:bg-blue-600 text-white text-xs font-semibold px-3.5 py-2 rounded-xl active:scale-95 transition-all">
+            <i class="fa-solid fa-paper-plane mr-1"></i> Ommaviy Xabar
           </button>
         </div>
 
-        <div class="glass-card rounded-3xl overflow-hidden border border-white/10">
+        <div class="ios-glass-card rounded-3xl overflow-hidden border border-white/[0.08]">
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
               <thead>
-                <tr class="border-b border-white/10 bg-white/[0.02] text-[11px] uppercase tracking-wider font-extrabold text-slate-400">
-                  <th class="py-3.5 px-4">Telegram ID</th>
-                  <th class="py-3.5 px-4">Foydalanuvchi</th>
-                  <th class="py-3.5 px-4">Balansi (UZS)</th>
-                  <th class="py-3.5 px-4">Jami Buyurtmalar</th>
-                  <th class="py-3.5 px-4">Darajasi</th>
-                  <th class="py-3.5 px-4">Holati</th>
-                  <th class="py-3.5 px-4 text-right">Amallar</th>
+                <tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] uppercase tracking-wider font-bold text-white/40">
+                  <th class="py-3 px-4">Telegram ID</th>
+                  <th class="py-3 px-4">Foydalanuvchi</th>
+                  <th class="py-3 px-4">Balansi (UZS)</th>
+                  <th class="py-3 px-4">Buyurtmalar</th>
+                  <th class="py-3 px-4">Darajasi</th>
+                  <th class="py-3 px-4">Holati</th>
+                  <th class="py-3 px-4 text-right">Amal</th>
                 </tr>
               </thead>
-              <tbody id="usersTableBody" class="divide-y divide-white/5 text-xs text-slate-300">
-                <!-- Dynamic Users -->
+              <tbody id="usersTableBody" class="divide-y divide-white/[0.04] text-xs text-white/80">
+                <!-- Injected via JS -->
               </tbody>
             </table>
           </div>
@@ -654,50 +701,40 @@
       <!-- VIEW 5: CHANNELS & AUTO REACTIONS                            -->
       <!-- ============================================================ -->
       <section id="view-channels" class="view-panel space-y-4 hidden">
-        <div class="glass-card rounded-2xl p-4 flex items-center justify-between">
+        <div class="ios-glass-card rounded-2xl p-4 flex items-center justify-between">
           <div>
             <h3 class="text-sm font-bold text-white">Avtomatik Reaksiya Kanallari</h3>
-            <p class="text-xs text-slate-400">Yangi post chiqqan zahoti reaksiyalar bosiladigan kanallar ro'yxati</p>
+            <p class="text-xs text-white/40">Yangi post chiqarilishi bilan userbot orqali reaksiyalar bosiladi</p>
           </div>
-          <button onclick="openModal('modalAddChannel')" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-lg shadow-purple-600/25 active:scale-95 transition-all">
-            <i class="fa-solid fa-plus mr-1"></i> Kanal Qo'shish
+          <button onclick="sendInstantFactNow()" class="bg-ios-purple hover:bg-purple-600 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-lg shadow-purple-500/20 active:scale-95 transition-all">
+            <i class="fa-solid fa-bolt mr-1"></i> Fakt Yuborish
           </button>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="glass-card rounded-3xl p-5 space-y-3 border-l-4 border-indigo-500">
+          <div class="ios-glass-card rounded-3xl p-5 space-y-3 border-l-4 border-ios-blue">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-extrabold text-indigo-400">#2 | ID: -1003214824742</span>
-              <span class="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded border border-emerald-500/30">FAOL</span>
+              <span class="text-xs font-mono font-bold text-ios-blue">#2 &bull; -1003214824742</span>
+              <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full">ACTIVE</span>
             </div>
             <h4 class="text-sm font-bold text-white">𝐀𝐭𝐚𝐥𝐠𝐚𝐧 (@atalgan888)</h4>
-            <div class="text-xs text-slate-300 space-y-1">
-              <p>🎭 Reaksiyalar to'plami: <span class="bg-white/10 px-2 py-0.5 rounded font-bold">👍 ❤️ 🔥 😁 🎉</span></p>
-              <p>⏱ Kechikish vaqti: <strong>3 soniya</strong></p>
-              <p>⚡ Telegram Userbot orqali ulangan</p>
-            </div>
-            <div class="pt-2 flex justify-end space-x-2">
-              <button onclick="testChannelReaction('-1003214824742')" class="text-xs bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 font-bold px-3 py-1.5 rounded-xl active:scale-95 transition-all">
-                Sinov Reaksiyasi
-              </button>
+            <div class="text-xs text-white/60 space-y-1">
+              <p>🎭 Reaksiyalar: <span class="bg-white/10 px-2 py-0.5 rounded text-white font-bold">👍 ❤️ 🔥 😁 🎉</span></p>
+              <p>⏱ Kechikish: <strong>3 soniya</strong></p>
+              <p>⚡ Telethon Userbot orqali ulandi</p>
             </div>
           </div>
 
-          <div class="glass-card rounded-3xl p-5 space-y-3 border-l-4 border-purple-500">
+          <div class="ios-glass-card rounded-3xl p-5 space-y-3 border-l-4 border-ios-purple">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-extrabold text-purple-400">Maxfiy Guruh</span>
-              <span class="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded border border-emerald-500/30">FAOL</span>
+              <span class="text-xs font-mono font-bold text-ios-purple">Maxfiy Guruh</span>
+              <span class="text-[10px] font-mono bg-ios-purple/15 text-ios-purple font-bold px-2 py-0.5 rounded-full">5 MIN AI</span>
             </div>
             <h4 class="text-sm font-bold text-white">Ybanat (Guruh)</h4>
-            <div class="text-xs text-slate-300 space-y-1">
+            <div class="text-xs text-white/60 space-y-1">
               <p>🧠 Turi: <strong>Sun'iy Intellekt Avto-Post</strong></p>
-              <p>⏱ Davriyligi: <strong>Har 5 daqiqada yangi fakt</strong></p>
+              <p>⏱ Interval: <strong>Har 5 daqiqada yangi fakt</strong></p>
               <p>🤖 Model: <strong>Qwen 3.8 27B / Groq</strong></p>
-            </div>
-            <div class="pt-2 flex justify-end space-x-2">
-              <button onclick="sendInstantFactNow()" class="text-xs bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 font-bold px-3 py-1.5 rounded-xl active:scale-95 transition-all">
-                Hozir Fakt Yuborish 🚀
-              </button>
             </div>
           </div>
         </div>
@@ -707,82 +744,79 @@
       <!-- VIEW 6: API PROVIDERS                                        -->
       <!-- ============================================================ -->
       <section id="view-providers" class="view-panel space-y-4 hidden">
-        <div class="glass-card rounded-2xl p-4 flex items-center justify-between">
+        <div class="ios-glass-card rounded-2xl p-4 flex items-center justify-between">
           <div>
-            <h3 class="text-sm font-bold text-white">SMM API Provayderlar Tarmog'i</h3>
-            <p class="text-xs text-slate-400">Ushbu bot buyurtmalarni quyidagi xalqaro API provayderlar orqali avtomatik bajaradi</p>
+            <h3 class="text-sm font-bold text-white">API Provayderlar Tarmog'i</h3>
+            <p class="text-xs text-white/40">Barcha buyurtmalar ushbu 3 ta xalqaro API orqali bajariladi</p>
           </div>
-          <button onclick="syncAllProviders()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-lg shadow-indigo-600/25 active:scale-95 transition-all">
-            <i class="fa-solid fa-arrows-rotate mr-1"></i> Barchasini Sinxronlash
+          <button onclick="syncAllProviders()" class="bg-ios-blue hover:bg-blue-600 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all">
+            <i class="fa-solid fa-arrows-rotate mr-1"></i> Sinxronlash
           </button>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <!-- Provayder 1 -->
-          <div class="glass-card rounded-3xl p-5 space-y-3">
+          <div class="ios-glass-card rounded-3xl p-5 space-y-3">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-indigo-400">#2 Provayder</span>
-              <span class="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded border border-emerald-500/30">ONLINE</span>
+              <span class="text-xs font-bold text-ios-blue">#2 Provayder</span>
+              <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full">ACTIVE</span>
             </div>
             <h4 class="text-sm font-bold text-white">@tezsmbot API</h4>
-            <p class="text-xs text-slate-400 font-mono truncate">https://tezsm.uz/api/v2</p>
-            <div class="p-3 rounded-xl bg-white/5 space-y-1 text-xs">
+            <div class="p-3 rounded-2xl bg-white/[0.03] space-y-1.5 text-xs">
               <div class="flex justify-between">
-                <span class="text-slate-400">Xizmatlar soni:</span>
+                <span class="text-white/40">Xizmatlar:</span>
                 <span class="font-bold text-white">235 ta</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-slate-400">Balans:</span>
-                <span class="font-bold text-emerald-400">124,500 UZS</span>
+                <span class="text-white/40">Balans:</span>
+                <span class="font-bold text-ios-green">124,500 UZS</span>
               </div>
             </div>
-            <button onclick="testProvider(2)" class="w-full text-xs glass hover:bg-white/10 font-bold py-2 rounded-xl text-slate-200 transition-colors">
+            <button onclick="testProvider(2)" class="w-full text-xs bg-white/[0.05] hover:bg-white/[0.1] font-semibold py-2 rounded-xl text-white transition-all">
               Balansni Tekshirish
             </button>
           </div>
 
           <!-- Provayder 2 -->
-          <div class="glass-card rounded-3xl p-5 space-y-3">
+          <div class="ios-glass-card rounded-3xl p-5 space-y-3">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-indigo-400">#4 Provayder</span>
-              <span class="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded border border-emerald-500/30">ONLINE</span>
+              <span class="text-xs font-bold text-ios-blue">#4 Provayder</span>
+              <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full">ACTIVE</span>
             </div>
             <h4 class="text-sm font-bold text-white">@ISAKOV_SMMBOT API</h4>
-            <p class="text-xs text-slate-400 font-mono truncate">https://isakovsmm.com/api/v2</p>
-            <div class="p-3 rounded-xl bg-white/5 space-y-1 text-xs">
+            <div class="p-3 rounded-2xl bg-white/[0.03] space-y-1.5 text-xs">
               <div class="flex justify-between">
-                <span class="text-slate-400">Xizmatlar soni:</span>
+                <span class="text-white/40">Xizmatlar:</span>
                 <span class="font-bold text-white">176 ta</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-slate-400">Balans:</span>
-                <span class="font-bold text-emerald-400">89,200 UZS</span>
+                <span class="text-white/40">Balans:</span>
+                <span class="font-bold text-ios-green">89,200 UZS</span>
               </div>
             </div>
-            <button onclick="testProvider(4)" class="w-full text-xs glass hover:bg-white/10 font-bold py-2 rounded-xl text-slate-200 transition-colors">
+            <button onclick="testProvider(4)" class="w-full text-xs bg-white/[0.05] hover:bg-white/[0.1] font-semibold py-2 rounded-xl text-white transition-all">
               Balansni Tekshirish
             </button>
           </div>
 
           <!-- Provayder 3 -->
-          <div class="glass-card rounded-3xl p-5 space-y-3">
+          <div class="ios-glass-card rounded-3xl p-5 space-y-3">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-indigo-400">#5 Provayder</span>
-              <span class="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded border border-emerald-500/30">ONLINE</span>
+              <span class="text-xs font-bold text-ios-blue">#5 Provayder</span>
+              <span class="text-[10px] font-mono bg-ios-green/15 text-ios-green font-bold px-2 py-0.5 rounded-full">ACTIVE</span>
             </div>
             <h4 class="text-sm font-bold text-white">@bekprosmm_bot API</h4>
-            <p class="text-xs text-slate-400 font-mono truncate">https://bekprosmm.com/api/v2</p>
-            <div class="p-3 rounded-xl bg-white/5 space-y-1 text-xs">
+            <div class="p-3 rounded-2xl bg-white/[0.03] space-y-1.5 text-xs">
               <div class="flex justify-between">
-                <span class="text-slate-400">Xizmatlar soni:</span>
+                <span class="text-white/40">Xizmatlar:</span>
                 <span class="font-bold text-white">322 ta</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-slate-400">Balans:</span>
-                <span class="font-bold text-emerald-400">210,000 UZS</span>
+                <span class="text-white/40">Balans:</span>
+                <span class="font-bold text-ios-green">210,000 UZS</span>
               </div>
             </div>
-            <button onclick="testProvider(5)" class="w-full text-xs glass hover:bg-white/10 font-bold py-2 rounded-xl text-slate-200 transition-colors">
+            <button onclick="testProvider(5)" class="w-full text-xs bg-white/[0.05] hover:bg-white/[0.1] font-semibold py-2 rounded-xl text-white transition-all">
               Balansni Tekshirish
             </button>
           </div>
@@ -790,29 +824,29 @@
       </section>
 
       <!-- ============================================================ -->
-      <!-- VIEW 7: SYSTEM LOGS & AUDIT TERMINAL                         -->
+      <!-- VIEW 7: SYSTEM LOGS & AUDIT                                  -->
       <!-- ============================================================ -->
       <section id="view-logs" class="view-panel space-y-4 hidden">
-        <div class="glass-card rounded-2xl p-4 flex items-center justify-between">
-          <div class="flex items-center space-x-2">
-            <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
+        <div class="ios-glass-card rounded-2xl p-4 flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-2.5 h-2.5 rounded-full bg-ios-green animate-pulse"></div>
             <h3 class="text-sm font-bold text-white">Jonli Tizim Loglari & PM2 Kuzatuv</h3>
           </div>
           <div class="flex space-x-2">
-            <button onclick="clearLogs()" class="text-xs glass px-3 py-1.5 rounded-xl text-slate-300 hover:text-white">Tozalash</button>
-            <button onclick="downloadLogs()" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-xl">Yuklab Olish</button>
+            <button onclick="clearLogs()" class="text-xs bg-white/[0.05] hover:bg-white/[0.1] px-3 py-1.5 rounded-xl text-white/70 hover:text-white">Tozalash</button>
+            <button onclick="downloadLogs()" class="text-xs bg-ios-blue hover:bg-blue-600 text-white font-semibold px-3 py-1.5 rounded-xl">Yuklab Olish</button>
           </div>
         </div>
 
-        <div class="bg-black/90 rounded-3xl p-5 border border-white/10 font-mono text-xs text-slate-300 h-96 overflow-y-auto space-y-1.5 shadow-inner" id="systemTerminalLogs">
-          <p class="text-slate-500">[2026-09-30 07:15:00] 🚀 CHEAP SMM ENTERPRISE ENGINE INITIALIZED</p>
-          <p class="text-emerald-400">[2026-09-30 07:16:02] ✅ Render Web Server listening on port 10000</p>
-          <p class="text-blue-400">[2026-09-30 07:17:15] 🔄 API AUTO SYNC | #2 @tezsmbot | yangilangan: 235 ta</p>
-          <p class="text-blue-400">[2026-09-30 07:17:18] 🔄 API AUTO SYNC | #4 @ISAKOV_SMMBOT | yangilangan: 176 ta</p>
-          <p class="text-blue-400">[2026-09-30 07:17:21] 🔄 API AUTO SYNC | #5 @bekprosmm_bot | yangilangan: 322 ta</p>
-          <p class="text-purple-400">[2026-09-30 07:18:00] 💓 KEEP-ALIVE PING: 200 OK (Render faol saqlanmoqda)</p>
-          <p class="text-amber-400">[2026-09-30 07:20:00] 📢 5-DAQIQA POSTI YUBORILDI: Ybanat Guruhi</p>
-          <p class="text-emerald-400">[2026-09-30 07:22:30] 📊 ORDER STATUS: #366 Pending -> Completed</p>
+        <div class="bg-[#050507] rounded-3xl p-5 border border-white/[0.08] font-mono text-xs text-white/70 h-96 overflow-y-auto space-y-1.5 shadow-inner" id="systemTerminalLogs">
+          <p class="text-white/30">[2026-09-30 07:35:00] 🚀 APPLE CUPERTINO MINIMALIST SYSTEM ONLINE</p>
+          <p class="text-ios-green">[2026-09-30 07:35:02] ✅ Render Web Server 200 OK on port 10000</p>
+          <p class="text-ios-teal">[2026-09-30 07:35:15] 🔄 API AUTO SYNC | #2 @tezsmbot | yangilandi: 235 ta</p>
+          <p class="text-ios-teal">[2026-09-30 07:35:18] 🔄 API AUTO SYNC | #4 @ISAKOV_SMMBOT | yangilandi: 176 ta</p>
+          <p class="text-ios-teal">[2026-09-30 07:35:21] 🔄 API AUTO SYNC | #5 @bekprosmm_bot | yangilandi: 322 ta</p>
+          <p class="text-ios-purple">[2026-09-30 07:35:30] 💓 KEEP-ALIVE PING: 200 OK (Render doimiy uyg'oq)</p>
+          <p class="text-ios-orange">[2026-09-30 07:36:00] 📢 5-DAQIQA POSTI YUBORILDI: Ybanat Guruhi</p>
+          <p class="text-ios-green">[2026-09-30 07:36:12] 📊 ORDER STATUS: #366 Pending -> Completed</p>
         </div>
       </section>
 
@@ -821,40 +855,40 @@
       <!-- ============================================================ -->
       <section id="view-broadcast" class="view-panel space-y-4 hidden">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="glass-card rounded-3xl p-6 space-y-4">
-            <h3 class="text-base font-bold text-white flex items-center">
-              <i class="fa-solid fa-bullhorn text-indigo-400 mr-2"></i> Ommaviy Xabar Tayyorlash
+          <div class="ios-glass-card rounded-3xl p-6 space-y-4">
+            <h3 class="text-sm font-bold text-white flex items-center">
+              <span class="w-2.5 h-2.5 rounded-full bg-ios-pink mr-2"></span> Ommaviy Xabarnoma
             </h3>
-            <p class="text-xs text-slate-400">Barcha 1,248 ta foydalanuvchiga bir vaqtda xabar yuborish</p>
+            <p class="text-xs text-white/40">Barcha 1,248 ta foydalanuvchiga bir vaqtda xabar uzatish</p>
 
             <div class="space-y-3 text-xs">
               <div>
-                <label class="block font-bold text-slate-300 mb-1">Xabar Matni (HTML qo'llab-quvvatlaydi)</label>
-                <textarea id="broadcastText" rows="6" oninput="updateBroadcastPreview()" placeholder="Assalomu alaykum! Yangi chegirmalar boshlandi..." class="w-full bg-darkBg border border-white/10 rounded-2xl p-3.5 text-xs text-white focus:outline-none focus:border-indigo-500"></textarea>
+                <label class="block font-semibold text-white/60 mb-1">Xabar Matni (HTML qo'llab-quvvatlaydi)</label>
+                <textarea id="broadcastText" rows="6" oninput="updateBroadcastPreview()" placeholder="Assalomu alaykum! Yangi aksiyalar boshlandi..." class="w-full bg-white/[0.04] border border-white/[0.08] rounded-2xl p-3.5 text-xs text-white focus:outline-none focus:border-ios-blue"></textarea>
               </div>
 
               <div>
-                <label class="block font-bold text-slate-300 mb-1">Rasm Havolasi (Ixtiyoriy)</label>
-                <input id="broadcastImg" type="url" oninput="updateBroadcastPreview()" placeholder="https://rasm-havolasi.jpg" class="w-full bg-darkBg border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                <label class="block font-semibold text-white/60 mb-1">Rasm Havolasi (Ixtiyoriy)</label>
+                <input id="broadcastImg" type="url" oninput="updateBroadcastPreview()" placeholder="https://rasm-havolasi.jpg" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-ios-blue">
               </div>
 
               <div>
-                <label class="block font-bold text-slate-300 mb-1">Tugma Matni va Havolasi (URL Button)</label>
+                <label class="block font-semibold text-white/60 mb-1">Tugma Matni va Havolasi</label>
                 <div class="flex space-x-2">
-                  <input id="broadcastBtnText" type="text" placeholder="Tugma matni" class="w-1/2 bg-darkBg border border-white/10 rounded-xl px-3 py-2 text-xs text-white">
-                  <input id="broadcastBtnUrl" type="url" placeholder="https://t.me/..." class="w-1/2 bg-darkBg border border-white/10 rounded-xl px-3 py-2 text-xs text-white">
+                  <input id="broadcastBtnText" type="text" placeholder="Tugma matni" class="w-1/2 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-white">
+                  <input id="broadcastBtnUrl" type="url" placeholder="https://t.me/..." class="w-1/2 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-white">
                 </div>
               </div>
             </div>
 
-            <button onclick="startBroadcast()" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 rounded-2xl text-xs shadow-lg shadow-indigo-600/25 active:scale-95 transition-all">
-              Barchaga Yuborishni Boshlash 🚀
+            <button onclick="startBroadcast()" class="w-full bg-ios-blue hover:bg-blue-600 text-white font-semibold py-2.5 rounded-xl text-xs shadow-lg shadow-blue-500/25 active:scale-95 transition-all">
+              Yuborishni Boshlash 🚀
             </button>
           </div>
 
           <!-- Telegram Message Mockup Preview -->
-          <div class="glass-card rounded-3xl p-6 space-y-4">
-            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Telegram Xabari Ko'rinishi (Preview)</h4>
+          <div class="ios-glass-card rounded-3xl p-6 space-y-4">
+            <h4 class="text-xs font-semibold text-white/40 uppercase tracking-wider">Telegram Xabari Ko'rinishi</h4>
             <div class="max-w-sm mx-auto bg-[#17212b] rounded-2xl p-4 shadow-xl border border-white/5 space-y-3">
               <div id="previewImgBox" class="hidden rounded-xl overflow-hidden max-h-48">
                 <img id="previewImg" src="" class="w-full object-cover">
@@ -871,71 +905,62 @@
       </section>
 
       <!-- ============================================================ -->
-      <!-- VIEW 9: SETTINGS & SECURITY                                  -->
+      <!-- VIEW 9: SETTINGS                                             -->
       <!-- ============================================================ -->
       <section id="view-settings" class="view-panel space-y-4 hidden">
-        <div class="glass-card rounded-3xl p-6 space-y-6 max-w-3xl">
-          <h3 class="text-base font-bold text-white flex items-center">
-            <i class="fa-solid fa-sliders text-indigo-400 mr-2"></i> Tizim Sozlamalari & Xavfsizlik
+        <div class="ios-glass-card rounded-3xl p-6 space-y-5 max-w-2xl">
+          <h3 class="text-sm font-bold text-white flex items-center">
+            <span class="w-2.5 h-2.5 rounded-full bg-slate-400 mr-2"></span> Tizim Sozlamalari
           </h3>
 
           <div class="space-y-4 text-xs">
-            <div class="p-4 rounded-2xl glass flex items-center justify-between border border-white/5">
+            <div class="p-4 rounded-2xl bg-white/[0.03] flex items-center justify-between border border-white/[0.06]">
               <div>
-                <h4 class="font-bold text-white">Texnik Ishlar Rejimi (Maintenance Mode)</h4>
-                <p class="text-[11px] text-slate-400">Yoqilsa bot faqat adminlar uchun ishlaydi, oddiy a'zolarga xabar beradi</p>
+                <h4 class="font-bold text-white">Texnik Ishlar Rejimi</h4>
+                <p class="text-[11px] text-white/40">Yoqilsa bot faqat adminlar uchun javob beradi</p>
               </div>
               <label class="relative inline-flex items-center cursor-pointer">
                 <input type="checkbox" class="sr-only peer">
-                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-ios-green"></div>
               </label>
             </div>
 
-            <div class="p-4 rounded-2xl glass space-y-3 border border-white/5">
-              <h4 class="font-bold text-white">Valyuta Kursi (AQSH Dollari -> So'm)</h4>
+            <div class="p-4 rounded-2xl bg-white/[0.03] space-y-3 border border-white/[0.06]">
+              <h4 class="font-bold text-white">Valyuta Kursi (1 USD -> UZS)</h4>
               <div class="flex items-center space-x-3">
-                <input type="number" value="12850" class="bg-darkBg border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-mono w-40">
-                <span class="text-slate-400">1 USD = 12,850 UZS</span>
-                <button onclick="alert('Kurs saqlandi!')" class="bg-indigo-600 text-white font-bold px-3 py-2 rounded-xl active:scale-95">Saqlash</button>
+                <input type="number" value="12850" class="bg-black/50 border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-white font-mono w-36">
+                <span class="text-white/40">1 USD = 12,850 UZS</span>
+                <button onclick="alert('Kurs saqlandi!')" class="bg-ios-blue text-white font-semibold px-3 py-2 rounded-xl active:scale-95">Saqlash</button>
               </div>
-            </div>
-
-            <div class="p-4 rounded-2xl glass space-y-3 border border-white/5">
-              <h4 class="font-bold text-white">Sun'iy Intellekt Modeli (Groq AI)</h4>
-              <select class="w-full bg-darkBg border border-white/10 rounded-xl p-2.5 text-xs text-white">
-                <option value="qwen/qwen3.8-27b" selected>Qwen 3.8 27B (Tezkor va ijodkor)</option>
-                <option value="openai/gpt-oss-120b">GPT-OSS 120B (Kuchli fikrlash)</option>
-                <option value="openai/gpt-oss-20b">GPT-OSS 20B (Yengil rejim)</option>
-              </select>
             </div>
           </div>
         </div>
       </section>
 
       <!-- ============================================================ -->
-      <!-- VIEW 10: FINANCE & DEPOSITS                                  -->
+      <!-- VIEW 10: FINANCE & TRANSACTIONS                              -->
       <!-- ============================================================ -->
       <section id="view-finance" class="view-panel space-y-4 hidden">
-        <div class="glass-card rounded-2xl p-4 flex items-center justify-between">
+        <div class="ios-glass-card rounded-2xl p-4 flex items-center justify-between">
           <h3 class="text-sm font-bold text-white">To'lovlar & Tranzaksiyalar Tarixi</h3>
-          <span class="text-xs text-emerald-400 font-bold">Jami: 14,850,000 UZS</span>
+          <span class="text-xs text-ios-green font-bold">Jami: 14,850,000 UZS</span>
         </div>
 
-        <div class="glass-card rounded-3xl overflow-hidden border border-white/10">
+        <div class="ios-glass-card rounded-3xl overflow-hidden border border-white/[0.08]">
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
               <thead>
-                <tr class="border-b border-white/10 bg-white/[0.02] text-[11px] uppercase tracking-wider font-extrabold text-slate-400">
-                  <th class="py-3.5 px-4">Tranzaksiya</th>
-                  <th class="py-3.5 px-4">Foydalanuvchi</th>
-                  <th class="py-3.5 px-4">Tizim</th>
-                  <th class="py-3.5 px-4">Summa</th>
-                  <th class="py-3.5 px-4">Vaqt</th>
-                  <th class="py-3.5 px-4">Holati</th>
+                <tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] uppercase tracking-wider font-bold text-white/40">
+                  <th class="py-3 px-4">Tranzaksiya</th>
+                  <th class="py-3 px-4">Foydalanuvchi</th>
+                  <th class="py-3 px-4">Tizim</th>
+                  <th class="py-3 px-4">Summa</th>
+                  <th class="py-3 px-4">Vaqt</th>
+                  <th class="py-3 px-4">Holati</th>
                 </tr>
               </thead>
-              <tbody id="financeTableBody" class="divide-y divide-white/5 text-xs text-slate-300">
-                <!-- Dynamic Transactions -->
+              <tbody id="financeTableBody" class="divide-y divide-white/[0.04] text-xs text-white/80">
+                <!-- Injected via JS -->
               </tbody>
             </table>
           </div>
@@ -946,105 +971,105 @@
   </div>
 
   <!-- ============================================================ -->
-  <!-- 3. MODALS SYSTEM                                             -->
+  <!-- 3. MODALS SYSTEM (APPLE ACTION SHEETS)                        -->
   <!-- ============================================================ -->
   
   <!-- Modal: Yangi Xizmat Qo'shish -->
-  <div id="modalAddService" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="w-full max-w-md glass-card rounded-3xl p-6 space-y-4 shadow-2xl border border-white/10">
+  <div id="modalAddService" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="w-full max-w-md ios-glass-card rounded-3xl p-6 space-y-4 shadow-2xl border border-white/10 animate-fade-in">
       <div class="flex items-center justify-between border-b border-white/10 pb-3">
         <h3 class="text-sm font-bold text-white flex items-center">
-          <i class="fa-solid fa-plus text-indigo-400 mr-2"></i> Yangi SMM Xizmat Qo'shish
+          <span class="w-2.5 h-2.5 rounded-full bg-ios-blue mr-2"></span> Yangi SMM Xizmat Qo'shish
         </h3>
-        <button onclick="closeModal('modalAddService')" class="text-slate-400 hover:text-white">
-          <i class="fa-solid fa-xmark"></i>
+        <button onclick="closeModal('modalAddService')" class="text-white/40 hover:text-white">
+          <i class="fa-solid fa-xmark text-sm"></i>
         </button>
       </div>
 
       <div class="space-y-3 text-xs">
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Xizmat Nomi</label>
-          <input id="newServiceName" type="text" placeholder="Masalan: Telegram O'zbek Reaksiya" class="w-full bg-darkBg border border-white/10 rounded-xl px-3 py-2 text-white">
+          <label class="block font-semibold text-white/60 mb-1">Xizmat Nomi</label>
+          <input id="newServiceName" type="text" placeholder="Telegram O'zbek Reaksiya" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-white">
         </div>
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Kategoriya</label>
-          <input id="newServiceCategory" type="text" placeholder="Telegram — Reaksiyalar" class="w-full bg-darkBg border border-white/10 rounded-xl px-3 py-2 text-white">
+          <label class="block font-semibold text-white/60 mb-1">Kategoriya</label>
+          <input id="newServiceCategory" type="text" placeholder="Telegram — Reaksiyalar" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-white">
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block font-semibold text-slate-300 mb-1">Narxi (1000 ta / UZS)</label>
-            <input id="newServicePrice" type="number" placeholder="2500" class="w-full bg-darkBg border border-white/10 rounded-xl px-3 py-2 text-white">
+            <label class="block font-semibold text-white/60 mb-1">Narxi (1000 ta / UZS)</label>
+            <input id="newServicePrice" type="number" placeholder="2500" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-white">
           </div>
           <div>
-            <label class="block font-semibold text-slate-300 mb-1">Provayder ID</label>
-            <input id="newServiceProviderId" type="text" placeholder="API #2" class="w-full bg-darkBg border border-white/10 rounded-xl px-3 py-2 text-white">
+            <label class="block font-semibold text-white/60 mb-1">Provayder ID</label>
+            <input id="newServiceProviderId" type="text" placeholder="API #2" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-white">
           </div>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block font-semibold text-slate-300 mb-1">Min Miqdor</label>
-            <input id="newServiceMin" type="number" value="10" class="w-full bg-darkBg border border-white/10 rounded-xl px-3 py-2 text-white">
+            <label class="block font-semibold text-white/60 mb-1">Min Miqdor</label>
+            <input id="newServiceMin" type="number" value="10" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-white">
           </div>
           <div>
-            <label class="block font-semibold text-slate-300 mb-1">Max Miqdor</label>
-            <input id="newServiceMax" type="number" value="100000" class="w-full bg-darkBg border border-white/10 rounded-xl px-3 py-2 text-white">
+            <label class="block font-semibold text-white/60 mb-1">Max Miqdor</label>
+            <input id="newServiceMax" type="number" value="100000" class="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-white">
           </div>
         </div>
       </div>
 
-      <button onclick="saveNewService()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs active:scale-95 transition-all">
+      <button onclick="saveNewService()" class="w-full bg-ios-blue hover:bg-blue-600 text-white font-semibold py-2.5 rounded-xl text-xs active:scale-95 transition-all">
         Saqlash va Faollashtirish
       </button>
     </div>
   </div>
 
   <!-- Modal: Ommaviy Ustama (Bulk Markup %) -->
-  <div id="modalBulkMarkup" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="w-full max-w-sm glass-card rounded-3xl p-6 space-y-4 shadow-2xl border border-white/10">
+  <div id="modalBulkMarkup" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="w-full max-w-sm ios-glass-card rounded-3xl p-6 space-y-4 shadow-2xl border border-white/10">
       <div class="flex items-center justify-between border-b border-white/10 pb-3">
         <h3 class="text-sm font-bold text-white">Ommaviy Ustama Belgilash</h3>
-        <button onclick="closeModal('modalBulkMarkup')" class="text-slate-400 hover:text-white">
-          <i class="fa-solid fa-xmark"></i>
+        <button onclick="closeModal('modalBulkMarkup')" class="text-white/40 hover:text-white">
+          <i class="fa-solid fa-xmark text-sm"></i>
         </button>
       </div>
-      <p class="text-xs text-slate-400">Barcha provayder xizmatlarining narxiga foiz ustama qo'shish:</p>
+      <p class="text-xs text-white/50">Barcha xizmatlar tannarxiga avtomatik foiz qo'shiladi:</p>
       <div>
-        <label class="block font-bold text-xs text-slate-300 mb-1">Ustama foizi (%)</label>
+        <label class="block font-semibold text-xs text-white/70 mb-1">Ustama foizi (%)</label>
         <div class="flex items-center space-x-2">
-          <input id="markupPercent" type="number" value="25" class="bg-darkBg border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-bold w-24">
-          <span class="text-xs text-purple-400 font-bold">+25% sof foyda</span>
+          <input id="markupPercent" type="number" value="25" class="bg-black/50 border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-white font-bold w-24">
+          <span class="text-xs text-ios-purple font-bold">+25% sof foyda</span>
         </div>
       </div>
-      <button onclick="applyBulkMarkup()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 rounded-xl text-xs active:scale-95 transition-all">
+      <button onclick="applyBulkMarkup()" class="w-full bg-ios-purple hover:bg-purple-600 text-white font-semibold py-2.5 rounded-xl text-xs active:scale-95 transition-all">
         Narxlarni Yangilash ⚡
       </button>
     </div>
   </div>
 
   <!-- Modal: Foydalanuvchi Balansini O'zgartirish -->
-  <div id="modalEditBalance" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="w-full max-w-sm glass-card rounded-3xl p-6 space-y-4 shadow-2xl border border-white/10">
+  <div id="modalEditBalance" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="w-full max-w-sm ios-glass-card rounded-3xl p-6 space-y-4 shadow-2xl border border-white/10">
       <div class="flex items-center justify-between border-b border-white/10 pb-3">
         <h3 class="text-sm font-bold text-white">Balansni Boshqarish</h3>
-        <button onclick="closeModal('modalEditBalance')" class="text-slate-400 hover:text-white">
-          <i class="fa-solid fa-xmark"></i>
+        <button onclick="closeModal('modalEditBalance')" class="text-white/40 hover:text-white">
+          <i class="fa-solid fa-xmark text-sm"></i>
         </button>
       </div>
       <div class="text-xs space-y-2">
-        <p id="editBalanceUserLabel" class="text-slate-300 font-bold">Mijoz: @username</p>
+        <p id="editBalanceUserLabel" class="text-white font-bold">Mijoz: @username</p>
         <div>
-          <label class="block font-semibold text-slate-400 mb-1">Qo'shiladigan / Ayiriladigan summa (+/- UZS)</label>
-          <input id="editBalanceAmount" type="number" placeholder="+50000" class="w-full bg-darkBg border border-white/10 rounded-xl px-3 py-2 text-white font-bold">
+          <label class="block font-semibold text-white/50 mb-1">Qo'shiladigan / Ayiriladigan summa (+/- UZS)</label>
+          <input id="editBalanceAmount" type="number" placeholder="+50000" class="w-full bg-black/50 border border-white/[0.08] rounded-xl px-3 py-2 text-white font-bold">
         </div>
       </div>
-      <button onclick="saveUserBalance()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs active:scale-95 transition-all">
+      <button onclick="saveUserBalance()" class="w-full bg-ios-green hover:bg-emerald-600 text-white font-semibold py-2.5 rounded-xl text-xs active:scale-95 transition-all">
         Balansni Yangilash
       </button>
     </div>
   </div>
 
   <!-- ============================================================ -->
-  <!-- 4. CORE ENGINE JAVASCRIPT (FULL SPA STATE ENGINE)             -->
+  <!-- 4. CORE ENGINE JAVASCRIPT                                    -->
   <!-- ============================================================ -->
   <script>
     // Live Clock
@@ -1053,7 +1078,7 @@
       document.getElementById('liveClock').textContent = now.toLocaleTimeString();
     }, 1000);
 
-    // Initial Mock DB (Loaded from localStorage or Defaults)
+    // Initial Mock DB
     let adminServices = JSON.parse(localStorage.getItem('admin_services')) || [];
     let adminOrders = JSON.parse(localStorage.getItem('admin_orders')) || [
       { id: 366, user: '@xua202', service: "O'zbek Layklar ( ✨ Statistika )", link: "https://t.me/atalgan888/45", qty: 100, cost: 6427, status: 'Pending', time: '10 daqiqa oldin' },
@@ -1113,8 +1138,8 @@
     function switchTab(tabId) {
       document.querySelectorAll('.view-panel').forEach(p => p.classList.add('hidden'));
       document.querySelectorAll('.nav-btn').forEach(b => {
-        b.classList.remove('active', 'bg-indigo-600', 'text-white', 'shadow-md', 'shadow-indigo-600/30');
-        b.classList.add('text-slate-300');
+        b.classList.remove('active', 'bg-white/[0.12]', 'text-white', 'shadow-sm');
+        b.classList.add('text-white/70');
       });
 
       const target = document.getElementById(`view-${tabId}`);
@@ -1122,30 +1147,28 @@
 
       const navBtn = document.getElementById(`nav-${tabId}`);
       if (navBtn) {
-        navBtn.classList.add('active', 'bg-indigo-600', 'text-white', 'shadow-md', 'shadow-indigo-600/30');
-        navBtn.classList.remove('text-slate-300');
+        navBtn.classList.add('active', 'bg-white/[0.12]', 'text-white', 'shadow-sm');
+        navBtn.classList.remove('text-white/70');
       }
 
-      // Update titles
       const titles = {
-        'dashboard': ['Umumiy Dashboard', 'SMM botning barcha ko\'rsatkichlari real vaqtda', 'fa-chart-pie text-indigo-400'],
-        'services': ['Xizmatlar Boshqaruvi', 'Narxlar, toifalar va provayderlar nazorati', 'fa-layer-group text-indigo-400'],
-        'orders': ['Barcha Buyurtmalar', 'Foydalanuvchilar buyurtmalari monitoringi va holati', 'fa-cart-shopping text-indigo-400'],
-        'users': ['Foydalanuvchilar & Hamyonlar', 'Mijozlar balansi, darajalari va huquqlari', 'fa-users text-indigo-400'],
-        'channels': ['Avto-Reaksiya Kanallari', 'Telethon userbot va kanallar monitoringi', 'fa-tower-broadcast text-indigo-400'],
-        'providers': ['API Provayderlar Tarmog\'i', 'Tashqi SMM agregatorlar bilan sinxronizatsiya', 'fa-network-wired text-indigo-400'],
-        'logs': ['Jonli Tizim Loglari & Audit', 'Server, PM2 va bot jarayonlarining oqimi', 'fa-terminal text-indigo-400'],
-        'broadcast': ['Ommaviy Xabarnoma', 'Telegram orqali ommaviy marketing va e\'lonlar', 'fa-bullhorn text-indigo-400'],
-        'settings': ['Tizim Sozlamalari', 'Xavfsizlik, valyuta kurslari va Groq AI konfiguratsiyasi', 'fa-sliders text-indigo-400'],
-        'finance': ['Moliya & To\'lovlar', 'Payme, Click va Stars to\'lovlari tahlili', 'fa-wallet text-indigo-400']
+        'dashboard': ['Umumiy Dashboard', 'SMM tizimining barcha ko\'rsatkichlari real vaqtda', 'bg-ios-blue'],
+        'services': ['Xizmatlar Katalogi', 'Narxlar, toifalar va provayderlar nazorati', 'bg-ios-indigo'],
+        'orders': ['Barcha Buyurtmalar', 'Foydalanuvchilar buyurtmalari monitoringi', 'bg-ios-orange'],
+        'users': ['Foydalanuvchilar & Hamyonlar', 'Mijozlar balansi va darajalari', 'bg-ios-teal'],
+        'channels': ['Avto-Reaksiya Kanallari', 'Userbot orqali ulangan kanallar', 'bg-ios-purple'],
+        'providers': ['API Provayderlar Tarmog\'i', 'Xalqaro SMM agregatorlar bilan aloqa', 'bg-ios-pink'],
+        'logs': ['Jonli Tizim Loglari & Audit', 'Server, PM2 va bot jarayonlari oqimi', 'bg-slate-400'],
+        'broadcast': ['Ommaviy Xabarnoma', 'Telegram orqali ommaviy marketing', 'bg-ios-pink'],
+        'settings': ['Tizim Sozlamalari', 'Xavfsizlik va konfiguratsiya', 'bg-slate-500'],
+        'finance': ['Moliya & To\'lovlar', 'Payme, Click va Stars to\'lovlari tahlili', 'bg-ios-green']
       };
 
       if (titles[tabId]) {
-        document.getElementById('currentTabTitle').innerHTML = `<i class="fa-solid ${titles[tabId][2]} mr-2"></i> ${titles[tabId][0]}`;
+        document.getElementById('currentTabTitle').innerHTML = `<span class="w-2.5 h-2.5 rounded-full ${titles[tabId][2]} mr-2"></span> ${titles[tabId][0]}`;
         document.getElementById('currentTabSubtitle').textContent = titles[tabId][1];
       }
 
-      // Close mobile sidebar
       if (window.innerWidth < 1024) {
         document.getElementById('sidebar').classList.add('-translate-x-full');
       }
@@ -1155,30 +1178,25 @@
       document.getElementById('sidebar').classList.toggle('-translate-x-full');
     }
 
-    // Modal Control
-    function openModal(id) {
-      document.getElementById(id).classList.remove('hidden');
-    }
-    function closeModal(id) {
-      document.getElementById(id).classList.add('hidden');
-    }
+    function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
     // Render Services Table
     function renderServicesTable(items = adminServices) {
       const tbody = document.getElementById('servicesTableBody');
       tbody.innerHTML = items.slice(0, 50).map(s => `
         <tr class="hover:bg-white/[0.02] transition-colors">
-          <td class="py-3 px-4 font-mono font-bold text-indigo-400">#${s.id}</td>
-          <td class="py-3 px-4 font-semibold text-white max-w-xs truncate">${s.name}</td>
-          <td class="py-3 px-4"><span class="bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded text-[10px] font-bold border border-indigo-500/20">${(s.category || 'Telegram').split('—')[0].trim()}</span></td>
-          <td class="py-3 px-4 font-extrabold text-emerald-400 font-mono">${Number(s.price).toLocaleString()} UZS</td>
-          <td class="py-3 px-4 text-slate-400 font-mono text-[11px]">${s.min_qty} / ${Number(s.max_qty).toLocaleString()}</td>
+          <td class="py-3 px-4 font-mono font-bold text-ios-blue text-[11px]">#${s.id}</td>
+          <td class="py-3 px-4 font-medium text-white max-w-xs truncate">${s.name}</td>
+          <td class="py-3 px-4"><span class="bg-white/[0.06] text-white/70 px-2 py-0.5 rounded-md text-[10px] font-bold border border-white/[0.04]">${(s.category || 'Telegram').split('—')[0].trim()}</span></td>
+          <td class="py-3 px-4 font-mono font-extrabold text-ios-green">${Number(s.price).toLocaleString()} UZS</td>
+          <td class="py-3 px-4 text-white/40 font-mono text-[11px]">${s.min_qty} / ${Number(s.max_qty).toLocaleString()}</td>
           <td class="py-3 px-4">
-            <span class="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-500/20">Aktiv</span>
+            <span class="bg-ios-green/15 text-ios-green px-2 py-0.5 rounded-full text-[10px] font-bold border border-ios-green/30">Aktiv</span>
           </td>
-          <td class="py-3 px-4 text-right space-x-1.5">
-            <button onclick="editServicePrice(${s.id})" title="Narxni o'zgartirish" class="text-slate-400 hover:text-indigo-400 p-1"><i class="fa-solid fa-pen text-xs"></i></button>
-            <button onclick="deleteService(${s.id})" title="O'chirish" class="text-slate-400 hover:text-red-400 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
+          <td class="py-3 px-4 text-right space-x-1">
+            <button onclick="editServicePrice(${s.id})" title="Tahrirlash" class="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-white/[0.1] text-white/60 hover:text-white transition-all"><i class="fa-solid fa-pen text-xs"></i></button>
+            <button onclick="deleteService(${s.id})" title="O'chirish" class="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-ios-red/20 text-white/60 hover:text-ios-red transition-all"><i class="fa-solid fa-trash text-xs"></i></button>
           </td>
         </tr>
       `).join('');
@@ -1258,23 +1276,23 @@
       const tbody = document.getElementById('ordersTableBody');
       tbody.innerHTML = items.map(o => `
         <tr class="hover:bg-white/[0.02] transition-colors">
-          <td class="py-3 px-4 font-mono font-bold text-indigo-400">#${o.id}</td>
-          <td class="py-3 px-4 font-bold text-white">${o.user}</td>
-          <td class="py-3 px-4 font-medium text-slate-300 max-w-xs truncate">${o.service}</td>
-          <td class="py-3 px-4"><a href="${o.link}" target="_blank" class="text-indigo-400 hover:underline max-w-[150px] truncate block">${o.link}</a></td>
+          <td class="py-3 px-4 font-mono font-bold text-ios-blue text-[11px]">#${o.id}</td>
+          <td class="py-3 px-4 font-semibold text-white">${o.user}</td>
+          <td class="py-3 px-4 text-white/70 max-w-xs truncate">${o.service}</td>
+          <td class="py-3 px-4"><a href="${o.link}" target="_blank" class="text-ios-blue hover:underline max-w-[140px] truncate block font-mono text-[11px]">${o.link}</a></td>
           <td class="py-3 px-4 font-mono font-bold text-white">${Number(o.qty).toLocaleString()}</td>
-          <td class="py-3 px-4 font-mono font-extrabold text-emerald-400">${Number(o.cost).toLocaleString()} UZS</td>
+          <td class="py-3 px-4 font-mono font-extrabold text-ios-green">${Number(o.cost).toLocaleString()} UZS</td>
           <td class="py-3 px-4">
-            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
-              o.status === 'Completed' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-              o.status === 'In progress' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-              o.status === 'Pending' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-              'bg-red-500/20 text-red-400 border border-red-500/30'
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              o.status === 'Completed' ? 'bg-ios-green/15 text-ios-green border border-ios-green/30' :
+              o.status === 'In progress' ? 'bg-ios-blue/15 text-ios-blue border border-ios-blue/30' :
+              o.status === 'Pending' ? 'bg-ios-orange/15 text-ios-orange border border-ios-orange/30' :
+              'bg-ios-red/15 text-ios-red border border-ios-red/30'
             }">${o.status}</span>
           </td>
           <td class="py-3 px-4 text-right space-x-1">
-            <button onclick="changeOrderStatus(${o.id}, 'Completed')" title="Bajarildi deb belgilash" class="text-slate-400 hover:text-emerald-400 p-1"><i class="fa-solid fa-check"></i></button>
-            <button onclick="changeOrderStatus(${o.id}, 'Canceled')" title="Bekor qilish" class="text-slate-400 hover:text-red-400 p-1"><i class="fa-solid fa-ban"></i></button>
+            <button onclick="changeOrderStatus(${o.id}, 'Completed')" title="Bajarildi" class="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-ios-green/20 text-white/60 hover:text-ios-green transition-all"><i class="fa-solid fa-check text-xs"></i></button>
+            <button onclick="changeOrderStatus(${o.id}, 'Canceled')" title="Bekor qilish" class="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-ios-red/20 text-white/60 hover:text-ios-red transition-all"><i class="fa-solid fa-ban text-xs"></i></button>
           </td>
         </tr>
       `).join('');
@@ -1283,19 +1301,19 @@
     function renderDashboardRecentOrders() {
       const container = document.getElementById('dashboardRecentOrders');
       container.innerHTML = adminOrders.slice(0, 4).map(o => `
-        <div class="p-3 rounded-2xl glass flex items-center justify-between border border-white/5">
+        <div class="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between">
           <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-bold text-xs">
+            <div class="w-8 h-8 ios-badge bg-gradient-to-b from-ios-blue to-blue-800 text-white font-mono font-bold text-xs">
               #${o.id}
             </div>
             <div>
               <h5 class="text-xs font-bold text-white line-clamp-1">${o.service}</h5>
-              <p class="text-[10px] text-slate-400">${o.user} &bull; ${o.time}</p>
+              <p class="text-[10px] text-white/40">${o.user} &bull; ${o.time}</p>
             </div>
           </div>
           <div class="text-right">
-            <span class="text-xs font-bold text-emerald-400 block">${Number(o.cost).toLocaleString()} UZS</span>
-            <span class="text-[9px] text-slate-400">${o.status}</span>
+            <span class="text-xs font-bold text-ios-green block font-mono">${Number(o.cost).toLocaleString()} UZS</span>
+            <span class="text-[10px] text-white/40 font-semibold">${o.status}</span>
           </div>
         </div>
       `).join('');
@@ -1303,11 +1321,11 @@
 
     function filterOrdersByStatus(st) {
       document.querySelectorAll('.order-status-btn').forEach(b => {
-        b.classList.remove('active', 'bg-indigo-600', 'text-white', 'shadow');
-        b.classList.add('glass', 'text-slate-300');
+        b.classList.remove('active', 'bg-white/[0.15]', 'text-white');
+        b.classList.add('text-white/60');
       });
-      event.target.classList.add('active', 'bg-indigo-600', 'text-white', 'shadow');
-      event.target.classList.remove('glass', 'text-slate-300');
+      event.target.classList.add('active', 'bg-white/[0.15]', 'text-white');
+      event.target.classList.remove('text-white/60');
 
       if (st === 'all') {
         renderOrdersTable(adminOrders);
@@ -1331,17 +1349,17 @@
       const tbody = document.getElementById('usersTableBody');
       tbody.innerHTML = items.map(u => `
         <tr class="hover:bg-white/[0.02] transition-colors">
-          <td class="py-3 px-4 font-mono font-bold text-indigo-400">${u.id}</td>
+          <td class="py-3 px-4 font-mono font-bold text-ios-blue text-[11px]">${u.id}</td>
           <td class="py-3 px-4">
             <div class="font-bold text-white">${u.name}</div>
-            <div class="text-[10px] text-slate-400">${u.username}</div>
+            <div class="text-[10px] text-white/40 font-mono">${u.username}</div>
           </td>
-          <td class="py-3 px-4 font-mono font-extrabold text-emerald-400">${Number(u.balance).toLocaleString()} UZS</td>
-          <td class="py-3 px-4 font-mono font-bold text-white">${u.orders} ta</td>
-          <td class="py-3 px-4"><span class="bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded text-[10px] font-bold border border-purple-500/20">${u.role}</span></td>
-          <td class="py-3 px-4"><span class="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-500/20">${u.status}</span></td>
-          <td class="py-3 px-4 text-right space-x-1">
-            <button onclick="editUserBalance(${u.id})" class="text-xs bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 px-2.5 py-1 rounded-lg font-bold">Balans +/-</button>
+          <td class="py-3 px-4 font-mono font-extrabold text-ios-green">${Number(u.balance).toLocaleString()} UZS</td>
+          <td class="py-3 px-4 font-mono text-white/70">${u.orders} ta</td>
+          <td class="py-3 px-4"><span class="bg-ios-purple/15 text-ios-purple px-2 py-0.5 rounded-full text-[10px] font-bold border border-ios-purple/30">${u.role}</span></td>
+          <td class="py-3 px-4"><span class="bg-ios-green/15 text-ios-green px-2 py-0.5 rounded-full text-[10px] font-bold border border-ios-green/30">${u.status}</span></td>
+          <td class="py-3 px-4 text-right">
+            <button onclick="editUserBalance(${u.id})" class="text-xs bg-white/[0.05] hover:bg-white/[0.1] text-white px-2.5 py-1 rounded-lg font-semibold active:scale-95 transition-all">Balans +/-</button>
           </td>
         </tr>
       `).join('');
@@ -1374,12 +1392,12 @@
       const tbody = document.getElementById('financeTableBody');
       tbody.innerHTML = adminFinance.map(f => `
         <tr class="hover:bg-white/[0.02]">
-          <td class="py-3 px-4 font-mono font-bold text-indigo-400">${f.id}</td>
+          <td class="py-3 px-4 font-mono font-bold text-ios-blue text-[11px]">${f.id}</td>
           <td class="py-3 px-4 font-bold text-white">${f.user}</td>
-          <td class="py-3 px-4 font-semibold text-slate-300">${f.type}</td>
-          <td class="py-3 px-4 font-mono font-extrabold text-emerald-400">+${Number(f.amount).toLocaleString()} UZS</td>
-          <td class="py-3 px-4 text-slate-400">${f.time}</td>
-          <td class="py-3 px-4"><span class="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-500/30">${f.status}</span></td>
+          <td class="py-3 px-4 font-medium text-white/70">${f.type}</td>
+          <td class="py-3 px-4 font-mono font-extrabold text-ios-green">+${Number(f.amount).toLocaleString()} UZS</td>
+          <td class="py-3 px-4 text-white/40 text-[11px]">${f.time}</td>
+          <td class="py-3 px-4"><span class="bg-ios-green/15 text-ios-green px-2 py-0.5 rounded-full text-[10px] font-bold border border-ios-green/30">${f.status}</span></td>
         </tr>
       `).join('');
     }
@@ -1391,7 +1409,6 @@
       const btnText = document.getElementById('broadcastBtnText').value;
 
       document.getElementById('previewText').textContent = text || 'Xabar matni bu yerda ko\'rinadi...';
-      
       const imgBox = document.getElementById('previewImgBox');
       if (img) {
         document.getElementById('previewImg').src = img;
@@ -1416,7 +1433,6 @@
       alert("🚀 Ommaviy xabar yuborish navbatga qo'yildi! Barcha 1,248 ta a'zoga xabar uzatilmoqda.");
     }
 
-    // Provider Sync Simulators
     function syncAllProviders() {
       alert("🔄 Barcha provayderlar (@tezsmbot, @ISAKOV_SMMBOT, @bekprosmm_bot) bilan sinxronizatsiya boshlandi...");
       setTimeout(() => {
@@ -1425,29 +1441,15 @@
       }, 1000);
     }
 
-    function testProvider(id) {
-      alert(`#${id} Provayder API aloqasi barqaror! Javob vaqti: 240ms`);
-    }
+    function testProvider(id) { alert(`#${id} Provayder API aloqasi barqaror! Javob vaqti: 240ms`); }
+    function sendInstantFactNow() { alert("🚀 'Ybanat' guruhiga yangi qiziqarli fakt darhol yuborildi!"); }
+    function toggleNotifications() { document.getElementById('notificationsDropdown').classList.toggle('hidden'); }
+    function clearNotifications() { document.getElementById('notificationsDropdown').classList.add('hidden'); }
+    function clearLogs() { document.getElementById('systemTerminalLogs').innerHTML = '<p class="text-white/30">[Loglar tozalandi]</p>'; }
+    function downloadLogs() { alert("Log fayli yuklab olinmoqda..."); }
 
-    function testChannelReaction(channelId) {
-      alert(`✅ Kanalga (${channelId}) sinov reaksiyasi yuborildi!`);
-    }
-
-    function sendInstantFactNow() {
-      alert("🚀 'Ybanat' guruhiga yangi qiziqarli fakt darhol yuborildi!");
-    }
-
-    // Notifications toggle
-    function toggleNotifications() {
-      document.getElementById('notificationsDropdown').classList.toggle('hidden');
-    }
-    function clearNotifications() {
-      document.getElementById('notificationsDropdown').classList.add('hidden');
-    }
-
-    // Chart.js Initializer
+    // Chart.js - Apple Cupertino Minimalist Style
     function initCharts() {
-      // Revenue Chart
       const ctxRev = document.getElementById('revenueChart').getContext('2d');
       new Chart(ctxRev, {
         type: 'line',
@@ -1456,13 +1458,15 @@
           datasets: [{
             label: 'Tushum (Million UZS)',
             data: [1.2, 1.8, 1.5, 2.1, 2.4, 3.1, 2.75],
-            borderColor: '#6366f1',
-            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            borderColor: '#007AFF',
+            backgroundColor: 'rgba(0, 122, 255, 0.08)',
             fill: true,
             tension: 0.4,
-            borderWidth: 3,
-            pointBackgroundColor: '#818cf8',
-            pointRadius: 4
+            borderWidth: 2.5,
+            pointBackgroundColor: '#007AFF',
+            pointBorderColor: '#FFFFFF',
+            pointBorderWidth: 1.5,
+            pointRadius: 3.5
           }]
         },
         options: {
@@ -1470,13 +1474,12 @@
           maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
-            x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
-            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } }
+            x: { grid: { color: 'rgba(255, 255, 255, 0.04)' }, ticks: { color: 'rgba(255, 255, 255, 0.4)', font: { size: 10 } } },
+            y: { grid: { color: 'rgba(255, 255, 255, 0.04)' }, ticks: { color: 'rgba(255, 255, 255, 0.4)', font: { size: 10 } } }
           }
         }
       });
 
-      // Category Donut Chart
       const ctxCat = document.getElementById('categoryChart').getContext('2d');
       new Chart(ctxCat, {
         type: 'doughnut',
@@ -1484,17 +1487,19 @@
           labels: ['Reaksiyalar', 'Ko\'rishlar', 'Obunachilar', 'Instagram'],
           datasets: [{
             data: [45, 30, 15, 10],
-            backgroundColor: ['#6366f1', '#a855f7', '#10b981', '#f59e0b'],
-            borderWidth: 0
+            backgroundColor: ['#007AFF', '#AF52DE', '#34C759', '#FF9500'],
+            borderWidth: 0,
+            borderRadius: 6
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          cutout: '72%',
           plugins: {
             legend: {
               position: 'bottom',
-              labels: { color: '#94a3b8', font: { size: 10 } }
+              labels: { color: 'rgba(255, 255, 255, 0.5)', font: { size: 10 }, boxWidth: 8, padding: 12 }
             }
           }
         }
