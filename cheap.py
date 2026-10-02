@@ -9437,8 +9437,14 @@ async def start_userbot():
         print("⚠️ USERBOT: API_ID/API_HASH topilmadi.")
         return
 
+    from telethon.sessions import StringSession
+    if USERBOT_SESSION and len(USERBOT_SESSION) > 60:
+        sess = StringSession(USERBOT_SESSION)
+    else:
+        sess = USERBOT_SESSION or 'cheap_userbot'
+
     userbot = TelegramClient(
-        USERBOT_SESSION,
+        sess,
         API_ID,
         API_HASH
     )
