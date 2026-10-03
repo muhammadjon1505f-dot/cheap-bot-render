@@ -457,73 +457,24 @@ def main_reply_keyboard(user_id):
 def main_inline_keyboard(user_id):
     return types.InlineKeyboardMarkup()
 
-def main_menu_text(message=None):
-    import html
+def send_start_screen(chat_id, user=None):
     from datetime import datetime
+    import html
+
+    first_name = "Do'stim"
+    if user:
+        if hasattr(user, "from_user") and user.from_user and getattr(user.from_user, "first_name", None):
+            first_name = user.from_user.first_name
+        elif hasattr(user, "first_name") and user.first_name:
+            first_name = user.first_name
+
+    first_name = html.escape(first_name or "Do'stim")
 
     try:
         bot_info = bot.get_me()
-        username = bot_info.username or "Muxa_aibot"
+        bot_username = bot_info.username or "bot"
     except Exception:
-        username = "Muxa_aibot"
-
-    if message and message.from_user:
-        first_name = message.from_user.first_name or "Do'stim"
-    else:
-        first_name = "Do'stim"
-
-    first_name = html.escape(first_name)
-    username = html.escape(username)
-
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    return (
-        f"👋 <b>{first_name}</b> "
-        f'<a href="https://t.me/{username}">ɱυxα @{username}</a> '
-        "ga xush kelibsiz!\n\n"
-
-        "📈 Bot sizning buyurtmalaringizni avtomatlashtirishga yordam beradi.\n\n"
-
-        "📌 Botdan foydalanishni tushunmasangiz "
-        "Qo'llanma tugmasini bosing.\n\n"
-
-        "🙌 Bizni tanlaganingizdan xursandmiz!\n"
-        f"{now}"
-    )
-
-
-
-def send_main_menu(chat_id, user_id):
-    try:
-        user = bot.get_chat(user_id)
-        bot.send_message(
-            chat_id,
-            main_menu_text(user),
-            reply_markup=main_reply_keyboard(user_id),
-            parse_mode="HTML"
-        )
-    except Exception:
-        bot.send_message(
-            chat_id,
-            main_menu_text(),
-            reply_markup=main_reply_keyboard(user_id),
-            parse_mode="HTML"
-        )
-
-
-# ============================================================
-# /START
-# ============================================================
-
-@bot.message_handler(commands=["start"])
-def start(message):
-    from datetime import datetime
-    import html
-
-    first_name = html.escape(message.from_user.first_name or "Dostim")
-
-    bot_info = bot.get_me()
-    bot_username = bot_info.username or "bot"
+        bot_username = "bot"
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -545,24 +496,71 @@ def start(message):
     keyboard.row("💵 Pul kiritish", "👤 Kabinet")
     keyboard.row("🆘 Support", "📕 Qo'llanma")
 
-    bot.send_message(
-        message.chat.id,
+    return bot.send_message(
+        chat_id,
         text,
         parse_mode="HTML",
         reply_markup=keyboard
     )
 
 
+def main_menu_text(message=None):
+    import html
+    from datetime import datetime
+
+    first_name = "Do'stim"
+    if message:
+        if hasattr(message, "from_user") and message.from_user and getattr(message.from_user, "first_name", None):
+            first_name = message.from_user.first_name
+        elif hasattr(message, "first_name") and message.first_name:
+            first_name = message.first_name
+
+    first_name = html.escape(first_name or "Do'stim")
+
+    try:
+        bot_info = bot.get_me()
+        bot_username = bot_info.username or "bot"
+    except Exception:
+        bot_username = "bot"
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    return (
+        f'👋 Salom! <b>{first_name}</b> '
+        f'<a href="https://t.me/{bot_username}">@{bot_username}</a> '
+        "ga xush kelibsiz!\n\n"
+        "<blockquote>📈 Bot sizning buyurtmalaringizni avtomatlashtirishga yordam beradi.</blockquote>\n\n"
+        "<i>📌 Botdan foydalanishni tushunmasangiz Qo'llanma tugmasini bosing.</i>\n\n"
+        "🙌 Bizni tanlaganingizdan xursandmiz!\n"
+        f"{now}"
+    )
+
+
+
+def send_main_menu(chat_id, user_id):
+    try:
+        user = bot.get_chat(user_id)
+    except Exception:
+        user = None
+    send_start_screen(chat_id, user)
+
+
+# ============================================================
+# /START
+# ============================================================
+
+@bot.message_handler(commands=["start"])
+def start(message):
+    clear_state(message.from_user.id)
+    send_start_screen(message.chat.id, message.from_user)
+
+
 @bot.message_handler(
-    func=lambda m: m.text == "🏠 Asosiy menyu"
+    func=lambda m: m.text in ["🏠 Asosiy menyu", "🏠 Bosh menyu"]
 )
 def reply_home(message):
     clear_state(message.from_user.id)
-
-    send_main_menu(
-        message.chat.id,
-        message.from_user.id
-    )
+    send_start_screen(message.chat.id, message.from_user)
 
 
 @bot.message_handler(
@@ -1308,20 +1306,18 @@ def auto_channels_reply(message):
 
 
 @bot.message_handler(
-    func=lambda message: message.text == "⬅️ Orqaga"
+    func=lambda message: message.text in [
+        "⬅️ Orqaga", "🔙 Orqaga", "↩️ Orqaga", "Orqaga", "orqaga",
+        "⬅️ orqaga", "🔙 orqaga", "↩️ orqaga"
+    ]
 )
 def auto_order_reply_back(message):
     """
-    Auto Order ReplyKeyboard'dagi '⬅️ Orqaga'
-    tugmasi asosiy menyuga qaytaradi.
+    Auto Order va barcha menyulardagi 'Orqaga'
+    tugmasi /start kabi to'liq bosh menyuga qaytaradi.
     """
-
     clear_state(message.from_user.id)
-
-    send_main_menu(
-        message.chat.id,
-        message.from_user.id
-    )
+    send_start_screen(message.chat.id, message.from_user)
 
 
 
@@ -3753,15 +3749,12 @@ def home_menu_callback(call):
 
     clear_state(call.from_user.id)
 
-    bot.edit_message_text(
-        main_menu_text(call.message),
-        call.message.chat.id,
-        call.message.message_id,
-        parse_mode="HTML",
-        reply_markup=main_inline_keyboard(
-            call.from_user.id
-        )
-    )
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except Exception:
+        pass
+
+    send_start_screen(call.message.chat.id, call.from_user)
 
 
 @bot.callback_query_handler(
@@ -8893,14 +8886,12 @@ def home_callback(call):
 
     clear_state(call.from_user.id)
 
-    bot.edit_message_text(
-        main_menu_text(call.message),
-        call.message.chat.id,
-        call.message.message_id,
-        reply_markup=main_inline_keyboard(
-            call.from_user.id
-        )
-    )
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except Exception:
+        pass
+
+    send_start_screen(call.message.chat.id, call.from_user)
 
 
 # ============================================================
