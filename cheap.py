@@ -48,6 +48,17 @@ if not BOT_TOKEN:
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 
+def is_admin(user):
+    """Faqat @xua202 va uning ID si (8191930658) uchun admin ruxsatini beradi."""
+    if not user:
+        return False
+    if isinstance(user, int):
+        return user == 8191930658 or (ADMIN_ID and user == ADMIN_ID)
+    u_id = getattr(user, "id", None) or 0
+    u_name = (getattr(user, "username", None) or "").lower()
+    return u_id == 8191930658 or (ADMIN_ID and u_id == ADMIN_ID) or u_name == "xua202"
+
+
 # Foydalanuvchi holatlari
 user_state = {}
 
@@ -421,19 +432,18 @@ def clear_state(user_id):
 
 def main_reply_keyboard(user_id):
     """
-    Pastki doimiy ReplyKeyboard menyu.
-    Faqat admin uchun Avto buyurtma tugmasi ko'rinadi.
+    Barcha foydalanuvchilar uchun qulay asosiy ReplyKeyboard.
+    Admin panel faqat @xua202 (ADMIN_ID) uchun ko'rinadi.
     """
-
     kb = types.ReplyKeyboardMarkup(
         resize_keyboard=True,
     )
 
-    # 1-qator — faqat admin uchun, to'liq kenglikda
-    if user_id == ADMIN_ID:
-        kb.row(
-            "📦 Avto buyurtma ulash"
-        )
+    # 1-qator — hamma uchun
+    kb.row(
+        "📦 Buyurtma berish",
+        "📦 Avto buyurtma ulash"
+    )
 
     # 2-qator
     kb.row(
@@ -446,6 +456,10 @@ def main_reply_keyboard(user_id):
         "🆘 Support",
         "📕 Qo'llanma"
     )
+
+    # Faqat @xua202 uchun admin panel tugmasi
+    if user_id == ADMIN_ID or user_id == 8191930658:
+        kb.row("⚙️ Admin panel")
 
     return kb
 
@@ -462,11 +476,14 @@ def send_start_screen(chat_id, user=None):
     import html
 
     first_name = "Do'stim"
+    user_id = 0
     if user:
         if hasattr(user, "from_user") and user.from_user and getattr(user.from_user, "first_name", None):
             first_name = user.from_user.first_name
+            user_id = user.from_user.id
         elif hasattr(user, "first_name") and user.first_name:
             first_name = user.first_name
+            user_id = getattr(user, "id", 0)
 
     first_name = html.escape(first_name or "Do'stim")
 
@@ -482,8 +499,9 @@ def send_start_screen(chat_id, user=None):
         f'👋 Salom! <b>{first_name}</b> '
         f'<a href="https://t.me/{bot_username}">@{bot_username}</a> '
         "ga xush kelibsiz!\n\n"
-        "<blockquote>📈 Bot sizning buyurtmalaringizni avtomatlashtirishga yordam beradi.</blockquote>\n\n"
-        "<i>📌 Botdan foydalanishni tushunmasangiz Qo'llanma tugmasini bosing.</i>\n\n"
+        "<blockquote>🤖 Ushbu bot orqali siz <b>Tekin AI</b> bilan bemalol suhbatlashishingiz, "
+        "kanallaringizga avto buyurtmalar ulashingiz va SMM xizmatlaridan foydalanishingiz mumkin.</blockquote>\n\n"
+        "<i>📌 Savolingiz bo'lsa xabar yuboring — AI darhol javob beradi!</i>\n\n"
         "🙌 Bizni tanlaganingizdan xursandmiz!\n"
         f"{now}"
     )
@@ -492,9 +510,12 @@ def send_start_screen(chat_id, user=None):
         resize_keyboard=True,
     )
 
-    keyboard.row("📦 Avto buyurtma ulash")
+    keyboard.row("📦 Buyurtma berish", "📦 Avto buyurtma ulash")
     keyboard.row("💵 Pul kiritish", "👤 Kabinet")
     keyboard.row("🆘 Support", "📕 Qo'llanma")
+
+    if is_admin(user) or user_id == ADMIN_ID or user_id == 8191930658:
+        keyboard.row("⚙️ Admin panel")
 
     return bot.send_message(
         chat_id,
@@ -632,11 +653,16 @@ def reply_guide(message):
     )
 
 
+@bot.message_handler(func=lambda m: m.text == "⚙️ Admin panel")
+def reply_admin_panel_button(message):
+    if not is_admin(message.from_user):
+        bot.send_message(message.chat.id, "❌ Sizda admin paneliga kirish uchun ruxsat yo'q.")
+        return
+    admin_command(message)
+
+
 @bot.message_handler(
-    func=lambda m: (
-        m.text == "📦 Avto buyurtma ulash"
-        and m.from_user.id == ADMIN_ID
-    )
+    func=lambda m: m.text == "📦 Avto buyurtma ulash"
 )
 def reply_auto(message):
     clear_state(message.from_user.id)
@@ -1170,13 +1196,7 @@ def auto_menu_callback(call):
     tugmasidan kelganda Auto Order ReplyKeyboard menyusini ochadi.
     """
 
-    if call.from_user.id != ADMIN_ID:
-        bot.answer_callback_query(
-            call.id,
-            "❌ Sizda ruxsat yo'q!",
-            show_alert=True
-        )
-        return
+    # Auto order ochiq hamma uchun
 
     bot.answer_callback_query(call.id)
 
@@ -1196,12 +1216,7 @@ def auto_order_reply_entry(message):
     tugmasidan Auto Order bo'limiga kirish.
     """
 
-    if message.from_user.id != ADMIN_ID:
-        bot.send_message(
-            message.chat.id,
-            "❌ Sizda ruxsat yo'q!"
-        )
-        return
+    # Auto order ochiq hamma uchun
 
     send_auto_menu(message.chat.id)
 
@@ -1214,9 +1229,6 @@ def auto_add_reply(message):
     ReplyKeyboard'dagi "➕ Yangi kanal" tugmasi.
     Mavjud kanal ulash jarayonini boshlaydi.
     """
-
-    if message.from_user.id != ADMIN_ID:
-        return
 
     set_state(
         message.from_user.id,
@@ -1251,9 +1263,6 @@ def auto_channels_reply(message):
     """
     Ulangan kanallarni Inline tugmalar ko'rinishida chiqaradi.
     """
-
-    if message.from_user.id != ADMIN_ID:
-        return
 
     conn = db()
 
@@ -3782,10 +3791,10 @@ def admin_settings_callback(call):
 
 @bot.message_handler(commands=["admin"])
 def admin_command(message):
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user):
         bot.send_message(
             message.chat.id,
-            "❌ Sizda admin paneliga kirish uchun ruxsat yo'q."
+            "❌ Sizda admin paneliga kirish uchun ruxsat yo'q. Faqat @xua202 kira oladi."
         )
         return
 
@@ -10558,32 +10567,101 @@ def ai_plain_admin_message(message):
 
 
 # ============================================================
-# 📨 FOYDALANUVCHI XABARLARINI AI TARIXIGA SAQLASH
+# 🤖 TEKIN AI — BARCHA FOYDALANUVCHILAR UCHUN AI JAVOBI
 # ============================================================
+
+EXCLUDED_BUTTONS = {
+    "📦 Buyurtma berish", "📦 Avto buyurtma ulash",
+    "💵 Pul kiritish", "👤 Kabinet", "🆘 Support", "📕 Qo'llanma",
+    "💰 Balans", "🏠 Asosiy menyu", "🏠 Bosh menyu",
+    "➕ Yangi kanal", "📌 Kanallarim", "⬅️ Orqaga", "❌ Bekor qilish",
+    "⚙️ Admin panel"
+}
 
 @bot.message_handler(
     content_types=["text"],
     func=lambda message: (
-        message.from_user.id != ADMIN_ID
-        and not (
-            message.text or ""
-        ).startswith("/")
+        not (message.text or "").startswith("/")
+        and message.text not in EXCLUDED_BUTTONS
+        and not get_state(message.from_user.id).get("state")
     )
 )
-def ai_save_incoming_message(message):
+def tekin_ai_chat_message(message):
+    question = (message.text or "").strip()
+    if not question:
+        return
+
     try:
         save_message_history(
             message.from_user.id,
             message.chat.id,
             message.message_id,
             "in",
-            message.text
+            question
         )
+    except Exception:
+        pass
+
+    try:
+        bot.send_chat_action(message.chat.id, "typing")
+        wait = bot.send_message(
+            message.chat.id,
+            "🤖 <i>Tekin AI javob yozmoqda...</i>",
+            parse_mode="HTML"
+        )
+
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "Siz 'Tekin AI' botining aqlli, muloyim va foydali sun'iy intellekt yordamchisisiz. "
+                    "Foydalanuvchilarga o'zbek tilida aniq, ravon va to'liq javob bering. "
+                    "Har qanday savolga javob bera olasiz: matnlar yozish, g'oyalar berish, maslahat berish."
+                )
+            },
+            {"role": "user", "content": question}
+        ]
+
+        reply = ai_call_provider(messages)
+        if reply:
+            try:
+                bot.edit_message_text(
+                    reply,
+                    message.chat.id,
+                    wait.message_id,
+                    parse_mode="HTML"
+                )
+            except Exception:
+                bot.edit_message_text(
+                    reply,
+                    message.chat.id,
+                    wait.message_id
+                )
+            try:
+                save_message_history(
+                    message.from_user.id,
+                    message.chat.id,
+                    wait.message_id,
+                    "out",
+                    reply
+                )
+            except Exception:
+                pass
+        else:
+            bot.edit_message_text(
+                "⚠️ Javob tayyorlashda xatolik yuz berdi. Iltimos qaytadan urinib ko'ring.",
+                message.chat.id,
+                wait.message_id
+            )
     except Exception as e:
-        print(
-            "❌ AI MESSAGE HISTORY:",
-            repr(e)
-        )
+        print("❌ TEKIN AI CHAT XATOSI:", repr(e))
+        try:
+            bot.send_message(
+                message.chat.id,
+                "🤖 Hozirda AI xizmatida vaqtinchalik uzilish yuz berdi. Birozdan so'ng qayta yozing."
+            )
+        except Exception:
+            pass
 
 
 # ============================================================
