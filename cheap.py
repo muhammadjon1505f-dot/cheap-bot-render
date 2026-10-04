@@ -4174,7 +4174,7 @@ def admin_users_main(chat_id, message_id=None):
 def admin_users_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     admin_users_main(
@@ -4193,7 +4193,7 @@ def admin_users_callback(call):
 def admin_users_list_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -4331,24 +4331,33 @@ def admin_users_list_callback(call):
 def admin_user_search_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     set_state(
-        ADMIN_ID,
+        call.from_user.id,
         "admin_user_search"
+    )
+
+    kb = types.InlineKeyboardMarkup()
+    kb.add(
+        types.InlineKeyboardButton(
+            "↩️ Bekor qilish",
+            callback_data="admin_users"
+        )
     )
 
     bot.edit_message_text(
         "🔎 <b>FOYDALANUVCHI QIDIRISH</b>\n\n"
         "🆔 Telegram ID yoki 👤 username yuboring.\n\n"
         "Masalan:\n"
-        "<code>123456789</code>\n"
-        "<code>@username</code>\n\n"
-        "❌ Bekor qilish: /cancel",
+        "• <code>8191930658</code>\n"
+        "• <code>@xua202</code> yoki <code>xua202</code>\n\n"
+        "<i>Bekor qilish uchun pastdagi tugmani bosing yoki /cancel yuboring.</i>",
         call.message.chat.id,
         call.message.message_id,
-        parse_mode="HTML"
+        parse_mode="HTML",
+        reply_markup=kb
     )
 
 
@@ -4373,46 +4382,91 @@ def show_admin_user(bot_chat_id, message_id, user_id):
             (user_id,)
         ).fetchone()
 
+        orders_count = 0
+        try:
+            oc = conn.execute(
+                "SELECT COUNT(*) FROM orders WHERE user_id = ?",
+                (user_id,)
+            ).fetchone()
+            if oc:
+                orders_count = oc[0] or 0
+        except Exception:
+            pass
+
     finally:
         conn.close()
 
-    if not row:
-        bot.edit_message_text(
-            "❌ Foydalanuvchi topilmadi.",
-            bot_chat_id,
-            message_id,
-            parse_mode="HTML"
-        )
-        return
+    # Telegram orqali jonli ma'lumotlarni olish (batafsil Telegramda ko'rish uchun)
+    tg_name = None
+    tg_username = None
+    tg_bio = None
+    try:
+        chat = bot.get_chat(user_id)
+        if chat:
+            tg_name = f"{chat.first_name or ''} {chat.last_name or ''}".strip()
+            tg_username = chat.username
+            tg_bio = getattr(chat, "bio", None)
+    except Exception:
+        pass
 
-    username = row["username"] or ""
-    first_name = row["first_name"] or "Noma'lum"
-    balance = float(row["balance"] or 0)
-    total_deposited = float(row["total_deposited"] or 0)
-    banned = int(row["banned"] or 0)
-    role = row["role"] or "user"
-    created_at = row["created_at"] or "-"
+    if not row:
+        if not tg_name and not tg_username:
+            msg_text = "❌ Foydalanuvchi topilmadi (bazada ham, Telegramda ham mavjud emas)."
+            if message_id:
+                try:
+                    bot.edit_message_text(msg_text, bot_chat_id, message_id, parse_mode="HTML")
+                except Exception:
+                    bot.send_message(bot_chat_id, msg_text, parse_mode="HTML")
+            else:
+                bot.send_message(bot_chat_id, msg_text, parse_mode="HTML")
+            return
+
+        conn = db()
+        try:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO users
+                (user_id, username, first_name, balance, banned, created_at)
+                VALUES (?, ?, ?, 0, 0, ?)
+                """,
+                (user_id, tg_username or "", tg_name or "", datetime.now().isoformat())
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
+        finally:
+            conn.close()
+
+    username = (row["username"] if row else "") or tg_username or ""
+    first_name = (row["first_name"] if row else "") or tg_name or "Noma'lum"
+    balance = float(row["balance"] or 0) if row else 0.0
+    total_deposited = float(row["total_deposited"] or 0) if row else 0.0
+    banned = int(row["banned"] or 0) if row else 0
+    role = (row["role"] if row else "") or "user"
+    created_at = (row["created_at"] if row else "") or "-"
 
     status = "🔴 Bloklangan" if banned else "🟢 Faol"
-
-    username_text = (
-        f"@{username.lstrip('@')}"
-        if username
-        else "username yo'q"
-    )
+    username_text = f"@{username.lstrip('@')}" if username else "Mavjud emas"
 
     text = (
-        "👤 <b>FOYDALANUVCHI</b>\n"
-        "━━━━━━━━━━━━━━━━━━\n\n"
-        f"👤 Ism: <b>{first_name}</b>\n"
-        f"🔗 Username: <b>{username_text}</b>\n"
-        f"🆔 ID: <code>{row['user_id']}</code>\n"
-        f"📊 Holat: <b>{status}</b>\n"
-        f"👑 Rol: <b>{role}</b>\n\n"
-        f"💰 Balans: <b>{balance:,.2f}</b> so'm\n"
-        f"💳 Jami kiritilgan: <b>{total_deposited:,.2f}</b> so'm\n"
-        f"📅 Ro'yxatdan o'tgan: <b>{created_at}</b>"
+        "👤 <b>FOYDALANUVCHI BAFASIL PROFILI</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🆔 <b>Telegram ID:</b> <code>{user_id}</code>\n"
+        f"👤 <b>Ism:</b> <b>{html.escape(first_name)}</b>\n"
+        f"🔗 <b>Username:</b> {username_text}\n"
+        f"📊 <b>Holati:</b> {status}\n"
+        f"👑 <b>Roli:</b> <code>{role}</code>\n\n"
+        f"💰 <b>Balans:</b> <code>{balance:,.2f}</code> so'm\n"
+        f"💳 <b>Kiritgan puli:</b> <code>{total_deposited:,.2f}</code> so'm\n"
+        f"📦 <b>Jami buyurtmalar:</b> <code>{orders_count}</code> ta\n"
+        f"📅 <b>Ro'yxatdan o'tgan:</b> <code>{created_at}</code>\n"
     )
+
+    if tg_name or tg_bio:
+        text += "\n📱 <b>Telegram profil ma'lumotlari:</b>\n"
+        if tg_name and tg_name != first_name:
+            text += f"• TG Ismi: <b>{html.escape(tg_name)}</b>\n"
+        if tg_bio:
+            text += f"• Bio: <i>{html.escape(tg_bio)}</i>\n"
 
     kb = types.InlineKeyboardMarkup(row_width=2)
 
@@ -4442,20 +4496,52 @@ def show_admin_user(bot_chat_id, message_id, user_id):
             )
         )
 
+    # Batafsil Telegramda ko'rish havolasi!
+    tg_url = f"https://t.me/{username.lstrip('@')}" if username else f"tg://user?id={user_id}"
     kb.add(
         types.InlineKeyboardButton(
-            "↩️ Ro'yxat",
-            callback_data="admin_users_list:0"
+            "✈️ Telegram profilini ochish",
+            url=tg_url
         )
     )
 
-    bot.edit_message_text(
-        text,
-        bot_chat_id,
-        message_id,
-        parse_mode="HTML",
-        reply_markup=kb
+    kb.add(
+        types.InlineKeyboardButton(
+            "🔎 Boshqa qidirish",
+            callback_data="admin_user_search"
+        ),
+        types.InlineKeyboardButton(
+            "↩️ Foydalanuvchilar",
+            callback_data="admin_users"
+        )
     )
+
+    if message_id:
+        try:
+            bot.edit_message_text(
+                text,
+                bot_chat_id,
+                message_id,
+                parse_mode="HTML",
+                reply_markup=kb,
+                disable_web_page_preview=True
+            )
+        except Exception:
+            bot.send_message(
+                bot_chat_id,
+                text,
+                parse_mode="HTML",
+                reply_markup=kb,
+                disable_web_page_preview=True
+            )
+    else:
+        bot.send_message(
+            bot_chat_id,
+            text,
+            parse_mode="HTML",
+            reply_markup=kb,
+            disable_web_page_preview=True
+        )
 
 
 @bot.callback_query_handler(
@@ -4464,7 +4550,7 @@ def show_admin_user(bot_chat_id, message_id, user_id):
 def admin_user_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -4489,7 +4575,7 @@ def admin_user_callback(call):
 def admin_user_add_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -4498,19 +4584,28 @@ def admin_user_add_callback(call):
         return
 
     set_state(
-        ADMIN_ID,
+        call.from_user.id,
         f"admin_user_add:{user_id}"
+    )
+
+    kb = types.InlineKeyboardMarkup()
+    kb.add(
+        types.InlineKeyboardButton(
+            "↩️ Bekor qilish",
+            callback_data=f"admin_user:{user_id}"
+        )
     )
 
     bot.edit_message_text(
         "💰 <b>PUL QO'SHISH</b>\n\n"
         f"🆔 Foydalanuvchi: <code>{user_id}</code>\n\n"
         "💵 Qancha pul qo'shmoqchisiz?\n"
-        "Masalan: <code>10</code>\n\n"
+        "Masalan: <code>10000</code>\n\n"
         "❌ Bekor qilish: /cancel",
         call.message.chat.id,
         call.message.message_id,
-        parse_mode="HTML"
+        parse_mode="HTML",
+        reply_markup=kb
     )
 
 
@@ -4524,7 +4619,7 @@ def admin_user_add_callback(call):
 def admin_user_sub_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -4533,20 +4628,29 @@ def admin_user_sub_callback(call):
         return
 
     set_state(
-        ADMIN_ID,
+        call.from_user.id,
         f"admin_user_sub:{user_id}"
+    )
+
+    kb = types.InlineKeyboardMarkup()
+    kb.add(
+        types.InlineKeyboardButton(
+            "↩️ Bekor qilish",
+            callback_data=f"admin_user:{user_id}"
+        )
     )
 
     bot.edit_message_text(
         "💸 <b>PUL AYIRISH</b>\n\n"
         f"🆔 Foydalanuvchi: <code>{user_id}</code>\n\n"
         "💵 Qancha pul ayirmoqchisiz?\n"
-        "Masalan: <code>10</code>\n\n"
+        "Masalan: <code>10000</code>\n\n"
         "⚠️ Balansdan ko'p miqdor ayirib bo'lmaydi.\n\n"
         "❌ Bekor qilish: /cancel",
         call.message.chat.id,
         call.message.message_id,
-        parse_mode="HTML"
+        parse_mode="HTML",
+        reply_markup=kb
     )
 
 
@@ -4560,7 +4664,7 @@ def admin_user_sub_callback(call):
 def admin_user_ban_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -4613,7 +4717,7 @@ def admin_user_ban_callback(call):
 def admin_user_unban_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -4662,7 +4766,7 @@ def admin_user_unban_callback(call):
 
 @bot.message_handler(
     func=lambda message:
-        message.from_user.id == ADMIN_ID
+        is_admin(message.from_user)
         and (
             get_state(message.from_user.id).get("state") == "admin_user_search"
             or str(get_state(message.from_user.id).get("state", "")).startswith("admin_user_add:")
@@ -4699,12 +4803,13 @@ def admin_users_input(message):
             return
 
         conn = db()
+        rows = []
 
         try:
             if search.isdigit():
                 rows = conn.execute(
                     """
-                    SELECT user_id
+                    SELECT user_id, username, first_name
                     FROM users
                     WHERE user_id = ?
                     LIMIT 10
@@ -4714,7 +4819,7 @@ def admin_users_input(message):
             else:
                 rows = conn.execute(
                     """
-                    SELECT user_id
+                    SELECT user_id, username, first_name
                     FROM users
                     WHERE LOWER(username) = LOWER(?)
                        OR LOWER(username) LIKE LOWER(?)
@@ -4728,10 +4833,30 @@ def admin_users_input(message):
 
         clear_state(message.from_user.id)
 
+        # Agar bazada topilmasa, Telegram orqali jonli qidirib ko'ramiz
         if not rows:
+            tg_chat = None
+            try:
+                if search.isdigit():
+                    tg_chat = bot.get_chat(int(search))
+                else:
+                    tg_chat = bot.get_chat("@" + search)
+            except Exception as e:
+                print("⚠️ Telegram get_chat xatosi:", repr(e))
+
+            if tg_chat:
+                show_admin_user(
+                    message.chat.id,
+                    None,
+                    tg_chat.id
+                )
+                return
+
             bot.send_message(
                 message.chat.id,
-                "❌ Foydalanuvchi topilmadi."
+                f"❌ Foydalanuvchi topilmadi: <code>{html.escape(value)}</code>\n\n"
+                "Iltimos, to'g'ri Telegram ID yoki username kiriting.",
+                parse_mode="HTML"
             )
             admin_users_main(message.chat.id)
             return
@@ -4747,12 +4872,24 @@ def admin_users_input(message):
         kb = types.InlineKeyboardMarkup()
 
         for row in rows:
+            name = (row["first_name"] or "Foydalanuvchi").strip()
+            uname = f" (@{row['username']})" if row["username"] else ""
+            btn_text = f"👤 {name}{uname} [{row['user_id']}]"
+            if len(btn_text) > 35:
+                btn_text = btn_text[:32] + "..."
             kb.add(
                 types.InlineKeyboardButton(
-                    f"👤 {row['user_id']}",
+                    btn_text,
                     callback_data=f"admin_user:{row['user_id']}"
                 )
             )
+
+        kb.add(
+            types.InlineKeyboardButton(
+                "↩️ Bekor qilish",
+                callback_data="admin_users"
+            )
+        )
 
         bot.send_message(
             message.chat.id,
