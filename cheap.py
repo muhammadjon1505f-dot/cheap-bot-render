@@ -496,7 +496,9 @@ def send_start_screen(chat_id, user=None):
     except Exception:
         bot_username = "bot"
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    from datetime import timezone, timedelta
+    tz_uz = timezone(timedelta(hours=5))
+    now = datetime.now(tz_uz).strftime("%Y-%m-%d %H:%M:%S")
 
     keyboard = types.ReplyKeyboardMarkup(
         resize_keyboard=True,
@@ -518,7 +520,7 @@ def send_start_screen(chat_id, user=None):
             def _format_vars(s):
                 if not s:
                     return ""
-                return (
+                formatted = (
                     s.replace("{first_name}", first_name)
                     .replace("{name}", first_name)
                     .replace("{username}", f"@{username_str}" if username_str else first_name)
@@ -527,6 +529,16 @@ def send_start_screen(chat_id, user=None):
                     .replace("{bot_username}", f"@{bot_username}")
                     .replace("{now}", str(now))
                 )
+                # Avtomatik sana va vaqtni joriy real vaqt bilan almashtirish
+                formatted = re.sub(r'\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}', str(now), formatted)
+
+                # Avtomatik bot username'ni joriy bot bilan almashtirish
+                formatted = re.sub(r'@[A-Za-z0-9_]+bot', f'@{bot_username}', formatted, flags=re.IGNORECASE)
+
+                # Avtomatik foydalanuvchi ismini joylashtirish
+                formatted = re.sub(r'(👋?\s*Salom!?,?\s*(?:<b>)?)[^<@\n]+((?:<\/b>)?\s*(?:<b>)?@)', rf'\g<1>{first_name} \g<2>', formatted)
+
+                return formatted
 
             m_type = cfg.get("type")
             if m_type == "photo" and cfg.get("file_id"):
