@@ -473,16 +473,20 @@ def main_inline_keyboard(user_id):
 def send_start_screen(chat_id, user=None):
     from datetime import datetime
     import html
+    import json
 
     first_name = "Do'stim"
     user_id = 0
+    username_str = ""
     if user:
         if hasattr(user, "from_user") and user.from_user and getattr(user.from_user, "first_name", None):
             first_name = user.from_user.first_name
             user_id = user.from_user.id
+            username_str = getattr(user.from_user, "username", "") or ""
         elif hasattr(user, "first_name") and user.first_name:
             first_name = user.first_name
             user_id = getattr(user, "id", 0)
+            username_str = getattr(user, "username", "") or ""
 
     first_name = html.escape(first_name or "Do'stim")
 
@@ -493,17 +497,6 @@ def send_start_screen(chat_id, user=None):
         bot_username = "bot"
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    text = (
-        f'👋 Salom! <b>{first_name}</b> '
-        f'<a href="https://t.me/{bot_username}">@{bot_username}</a> '
-        "ga xush kelibsiz!\n\n"
-        "<blockquote>🤖 Ushbu bot orqali siz <b>Tekin AI</b> bilan bemalol suhbatlashishingiz, "
-        "kanallaringizga avto buyurtmalar ulashingiz va SMM xizmatlaridan foydalanishingiz mumkin.</blockquote>\n\n"
-        "<i>📌 Savolingiz bo'lsa xabar yuboring — AI darhol javob beradi!</i>\n\n"
-        "🙌 Bizni tanlaganingizdan xursandmiz!\n"
-        f"{now}"
-    )
 
     keyboard = types.ReplyKeyboardMarkup(
         resize_keyboard=True,
@@ -516,9 +509,78 @@ def send_start_screen(chat_id, user=None):
     if is_admin(user) or user_id == ADMIN_ID or user_id == 8191930658:
         keyboard.row("⚙️ Admin panel")
 
+    start_cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "start_config.json")
+    if os.path.exists(start_cfg_file):
+        try:
+            with open(start_cfg_file, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+
+            def _format_vars(s):
+                if not s:
+                    return ""
+                return (
+                    s.replace("{first_name}", first_name)
+                    .replace("{name}", first_name)
+                    .replace("{username}", f"@{username_str}" if username_str else first_name)
+                    .replace("{user_id}", str(user_id))
+                    .replace("{id}", str(user_id))
+                    .replace("{bot_username}", f"@{bot_username}")
+                    .replace("{now}", str(now))
+                )
+
+            m_type = cfg.get("type")
+            if m_type == "photo" and cfg.get("file_id"):
+                caption = _format_vars(cfg.get("caption", ""))
+                return bot.send_photo(
+                    chat_id,
+                    photo=cfg["file_id"],
+                    caption=caption,
+                    parse_mode="HTML" if caption else None,
+                    reply_markup=keyboard
+                )
+            elif m_type == "video" and cfg.get("file_id"):
+                caption = _format_vars(cfg.get("caption", ""))
+                return bot.send_video(
+                    chat_id,
+                    video=cfg["file_id"],
+                    caption=caption,
+                    parse_mode="HTML" if caption else None,
+                    reply_markup=keyboard
+                )
+            elif m_type == "animation" and cfg.get("file_id"):
+                caption = _format_vars(cfg.get("caption", ""))
+                return bot.send_animation(
+                    chat_id,
+                    animation=cfg["file_id"],
+                    caption=caption,
+                    parse_mode="HTML" if caption else None,
+                    reply_markup=keyboard
+                )
+            elif m_type == "text" and cfg.get("text"):
+                body = _format_vars(cfg.get("text", ""))
+                return bot.send_message(
+                    chat_id,
+                    body,
+                    parse_mode="HTML",
+                    reply_markup=keyboard
+                )
+        except Exception as e:
+            print("❌ Custom start screen error:", e)
+
+    default_text = (
+        f'👋 Salom! <b>{first_name}</b> '
+        f'<a href="https://t.me/{bot_username}">@{bot_username}</a> '
+        "ga xush kelibsiz!\n\n"
+        "<blockquote>🤖 Ushbu bot orqali siz <b>Tekin AI</b> bilan bemalol suhbatlashishingiz, "
+        "kanallaringizga avto buyurtmalar ulashingiz va SMM xizmatlaridan foydalanishingiz mumkin.</blockquote>\n\n"
+        "<i>📌 Savolingiz bo'lsa xabar yuboring — AI darhol javob beradi!</i>\n\n"
+        "🙌 Bizni tanlaganingizdan xursandmiz!\n"
+        f"{now}"
+    )
+
     return bot.send_message(
         chat_id,
-        text,
+        default_text,
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -1366,6 +1428,92 @@ def auto_add_callback(call):
         call.message.message_id,
         reply_markup=kb
     )
+
+
+# ============================================================
+# ADMIN FORWARD ORQALI /START XABARINI SOZLASH
+# ============================================================
+
+def is_forwarded_message(message):
+    return bool(
+        getattr(message, "forward_date", None)
+        or getattr(message, "forward_from_chat", None)
+        or getattr(message, "forward_from", None)
+        or getattr(message, "forward_sender_name", None)
+        or getattr(message, "forward_origin", None)
+    )
+
+@bot.message_handler(commands=["setstart"])
+def admin_set_start_cmd(message):
+    if not is_admin(message.from_user):
+        return
+    bot.reply_to(
+        message,
+        "📌 <b>Yangi /start xabarini o'rnatish:</b>\n\n"
+        "Istalgan kanal yoki chatdan xabarni (matn, rasm yoki video) to'g'ridan-to'g'ri botga <b>FORWARD</b> qilib yuboring!\n"
+        "Bot uni darhol saqlab, yangi /start xabari qilib sozlaydi. 🚀",
+        parse_mode="HTML"
+    )
+
+@bot.message_handler(commands=["resetstart"])
+def admin_reset_start_cmd(message):
+    if not is_admin(message.from_user):
+        return
+    start_cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "start_config.json")
+    if os.path.exists(start_cfg_file):
+        try:
+            os.remove(start_cfg_file)
+        except Exception:
+            pass
+    bot.reply_to(
+        message,
+        "🔄 <b>/start xabari standart holatiga qaytarildi!</b>",
+        parse_mode="HTML"
+    )
+    send_start_screen(message.chat.id, message.from_user)
+
+@bot.message_handler(
+    content_types=["text", "photo", "video", "animation"],
+    func=lambda message: (
+        is_admin(message.from_user)
+        and is_forwarded_message(message)
+        and get_state(message.from_user.id).get("state") != "waiting_channel"
+    )
+)
+def handle_admin_start_forward(message):
+    import json
+    start_cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "start_config.json")
+
+    cfg = {}
+    if message.photo:
+        file_id = message.photo[-1].file_id
+        caption = getattr(message, "html_caption", None) or message.caption or ""
+        cfg = {"type": "photo", "file_id": file_id, "caption": caption}
+    elif message.video:
+        file_id = message.video.file_id
+        caption = getattr(message, "html_caption", None) or message.caption or ""
+        cfg = {"type": "video", "file_id": file_id, "caption": caption}
+    elif message.animation:
+        file_id = message.animation.file_id
+        caption = getattr(message, "html_caption", None) or message.caption or ""
+        cfg = {"type": "animation", "file_id": file_id, "caption": caption}
+    else:
+        text = getattr(message, "html_text", None) or message.text or ""
+        cfg = {"type": "text", "text": text}
+
+    try:
+        with open(start_cfg_file, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+
+        bot.reply_to(
+            message,
+            "✅ <b>Qabul qilindi! Forward qilingan xabar /start xabari sifatida muvaffaqiyatli saqlandi!</b>\n\n"
+            "👇 <i>Quyida yangi /start ko'rinishi namoyish etilmoqda:</i>",
+            parse_mode="HTML"
+        )
+        send_start_screen(message.chat.id, message.from_user)
+    except Exception as e:
+        bot.reply_to(message, f"❌ Xatolik yuz berdi: {e}")
 
 
 # ============================================================
