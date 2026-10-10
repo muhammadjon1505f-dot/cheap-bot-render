@@ -441,7 +441,6 @@ def main_reply_keyboard(user_id):
 
     # 1-qator — hamma uchun
     kb.row(
-        "📦 Buyurtma berish",
         "📦 Avto buyurtma ulash"
     )
 
@@ -510,7 +509,7 @@ def send_start_screen(chat_id, user=None):
         resize_keyboard=True,
     )
 
-    keyboard.row("📦 Buyurtma berish", "📦 Avto buyurtma ulash")
+    keyboard.row("📦 Avto buyurtma ulash")
     keyboard.row("💵 Pul kiritish", "👤 Kabinet")
     keyboard.row("🆘 Support", "📕 Qo'llanma")
 
@@ -589,9 +588,11 @@ def reply_home(message):
 )
 def reply_order(message):
     clear_state(message.from_user.id)
-
-    send_order_menu(
-        message.chat.id
+    bot.send_message(
+        message.chat.id,
+        "⚠️ <b>Ushbu bo'lim olib tashlangan.</b>",
+        parse_mode="HTML",
+        reply_markup=main_reply_keyboard(message.from_user.id)
     )
 
 
