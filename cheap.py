@@ -25,8 +25,8 @@ from telethon.errors import UserAlreadyParticipantError
 
 load_dotenv(override=True)
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0") or 0)
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8657770745:AAHxznnwFSgmHgA1lUEP35Bnuy3L9pEKPOo").strip() or "8657770745:AAHxznnwFSgmHgA1lUEP35Bnuy3L9pEKPOo"
+ADMIN_ID = int(os.getenv("ADMIN_ID", "8191930658") or 8191930658)
 DB_FILE = os.getenv("DB_FILE", "smm_bot.db")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
@@ -38,12 +38,12 @@ OPENAI_AGENT_MODEL = os.getenv(
     "gpt-6-luna"
 ).strip()
 
-API_ID = int(os.getenv("API_ID", "0") or 0)
-API_HASH = os.getenv("API_HASH", "").strip()
+API_ID = int(os.getenv("API_ID", "38883376") or 38883376)
+API_HASH = os.getenv("API_HASH", "67909afdf0fe6c23e6af29985f645297").strip() or "67909afdf0fe6c23e6af29985f645297"
 USERBOT_SESSION = os.getenv(
     "USERBOT_SESSION",
-    "cheap_userbot"
-)
+    "1ApWapzMBuzwsTu81tRBCeZQ7gu4ERhma5D66ZBdVtl-uPoSGrYlyE4NyG9qwDJ989u913j0h6dnWxdoucwSVNvWNAC1g-oz5woPA7ZBpcRsu4txKXWxvU3ZLIGUEDOym-ZmK4QvIgMtrRMYTwuk5EGkdoYKt5iVK58eChFUCVJ_2tU7wCar4KkSlcB2s4UvYDFEzrTA42XkjbjKlP1w0f0c6aFuOvBgeriW4imvLDVKS0mISyLEaOGr1ef2btu4RzNgRpVtjxm3VV9zgr1cxerWl7w2rKivejMqORdVlK7bDYzxzODG9f5wb9Y86YENGHvwokxW4SocsrdbStZu4OlhymivInJQ="
+) or "1ApWapzMBuzwsTu81tRBCeZQ7gu4ERhma5D66ZBdVtl-uPoSGrYlyE4NyG9qwDJ989u913j0h6dnWxdoucwSVNvWNAC1g-oz5woPA7ZBpcRsu4txKXWxvU3ZLIGUEDOym-ZmK4QvIgMtrRMYTwuk5EGkdoYKt5iVK58eChFUCVJ_2tU7wCar4KkSlcB2s4UvYDFEzrTA42XkjbjKlP1w0f0c6aFuOvBgeriW4imvLDVKS0mISyLEaOGr1ef2btu4RzNgRpVtjxm3VV9zgr1cxerWl7w2rKivejMqORdVlK7bDYzxzODG9f5wb9Y86YENGHvwokxW4SocsrdbStZu4OlhymivInJQ="
 
 if not BOT_TOKEN:
     raise SystemExit("❌ BOT_TOKEN .env faylida topilmadi")
@@ -9855,9 +9855,14 @@ async def process_channel_post(
                 f"-{channel_id_clean}",
                 channel_id_clean
             ]
+            if channel_id_clean.isdigit():
+                target_ids.append(int(channel_id_clean))
+                target_ids.append(-int(f"100{channel_id_clean}"))
+                target_ids.append(-int(channel_id_clean))
             if username:
-                target_ids.append(f"@{username}")
-                target_ids.append(username)
+                clean_un = str(username).strip().lstrip("@")
+                target_ids.append(f"@{clean_un}")
+                target_ids.append(clean_un)
 
             placeholders = ",".join("?" for _ in target_ids)
 
@@ -10074,6 +10079,29 @@ async def process_channel_post(
         )
 
 
+@bot.channel_post_handler(content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'animation'])
+def bot_channel_post_listener(message):
+    """
+    Agar kanalga bot admin qilingan bo'lsa, Telegram Bot API orqali kelgan
+    yangi postni darhol qabul qiladi va Auto Order buyurtmasini beradi.
+    """
+    try:
+        ch_id = getattr(message.chat, "id", None)
+        msg_id = getattr(message, "message_id", None)
+        title = getattr(message.chat, "title", None) or "Noma'lum kanal"
+        username = getattr(message.chat, "username", None)
+        if not ch_id or not msg_id:
+            return
+        print(f"📡 BOT API CHANNEL POST QABUL QILINDI: {title} (@{username}) | Msg: {msg_id}")
+        if MAIN_LOOP:
+            asyncio.run_coroutine_threadsafe(
+                process_channel_post(ch_id, msg_id, title, username),
+                MAIN_LOOP
+            )
+    except Exception as e:
+        print(f"❌ BOT CHANNEL POST XATOSI: {e}")
+
+
 async def start_userbot():
     """
     Telethon userbotni to'g'ridan-to'g'ri ishga tushiradi.
@@ -10128,10 +10156,21 @@ async def start_userbot():
                 or (-int(f"100{channel_id_clean}") in active_channels if channel_id_clean.isdigit() else False)
             )
 
+            chat = None
+            if not is_active:
+                try:
+                    chat = await event.get_chat()
+                    u_test = (getattr(chat, "username", None) or "").strip().lstrip("@").lower()
+                    if u_test and (u_test in active_channels or f"@{u_test}" in active_channels):
+                        is_active = True
+                except Exception:
+                    pass
+
             if not is_active:
                 return
 
-            chat = await event.get_chat()
+            if chat is None:
+                chat = await event.get_chat()
 
             title = (
                 getattr(chat, "title", None)
