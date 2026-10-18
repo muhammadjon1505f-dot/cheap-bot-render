@@ -1459,18 +1459,38 @@ def is_forwarded_message(message):
 def admin_set_start_cmd(message):
     if not is_admin(message.from_user):
         return
+    set_state(message.from_user.id, "waiting_setstart")
+    kb = types.InlineKeyboardMarkup()
+    kb.add(
+        types.InlineKeyboardButton(
+            "❌ Bekor qilish",
+            callback_data="cancel_setstart"
+        )
+    )
     bot.reply_to(
         message,
         "📌 <b>Yangi /start xabarini o'rnatish:</b>\n\n"
         "Istalgan kanal yoki chatdan xabarni (matn, rasm yoki video) to'g'ridan-to'g'ri botga <b>FORWARD</b> qilib yuboring!\n"
         "Bot uni darhol saqlab, yangi /start xabari qilib sozlaydi. 🚀",
-        parse_mode="HTML"
+        parse_mode="HTML",
+        reply_markup=kb
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data == "cancel_setstart")
+def cancel_setstart_callback(call):
+    bot.answer_callback_query(call.id)
+    clear_state(call.from_user.id)
+    bot.edit_message_text(
+        "❌ /start sozlash bekor qilindi.",
+        call.message.chat.id,
+        call.message.message_id
     )
 
 @bot.message_handler(commands=["resetstart"])
 def admin_reset_start_cmd(message):
     if not is_admin(message.from_user):
         return
+    clear_state(message.from_user.id)
     start_cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "start_config.json")
     if os.path.exists(start_cfg_file):
         try:
@@ -1489,11 +1509,12 @@ def admin_reset_start_cmd(message):
     func=lambda message: (
         is_admin(message.from_user)
         and is_forwarded_message(message)
-        and get_state(message.from_user.id).get("state") != "waiting_channel"
+        and get_state(message.from_user.id).get("state") == "waiting_setstart"
     )
 )
 def handle_admin_start_forward(message):
     import json
+    clear_state(message.from_user.id)
     start_cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "start_config.json")
 
     cfg = {}
@@ -1546,6 +1567,11 @@ def receive_channel(message):
         "forward_from_chat",
         None
     )
+
+    if not forwarded_chat and hasattr(message, "forward_origin"):
+        origin = getattr(message, "forward_origin", None)
+        if getattr(origin, "type", None) == "channel" and getattr(origin, "chat", None):
+            forwarded_chat = origin.chat
 
     if not forwarded_chat:
         bot.reply_to(
@@ -3723,28 +3749,28 @@ def show_support(chat_id):
 
 def show_guide(chat_id):
     text = (
-        "<b>📕 QO‘LLANMA</b>\\n\\n"
+        "<b>📕 QO‘LLANMA</b>\n\n"
 
-        "<b>👋 BOTDAN FOYDALANISH</b>\\n\\n"
+        "<b>👋 BOTDAN FOYDALANISH</b>\n\n"
 
         "<b>🛍 Avto buyurtma ulash</b> — "
-        "kanalingizni ulang va avtomatik buyurtmani sozlang.\\n\\n"
+        "kanalingizni ulang va avtomatik buyurtmani sozlang.\n\n"
 
         "<b>💵 Pul kiritish</b> — "
-        "hisobingizni to‘ldiring.\\n\\n"
+        "hisobingizni to‘ldiring.\n\n"
 
         "<b>💼 Kabinet</b> — "
-        "balans va hisobingiz haqidagi ma’lumotlarni ko‘ring.\\n\\n"
+        "balans va hisobingiz haqidagi ma’lumotlarni ko‘ring.\n\n"
 
         "<b>📌 Kanallarim</b> — "
-        "ulangan kanallaringizni boshqaring.\\n\\n"
+        "ulangan kanallaringizni boshqaring.\n\n"
 
         "<b>🆘 Support</b> — "
-        "muammo yoki savol bo‘lsa, yordam oling.\\n\\n"
+        "muammo yoki savol bo‘lsa, yordam oling.\n\n"
 
-        "<b>⚠️ Eslatma:</b>\\n"
+        "<b>⚠️ Eslatma:</b>\n"
         "Buyurtma berishdan oldin <b>balansingiz yetarli</b> "
-        "ekanini tekshiring va kanal ma’lumotlarini to‘g‘ri kiriting.\\n\\n"
+        "ekanini tekshiring va kanal ma’lumotlarini to‘g‘ri kiriting.\n\n"
 
         "<b>🚀 Kerakli bo‘limni tanlang va ko‘rsatmalarga amal qiling!</b>"
     )
