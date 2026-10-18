@@ -82,6 +82,10 @@ user_state = {}
 MAIN_LOOP = None
 userbot = None
 
+# Postlar bir marta buyurtma qilinishi uchun in-memory kesh va lock
+ORDERED_POSTS_CACHE = set()
+PROCESSING_POSTS = set()
+
 def clean_channel_id(cid):
     if cid is None:
         return ""
@@ -90,7 +94,18 @@ def clean_channel_id(cid):
         s = s[4:]
     elif s.startswith("-"):
         s = s[1:]
+    if s.startswith("@"):
+        s = s[1:]
     return s
+
+def normalize_channel_id(cid):
+    clean = clean_channel_id(cid)
+    if clean.isdigit():
+        return -int(f"100{clean}")
+    try:
+        return int(cid)
+    except Exception:
+        return str(cid).strip().lstrip("@")
 
 def extract_invite_hash(link_or_text):
     if not link_or_text:
@@ -349,7 +364,112 @@ def db():
     except Exception as e:
         print(f"⚠️ auto_orders migration xatosi: {e}")
 
+    try:
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_auto_orders_post ON auto_orders(channel_id, message_id, service_id)")
+        conn.commit()
+    except Exception:
+        pass
+
     return conn
+
+
+def is_post_already_ordered(channel_id, message_id, service_id=None):
+    """
+    Kanal posti uchun buyurtma bajarilganmi yoki yo'qligini tekshiradi.
+    service_id berilsa - shu xizmat bo'yicha tekshiradi.
+    service_id None bo'lsa - kanal postiga umumiy biror buyurtma berilganmi tekshiradi.
+    """
+    clean_cid = clean_channel_id(channel_id)
+    try:
+        mid = int(message_id)
+    except Exception:
+        return False
+
+    if service_id is not None:
+        try:
+            sid = int(service_id)
+        except Exception:
+            sid = None
+        if (clean_cid, mid, sid) in ORDERED_POSTS_CACHE:
+            return True
+
+    target_cids = [str(channel_id), clean_cid, f"-100{clean_cid}", f"-{clean_cid}"]
+    if clean_cid.isdigit():
+        target_cids.append(int(clean_cid))
+        target_cids.append(-int(f"100{clean_cid}"))
+        target_cids.append(-int(clean_cid))
+
+    placeholders = ",".join("?" for _ in target_cids)
+    conn = db()
+    try:
+        if service_id is not None:
+            row = conn.execute(
+                f"""
+                SELECT id, external_order_id, status FROM auto_orders
+                WHERE channel_id IN ({placeholders})
+                  AND message_id = ?
+                  AND service_id = ?
+                  AND (
+                      (external_order_id IS NOT NULL AND TRIM(external_order_id) != '')
+                      OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success')
+                  )
+                LIMIT 1
+                """,
+                target_cids + [mid, int(service_id)]
+            ).fetchone()
+        else:
+            row = conn.execute(
+                f"""
+                SELECT id, external_order_id, status FROM auto_orders
+                WHERE channel_id IN ({placeholders})
+                  AND message_id = ?
+                  AND (
+                      (external_order_id IS NOT NULL AND TRIM(external_order_id) != '')
+                      OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success')
+                  )
+                LIMIT 1
+                """,
+                target_cids + [mid]
+            ).fetchone()
+
+        if row:
+            if service_id is not None:
+                ORDERED_POSTS_CACHE.add((clean_cid, mid, int(service_id)))
+            return True
+        return False
+    except Exception as e:
+        log_debug(f"⚠️ is_post_already_ordered xatosi: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def init_ordered_posts_cache():
+    """Bot ishga tushganda bazadagi mavjud buyurtmalarni in-memory keshga yuklaydi."""
+    global ORDERED_POSTS_CACHE
+    try:
+        conn = db()
+        rows = conn.execute(
+            """
+            SELECT channel_id, message_id, service_id
+            FROM auto_orders
+            WHERE (external_order_id IS NOT NULL AND TRIM(external_order_id) != '')
+               OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success')
+            """
+        ).fetchall()
+        for r in rows:
+            cid = clean_channel_id(r["channel_id"])
+            try:
+                mid = int(r["message_id"] or 0)
+                sid = int(r["service_id"] or 0)
+            except Exception:
+                continue
+            if cid and mid and sid:
+                ORDERED_POSTS_CACHE.add((cid, mid, sid))
+        conn.close()
+        log_debug(f"📦 ORDERED_POSTS_CACHE yuklandi: {len(ORDERED_POSTS_CACHE)} ta mavjud buyurtma")
+    except Exception as e:
+        log_debug(f"⚠️ init_ordered_posts_cache xatosi: {e}")
 
 
 def get_user(user):
@@ -9843,8 +9963,8 @@ async def process_channel_post(
     username
 ):
     """
-    Telethon yuborgan channel_post eventni qayta ishlaydi.
-    Kanal tekshiriladi, xizmatlar olinadi va real API buyurtma yuboriladi.
+    Telethon va Bot API orqali kelgan kanal postlarini qayta ishlaydi.
+    Har bir post uchun aniq 1 marta buyurtma beriladi (qayta-qayta kelgan taqdirda dublikat yubormaydi).
     """
 
     try:
@@ -9852,286 +9972,310 @@ async def process_channel_post(
         channel_id_clean = clean_channel_id(channel_id)
         message_id = int(message_id)
 
-        title = (
-            str(title or "").strip()
-            or "Noma'lum kanal"
-        )
-
-        username = (
-            str(username or "").strip().lstrip("@")
-            or None
-        )
-
-        active_channels = get_active_channel_ids()
-
-        is_active = (
-            channel_id in active_channels
-            or channel_id_str in active_channels
-            or channel_id_clean in active_channels
-            or (int(channel_id_clean) in active_channels if channel_id_clean.isdigit() else False)
-            or (-int(f"100{channel_id_clean}") in active_channels if channel_id_clean.isdigit() else False)
-            or (username and username.lower() in active_channels)
-            or (username and f"@{username.lower()}" in active_channels)
-        )
-
-        if not is_active:
-            print(
-                "ℹ️ TELETHON EVENT: kanal Auto Order uchun faol emas:",
-                channel_id
-            )
+        post_key = (channel_id_clean, message_id)
+        if post_key in PROCESSING_POSTS:
+            log_debug(f"⏳ POST HOZIRDA QAYTA ISHLANMOQDA (o'tkazib yuborildi): {post_key}")
             return
 
-        print()
-        print("============================================")
-        print("📨 YANGI KANAL POSTI")
-        print("📌 Kanal:", title)
-        print("🆔 Channel ID:", channel_id)
-        print(
-            "🔗 Username:",
-            "@" + username if username else "maxfiy"
-        )
-        print("🆔 Message ID:", message_id)
-
-        # ============================================
-        # AUTO ORDER XIZMATLARINI OLISH
-        # ============================================
-
-        conn = db()
-
+        PROCESSING_POSTS.add(post_key)
         try:
-            target_ids = [
-                str(channel_id),
-                f"-100{channel_id_clean}",
-                f"-{channel_id_clean}",
-                channel_id_clean
-            ]
-            if channel_id_clean.isdigit():
-                target_ids.append(int(channel_id_clean))
-                target_ids.append(-int(f"100{channel_id_clean}"))
-                target_ids.append(-int(channel_id_clean))
-            if username:
-                clean_un = str(username).strip().lstrip("@")
-                target_ids.append(f"@{clean_un}")
-                target_ids.append(clean_un)
-
-            placeholders = ",".join("?" for _ in target_ids)
-
-            service_rows = conn.execute(
-                f"""
-                SELECT
-                    cs.id AS channel_service_id,
-                    cs.service_id,
-                    cs.min_qty,
-                    cs.max_qty,
-                    s.name,
-                    s.category,
-                    s.api_id,
-                    s.price,
-                    s.external_id,
-                    a.name AS api_name,
-                    cs.user_id AS owner_id
-                FROM channel_services cs
-                JOIN services s
-                    ON s.id = cs.service_id
-                JOIN apis a
-                    ON a.id = s.api_id
-                   AND a.active = 1
-                JOIN channels ch
-                    ON ch.user_id = cs.user_id
-                   AND (ch.channel_id = cs.channel_id OR ch.channel_id IN ({placeholders}))
-                WHERE (cs.channel_id IN ({placeholders}))
-                  AND cs.active = 1
-                  AND s.active = 1
-                  AND ch.active = 1
-                GROUP BY cs.id
-                ORDER BY cs.id ASC
-                """,
-                target_ids + target_ids
-            ).fetchall()
-
-        finally:
-            conn.close()
-
-        print()
-        print("🧪 AUTO ORDER SERVICE TEKSHIRUVI")
-        print("--------------------------------------------")
-        print(
-            "🛠 Ulangan faol xizmatlar:",
-            len(service_rows)
-        )
-
-        if not service_rows:
-            print(
-                "⚠️ Bu kanal uchun faol xizmat topilmadi."
+            title = (
+                str(title or "").strip()
+                or "Noma'lum kanal"
             )
 
-        for service in service_rows:
-            print(
-                "   ├─ Service:",
-                service["service_id"]
-            )
-            print(
-                "   ├─ Nomi:",
-                service["name"]
-            )
-            print(
-                "   ├─ Min:",
-                service["min_qty"]
-            )
-            print(
-                "   ├─ Max:",
-                service["max_qty"]
-            )
-            print(
-                "   └─ API:",
-                service["api_name"] or "Noma'lum",
-                "(#%s)" % service["api_id"]
+            username = (
+                str(username or "").strip().lstrip("@")
+                or None
             )
 
-        if not username:
-            conn_u = db()
-            try:
-                ch_u = conn_u.execute(
-                    "SELECT username FROM channels WHERE (channel_id = ? OR channel_id = ? OR channel_id = ?) AND active = 1 AND username != '' LIMIT 1",
-                    (str(channel_id), str(channel_id_clean), f"-100{channel_id_clean}")
-                ).fetchone()
-                if ch_u and ch_u["username"]:
-                    username = ch_u["username"].strip().lstrip("@")
-            finally:
-                conn_u.close()
+            active_channels = get_active_channel_ids()
 
-        if not username:
-            log_debug("⚠️ TELETHON EVENT: Kanal maxfiy (username yo'q). Faqat ommaviy kanallar qabul qilinadi.")
-            return
+            is_active = (
+                channel_id in active_channels
+                or channel_id_str in active_channels
+                or channel_id_clean in active_channels
+                or (int(channel_id_clean) in active_channels if channel_id_clean.isdigit() else False)
+                or (-int(f"100{channel_id_clean}") in active_channels if channel_id_clean.isdigit() else False)
+                or (username and username.lower() in active_channels)
+                or (username and f"@{username.lower()}" in active_channels)
+            )
 
-        post_link = f"https://t.me/{username}/{message_id}"
-
-        log_debug(
-            f"🔗 Post link: {post_link} | Faol xizmatlar: {len(service_rows)}"
-        )
-
-        # ============================================
-        # AUTO ORDER — AVTOMATIK QUANTITY PREVIEW
-        # ============================================
-
-        if post_link and service_rows:
+            if not is_active:
+                print(
+                    "ℹ️ TELETHON EVENT: kanal Auto Order uchun faol emas:",
+                    channel_id
+                )
+                return
 
             print()
-            print("🤖 AVTOMATIK BUYURTMA HISOBI")
-            print("--------------------------------------------")
-
-            for service in service_rows:
-
-                min_qty = int(
-                    service["min_qty"] or 0
-                )
-
-                max_qty = int(
-                    service["max_qty"] or 0
-                )
-
-                if min_qty <= 0:
-                    print(
-                        "⚠️ Service #%s: min quantity noto'g'ri"
-                        % service["service_id"]
-                    )
-                    continue
-
-                if max_qty <= 0:
-                    print(
-                        "⚠️ Service #%s: max quantity noto'g'ri"
-                        % service["service_id"]
-                    )
-                    continue
-
-                if max_qty < min_qty:
-                    print(
-                        "⚠️ Service #%s: max < min"
-                        % service["service_id"]
-                    )
-                    continue
-
-                auto_quantity = random.randint(
-                    min_qty,
-                    max_qty
-                )
-
-                price_per_1000 = float(
-                    service["price"] or 0
-                )
-
-                estimated_price = (
-                    auto_quantity / 1000
-                ) * price_per_1000
-
-                print()
-                print(
-                    "🛠 Xizmat:",
-                    service["name"]
-                )
-
-                print(
-                    "🆔 Service ID:",
-                    service["service_id"]
-                )
-
-                print(
-                    "🔢 Min:",
-                    min_qty
-                )
-
-                print(
-                    "🔢 Max:",
-                    max_qty
-                )
-
-                print(
-                    "🎯 Avtomatik quantity:",
-                    auto_quantity
-                )
-
-                print(
-                    "💰 Taxminiy narx:",
-                    f"{estimated_price:,.2f}",
-                    "so'm"
-                )
-
-                print(
-                    "🔗 Link:",
-                    post_link
-                )
-
-                owner_id = service["owner_id"]
-
-                if not owner_id:
-                    print("❌ Kanal egasi topilmadi:", channel_id)
-                    continue
-
-                log_debug(f"🚀 REAL API ORDER YUBORILMOQDA: svc={service['service_id']}, qty={auto_quantity}, link={post_link}")
-
-                try:
-                    await process_real_auto_order(
-                        channel_id=channel_id,
-                        message_id=message_id,
-                        owner_id=int(owner_id),
-                        service=service,
-                        link=post_link,
-                        quantity=auto_quantity
-                    )
-                except Exception as s_err:
-                    log_debug(f"❌ Xizmat #{service.get('service_id')} buyurtma berish xatosi: {s_err}")
-
-            print("--------------------------------------------")
-
-        else:
-
+            print("============================================")
+            print("📨 YANGI KANAL POSTI")
+            print("📌 Kanal:", title)
+            print("🆔 Channel ID:", channel_id)
             print(
-                "⚠️ Post link yoki faol xizmat mavjud emas."
+                "🔗 Username:",
+                "@" + username if username else "maxfiy"
+            )
+            print("🆔 Message ID:", message_id)
+
+            # ============================================
+            # AUTO ORDER XIZMATLARINI OLISH
+            # ============================================
+
+            conn = db()
+
+            try:
+                target_ids = [
+                    str(channel_id),
+                    f"-100{channel_id_clean}",
+                    f"-{channel_id_clean}",
+                    channel_id_clean
+                ]
+                if channel_id_clean.isdigit():
+                    target_ids.append(int(channel_id_clean))
+                    target_ids.append(-int(f"100{channel_id_clean}"))
+                    target_ids.append(-int(channel_id_clean))
+                if username:
+                    clean_un = str(username).strip().lstrip("@")
+                    target_ids.append(f"@{clean_un}")
+                    target_ids.append(clean_un)
+
+                placeholders = ",".join("?" for _ in target_ids)
+
+                service_rows = conn.execute(
+                    f"""
+                    SELECT
+                        cs.id AS channel_service_id,
+                        cs.service_id,
+                        cs.min_qty,
+                        cs.max_qty,
+                        s.name,
+                        s.category,
+                        s.api_id,
+                        s.price,
+                        s.external_id,
+                        a.name AS api_name,
+                        cs.user_id AS owner_id
+                    FROM channel_services cs
+                    JOIN services s
+                        ON s.id = cs.service_id
+                    JOIN apis a
+                        ON a.id = s.api_id
+                       AND a.active = 1
+                    JOIN channels ch
+                        ON ch.user_id = cs.user_id
+                       AND (ch.channel_id = cs.channel_id OR ch.channel_id IN ({placeholders}))
+                    WHERE (cs.channel_id IN ({placeholders}))
+                      AND cs.active = 1
+                      AND s.active = 1
+                      AND ch.active = 1
+                    GROUP BY cs.id
+                    ORDER BY cs.id ASC
+                    """,
+                    target_ids + target_ids
+                ).fetchall()
+
+            finally:
+                conn.close()
+
+            print()
+            print("🧪 AUTO ORDER SERVICE TEKSHIRUVI")
+            print("--------------------------------------------")
+            print(
+                "🛠 Ulangan faol xizmatlar:",
+                len(service_rows)
             )
 
-        print("--------------------------------------------")
+            if not service_rows:
+                print(
+                    "⚠️ Bu kanal uchun faol xizmat topilmadi."
+                )
+                return
 
-        print("============================================")
+            # DEDUPLIKATSIYA: Ushbu post uchun allaqachon bajarilgan xizmatlarni chiqarib tashlash
+            pending_services = []
+            for service in service_rows:
+                sid = int(service["service_id"])
+                if is_post_already_ordered(channel_id, message_id, sid):
+                    log_debug(f"⏭️ POST ALLAQACHON BUYURTMA QILINGAN (o'tkazib yuborildi): post={message_id}, svc={sid} ({service['name']})")
+                    continue
+                pending_services.append(service)
+
+            if not pending_services:
+                log_debug(f"ℹ️ Kanal {channel_id} post {message_id} uchun barcha buyurtmalar allaqachon bajarilgan, qayta yuborilmaydi.")
+                return
+
+            for service in pending_services:
+                print(
+                    "   ├─ Service:",
+                    service["service_id"]
+                )
+                print(
+                    "   ├─ Nomi:",
+                    service["name"]
+                )
+                print(
+                    "   ├─ Min:",
+                    service["min_qty"]
+                )
+                print(
+                    "   ├─ Max:",
+                    service["max_qty"]
+                )
+                print(
+                    "   └─ API:",
+                    service["api_name"] or "Noma'lum",
+                    "(#%s)" % service["api_id"]
+                )
+
+            if not username:
+                conn_u = db()
+                try:
+                    ch_u = conn_u.execute(
+                        "SELECT username FROM channels WHERE (channel_id = ? OR channel_id = ? OR channel_id = ?) AND active = 1 AND username != '' LIMIT 1",
+                        (str(channel_id), str(channel_id_clean), f"-100{channel_id_clean}")
+                    ).fetchone()
+                    if ch_u and ch_u["username"]:
+                        username = ch_u["username"].strip().lstrip("@")
+                finally:
+                    conn_u.close()
+
+            if not username:
+                log_debug("⚠️ TELETHON EVENT: Kanal maxfiy (username yo'q). Faqat ommaviy kanallar qabul qilinadi.")
+                return
+
+            post_link = f"https://t.me/{username}/{message_id}"
+
+            log_debug(
+                f"🔗 Post link: {post_link} | Bajariladigan yangi xizmatlar: {len(pending_services)}"
+            )
+
+            # ============================================
+            # AUTO ORDER — AVTOMATIK QUANTITY PREVIEW
+            # ============================================
+
+            if post_link and pending_services:
+
+                print()
+                print("🤖 AVTOMATIK BUYURTMA HISOBI")
+                print("--------------------------------------------")
+
+                for service in pending_services:
+
+                    min_qty = int(
+                        service["min_qty"] or 0
+                    )
+
+                    max_qty = int(
+                        service["max_qty"] or 0
+                    )
+
+                    if min_qty <= 0:
+                        print(
+                            "⚠️ Service #%s: min quantity noto'g'ri"
+                            % service["service_id"]
+                        )
+                        continue
+
+                    if max_qty <= 0:
+                        print(
+                            "⚠️ Service #%s: max quantity noto'g'ri"
+                            % service["service_id"]
+                        )
+                        continue
+
+                    if max_qty < min_qty:
+                        print(
+                            "⚠️ Service #%s: max < min"
+                            % service["service_id"]
+                        )
+                        continue
+
+                    auto_quantity = random.randint(
+                        min_qty,
+                        max_qty
+                    )
+
+                    price_per_1000 = float(
+                        service["price"] or 0
+                    )
+
+                    estimated_price = (
+                        auto_quantity / 1000
+                    ) * price_per_1000
+
+                    print()
+                    print(
+                        "🛠 Xizmat:",
+                        service["name"]
+                    )
+
+                    print(
+                        "🆔 Service ID:",
+                        service["service_id"]
+                    )
+
+                    print(
+                        "🔢 Min:",
+                        min_qty
+                    )
+
+                    print(
+                        "🔢 Max:",
+                        max_qty
+                    )
+
+                    print(
+                        "🎯 Avtomatik quantity:",
+                        auto_quantity
+                    )
+
+                    print(
+                        "💰 Taxminiy narx:",
+                        f"{estimated_price:,.2f}",
+                        "so'm"
+                    )
+
+                    print(
+                        "🔗 Link:",
+                        post_link
+                    )
+
+                    owner_id = service["owner_id"]
+
+                    if not owner_id:
+                        print("❌ Kanal egasi topilmadi:", channel_id)
+                        continue
+
+                    log_debug(f"🚀 REAL API ORDER YUBORILMOQDA: svc={service['service_id']}, qty={auto_quantity}, link={post_link}")
+
+                    try:
+                        await process_real_auto_order(
+                            channel_id=channel_id,
+                            message_id=message_id,
+                            owner_id=int(owner_id),
+                            service=service,
+                            link=post_link,
+                            quantity=auto_quantity
+                        )
+                    except Exception as s_err:
+                        log_debug(f"❌ Xizmat #{service.get('service_id')} buyurtma berish xatosi: {s_err}")
+
+                print("--------------------------------------------")
+
+            else:
+
+                print(
+                    "⚠️ Post link yoki faol xizmat mavjud emas."
+                )
+
+            print("--------------------------------------------")
+
+            print("============================================")
+
+        finally:
+            PROCESSING_POSTS.discard(post_key)
 
     except Exception as e:
 
@@ -10438,23 +10582,31 @@ def create_auto_order_record(
     conn = db()
 
     try:
+        norm_cid = normalize_channel_id(channel_id)
+        clean_cid = clean_channel_id(channel_id)
+        mid = int(message_id)
+        sid = int(service_id)
+
+        target_cids = [str(channel_id), clean_cid, f"-100{clean_cid}", f"-{clean_cid}"]
+        if clean_cid.isdigit():
+            target_cids.append(int(clean_cid))
+            target_cids.append(-int(f"100{clean_cid}"))
+            target_cids.append(-int(clean_cid))
+
+        placeholders = ",".join("?" for _ in target_cids)
+
         existing = conn.execute(
-            """
+            f"""
             SELECT *
             FROM auto_orders
             WHERE owner_id = ?
-              AND channel_id = ?
+              AND channel_id IN ({placeholders})
               AND message_id = ?
               AND service_id = ?
             ORDER BY id DESC
             LIMIT 1
             """,
-            (
-                owner_id,
-                channel_id,
-                message_id,
-                service_id
-            )
+            [owner_id] + target_cids + [mid, sid]
         ).fetchone()
 
         if existing:
@@ -10466,7 +10618,7 @@ def create_auto_order_record(
 
         cur = conn.execute(
             """
-            INSERT INTO auto_orders
+            INSERT OR IGNORE INTO auto_orders
             (
                 channel_id,
                 message_id,
@@ -10483,10 +10635,10 @@ def create_auto_order_record(
             VALUES (?, ?, ?, ?, ?, ?, '', ?, 'Pending', '', ?)
             """,
             (
-                channel_id,
-                message_id,
+                norm_cid,
+                mid,
                 owner_id,
-                service_id,
+                sid,
                 link,
                 quantity,
                 price,
@@ -10496,14 +10648,29 @@ def create_auto_order_record(
 
         conn.commit()
 
-        return conn.execute(
-            """
-            SELECT *
-            FROM auto_orders
-            WHERE id = ?
-            """,
-            (cur.lastrowid,)
-        ).fetchone()
+        if cur.lastrowid:
+            return conn.execute(
+                """
+                SELECT *
+                FROM auto_orders
+                WHERE id = ?
+                """,
+                (cur.lastrowid,)
+            ).fetchone()
+        else:
+            return conn.execute(
+                f"""
+                SELECT *
+                FROM auto_orders
+                WHERE owner_id = ?
+                  AND channel_id IN ({placeholders})
+                  AND message_id = ?
+                  AND service_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                [owner_id] + target_cids + [mid, sid]
+            ).fetchone()
 
     finally:
         conn.close()
@@ -10535,6 +10702,19 @@ def update_auto_order_success(
         )
 
         conn.commit()
+
+        row = conn.execute(
+            "SELECT channel_id, message_id, service_id FROM auto_orders WHERE id = ?",
+            (internal_id,)
+        ).fetchone()
+        if row:
+            cid = clean_channel_id(row["channel_id"])
+            try:
+                mid = int(row["message_id"])
+                sid = int(row["service_id"])
+                ORDERED_POSTS_CACHE.add((cid, mid, sid))
+            except Exception:
+                pass
 
     finally:
         conn.close()
@@ -10827,28 +11007,39 @@ async def process_real_auto_order(
         2
     )
 
-    # Bir xil post + service uchun
-    # oldingi orderni tekshirish.
-    conn = db()
+    # Bir xil post + service uchun oldingi orderni tekshirish
+    clean_cid = clean_channel_id(channel_id)
+    mid = int(message_id)
+    sid = service_id
 
+    # 1. In-memory kesh tekshiruvi
+    if (clean_cid, mid, sid) in ORDERED_POSTS_CACHE:
+        log_debug(f"⏭️ AUTO ORDER ALLAQACHON MAVJUD (kesh): ch={clean_cid}, msg={mid}, svc={sid}")
+        return
+
+    # 2. Bazadan barcha ID formatlari bilan tekshirish
+    target_cids = [str(channel_id), clean_cid, f"-100{clean_cid}", f"-{clean_cid}"]
+    if clean_cid.isdigit():
+        target_cids.append(int(clean_cid))
+        target_cids.append(-int(f"100{clean_cid}"))
+        target_cids.append(-int(clean_cid))
+
+    placeholders = ",".join("?" for _ in target_cids)
+
+    conn = db()
     try:
         existing = conn.execute(
-            """
+            f"""
             SELECT *
             FROM auto_orders
             WHERE owner_id = ?
-              AND channel_id = ?
+              AND channel_id IN ({placeholders})
               AND message_id = ?
               AND service_id = ?
             ORDER BY id DESC
             LIMIT 1
             """,
-            (
-                owner_id,
-                channel_id,
-                message_id,
-                service_id
-            )
+            [owner_id] + target_cids + [mid, sid]
         ).fetchone()
 
     finally:
@@ -10856,19 +11047,13 @@ async def process_real_auto_order(
 
     if existing:
         if existing["external_order_id"]:
-            print(
-                "⏭️ AUTO ORDER ALLAQACHON YARATILGAN:",
-                existing["external_order_id"]
-            )
+            log_debug(f"⏭️ AUTO ORDER ALLAQACHON YARATILGAN: #{existing['external_order_id']}")
+            ORDERED_POSTS_CACHE.add((clean_cid, mid, sid))
             return
 
-        if str(
-            existing["status"] or ""
-        ).lower() == "pending":
-            print(
-                "⏭️ AUTO ORDER PENDING:",
-                existing["id"]
-            )
+        if str(existing["status"] or "").lower() in ("pending", "processing", "completed", "in progress", "in_progress", "success"):
+            log_debug(f"⏭️ AUTO ORDER ALLAQACHON JARAYONDA: id={existing['id']}, status={existing['status']}")
+            ORDERED_POSTS_CACHE.add((clean_cid, mid, sid))
             return
 
     # ========================================================
@@ -10990,6 +11175,8 @@ async def process_real_auto_order(
             quantity,
             internal_id
         )
+
+        ORDERED_POSTS_CACHE.add((clean_cid, mid, service_id))
 
         log_debug(f"✅ REAL AUTO ORDER YARATILDI: #{external_order_id} | svc={service_id} | qty={quantity}")
 
@@ -11647,7 +11834,7 @@ async def bot_polling_worker():
             print("🚀 TeleBot polling boshlandi...")
             await asyncio.to_thread(
                 bot.infinity_polling,
-                skip_pending=False,
+                skip_pending=True,
                 timeout=30,
                 long_polling_timeout=30
             )
@@ -11660,6 +11847,9 @@ async def run_all():
     global MAIN_LOOP
 
     MAIN_LOOP = asyncio.get_running_loop()
+
+    # Bazadagi mavjud buyurtmalarni in-memory deduplikatsiya keshiga yuklash
+    init_ordered_posts_cache()
 
     try:
         bot.set_chat_menu_button(menu_button=types.MenuButtonDefault())
