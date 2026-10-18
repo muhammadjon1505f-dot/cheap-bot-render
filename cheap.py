@@ -241,6 +241,74 @@ def db():
     except Exception as e:
         print(f"⚠️ channels invite_link migration xatosi: {e}")
 
+    # --------------------------------------------------------
+    # CHANNEL_SERVICES — USER_ID MIGRATION
+    # --------------------------------------------------------
+    try:
+        cs_cols = {row["name"] for row in conn.execute("PRAGMA table_info(channel_services)").fetchall()}
+        if "user_id" not in cs_cols:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS channel_services_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL DEFAULT 0,
+                    channel_id INTEGER NOT NULL,
+                    service_id INTEGER NOT NULL,
+                    active INTEGER DEFAULT 1,
+                    created_at TEXT,
+                    min_qty INTEGER,
+                    max_qty INTEGER,
+                    UNIQUE(user_id, channel_id, service_id)
+                )
+            """)
+            conn.execute("""
+                INSERT OR IGNORE INTO channel_services_new (id, user_id, channel_id, service_id, active, created_at, min_qty, max_qty)
+                SELECT cs.id,
+                       COALESCE((SELECT c.user_id FROM channels c WHERE c.channel_id = cs.channel_id LIMIT 1), 8191930658),
+                       cs.channel_id, cs.service_id, cs.active, cs.created_at, cs.min_qty, cs.max_qty
+                FROM channel_services cs
+            """)
+            conn.execute("DROP TABLE channel_services")
+            conn.execute("ALTER TABLE channel_services_new RENAME TO channel_services")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_channel_services_user ON channel_services(user_id, channel_id)")
+            conn.commit()
+    except Exception as e:
+        print(f"⚠️ channel_services user_id migration xatosi: {e}")
+
+    # --------------------------------------------------------
+    # AUTO_ORDERS — MULTI-SERVICE / MULTI-USER MIGRATION
+    # --------------------------------------------------------
+    try:
+        ao_sql = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='auto_orders'").fetchone()
+        if ao_sql and "UNIQUE(channel_id, message_id)" in ao_sql[0]:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS auto_orders_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    channel_id INTEGER NOT NULL,
+                    message_id INTEGER NOT NULL,
+                    owner_id INTEGER NOT NULL,
+                    service_id INTEGER NOT NULL,
+                    link TEXT NOT NULL,
+                    quantity INTEGER NOT NULL,
+                    external_order_id TEXT DEFAULT '',
+                    price REAL DEFAULT 0,
+                    status TEXT DEFAULT 'Pending',
+                    error TEXT DEFAULT '',
+                    created_at TEXT,
+                    UNIQUE(owner_id, channel_id, message_id, service_id)
+                )
+            """)
+            conn.execute("""
+                INSERT OR IGNORE INTO auto_orders_new (id, channel_id, message_id, owner_id, service_id, link, quantity, external_order_id, price, status, error, created_at)
+                SELECT id, channel_id, message_id, owner_id, service_id, link, quantity, external_order_id, price, status, error, created_at
+                FROM auto_orders
+            """)
+            conn.execute("DROP TABLE auto_orders")
+            conn.execute("ALTER TABLE auto_orders_new RENAME TO auto_orders")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_auto_orders_owner ON auto_orders(owner_id, id DESC)")
+            conn.commit()
+    except Exception as e:
+        print(f"⚠️ auto_orders migration xatosi: {e}")
+
     return conn
 
 
@@ -2515,13 +2583,14 @@ def auto_service_list_callback(call):
             FROM channel_services cs
             JOIN services s
                 ON s.id = cs.service_id
-            WHERE cs.channel_id IN ({placeholders})
+            WHERE cs.user_id = ?
+              AND cs.channel_id IN ({placeholders})
               AND cs.active = 1
             ORDER BY
                 COALESCE(s.price, 0) ASC,
                 cs.id DESC
             """,
-            cid_variants
+            [call.from_user.id] + cid_variants
         ).fetchall()
 
     finally:
@@ -2617,9 +2686,10 @@ def auto_bound_service_callback(call):
             JOIN services s
                 ON s.id = cs.service_id
             WHERE cs.id = ?
+              AND cs.user_id = ?
               AND cs.active = 1
             """,
-            (channel_service_id,)
+            (channel_service_id, call.from_user.id)
         ).fetchone()
 
     finally:
@@ -2704,11 +2774,9 @@ def auto_bound_delete_callback(call):
             FROM channel_services cs
             JOIN services s
                 ON s.id = cs.service_id
-            JOIN channels c
-                ON c.channel_id = cs.channel_id
             WHERE cs.id = ?
               AND cs.active = 1
-              AND c.user_id = ?
+              AND cs.user_id = ?
             """,
             (
                 channel_service_id,
@@ -2789,11 +2857,9 @@ def auto_bound_delete_yes_callback(call):
             FROM channel_services cs
             JOIN services s
                 ON s.id = cs.service_id
-            JOIN channels c
-                ON c.channel_id = cs.channel_id
             WHERE cs.id = ?
               AND cs.active = 1
-              AND c.user_id = ?
+              AND cs.user_id = ?
             """,
             (
                 channel_service_id,
@@ -2813,9 +2879,9 @@ def auto_bound_delete_yes_callback(call):
             """
             UPDATE channel_services
             SET active = 0
-            WHERE id = ?
+            WHERE id = ? AND user_id = ?
             """,
-            (channel_service_id,)
+            (channel_service_id, call.from_user.id)
         )
 
         conn.commit()
@@ -2872,11 +2938,12 @@ def auto_bound_delete_yes_callback(call):
             FROM channel_services cs
             JOIN services s
                 ON s.id = cs.service_id
-            WHERE cs.channel_id = ?
+            WHERE cs.user_id = ?
+              AND cs.channel_id = ?
               AND cs.active = 1
             ORDER BY cs.id DESC
             """,
-            (channel_id,)
+            (call.from_user.id, channel_id)
         ).fetchall()
 
     finally:
@@ -2965,11 +3032,9 @@ def auto_bound_delete_cancel_callback(call):
             FROM channel_services cs
             JOIN services s
                 ON s.id = cs.service_id
-            JOIN channels c
-                ON c.channel_id = cs.channel_id
             WHERE cs.id = ?
               AND cs.active = 1
-              AND c.user_id = ?
+              AND cs.user_id = ?
             """,
             (
                 channel_service_id,
@@ -3086,11 +3151,12 @@ def auto_service_callback(call):
             """
             SELECT id
             FROM channel_services
-            WHERE channel_id = ?
+            WHERE user_id = ?
+              AND channel_id = ?
               AND service_id = ?
               AND active = 1
             """,
-            (channel_id, service_id)
+            (call.from_user.id, channel_id, service_id)
         ).fetchone()
 
     finally:
@@ -3262,6 +3328,7 @@ def receive_auto_max(message):
         )
         return
 
+    user_id = message.from_user.id
     conn = db()
 
     try:
@@ -3269,12 +3336,13 @@ def receive_auto_max(message):
             """
             SELECT id
             FROM channel_services
-            WHERE channel_id = ?
+            WHERE user_id = ?
+              AND channel_id = ?
               AND service_id = ?
             ORDER BY id DESC
             LIMIT 1
             """,
-            (channel_id, service_id)
+            (user_id, channel_id, service_id)
         ).fetchone()
 
         if existing:
@@ -3285,12 +3353,13 @@ def receive_auto_max(message):
                     min_qty = ?,
                     max_qty = ?,
                     active = 1
-                WHERE id = ?
+                WHERE id = ? AND user_id = ?
                 """,
                 (
                     min_qty,
                     max_qty,
-                    existing["id"]
+                    existing["id"],
+                    user_id
                 )
             )
         else:
@@ -3298,6 +3367,7 @@ def receive_auto_max(message):
                 """
                 INSERT INTO channel_services
                 (
+                    user_id,
                     channel_id,
                     service_id,
                     min_qty,
@@ -3305,9 +3375,10 @@ def receive_auto_max(message):
                     active,
                     created_at
                 )
-            VALUES (?, ?, ?, ?, 1, datetime('now'))
+                VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
                 """,
                 (
+                    user_id,
                     channel_id,
                     service_id,
                     min_qty,
@@ -3606,9 +3677,9 @@ def auto_delete_yes_callback(call):
         conn.execute(
             f"""
             DELETE FROM channel_services
-            WHERE channel_id IN ({ph})
+            WHERE user_id = ? AND channel_id IN ({ph})
             """,
-            cid_variants
+            [user_id] + cid_variants
         )
 
         # Keyin kanalning o'zini o'chiramiz
@@ -9803,17 +9874,20 @@ async def process_channel_post(
                     s.price,
                     s.external_id,
                     a.name AS api_name,
-                    ch.user_id AS owner_id
+                    cs.user_id AS owner_id
                 FROM channel_services cs
                 JOIN services s
                     ON s.id = cs.service_id
                 LEFT JOIN apis a
                     ON a.id = s.api_id
                 JOIN channels ch
-                    ON (ch.channel_id = cs.channel_id OR ch.channel_id IN ({placeholders}))
+                    ON ch.user_id = cs.user_id
+                   AND (ch.channel_id = cs.channel_id OR ch.channel_id IN ({placeholders}))
                 WHERE (cs.channel_id IN ({placeholders}))
                   AND cs.active = 1
                   AND s.active = 1
+                  AND ch.active = 1
+                GROUP BY cs.id
                 ORDER BY cs.id ASC
                 """,
                 target_ids + target_ids
@@ -10297,13 +10371,15 @@ def create_auto_order_record(
             """
             SELECT *
             FROM auto_orders
-            WHERE channel_id = ?
+            WHERE owner_id = ?
+              AND channel_id = ?
               AND message_id = ?
               AND service_id = ?
             ORDER BY id DESC
             LIMIT 1
             """,
             (
+                owner_id,
                 channel_id,
                 message_id,
                 service_id
@@ -10689,13 +10765,15 @@ async def process_real_auto_order(
             """
             SELECT *
             FROM auto_orders
-            WHERE channel_id = ?
+            WHERE owner_id = ?
+              AND channel_id = ?
               AND message_id = ?
               AND service_id = ?
             ORDER BY id DESC
             LIMIT 1
             """,
             (
+                owner_id,
                 channel_id,
                 message_id,
                 service_id
