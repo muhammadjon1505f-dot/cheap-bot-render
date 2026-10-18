@@ -1597,8 +1597,9 @@ def handle_admin_start_forward(message):
 @bot.message_handler(
     content_types=["text", "photo", "video", "document"],
     func=lambda message: (
-        get_state(message.from_user.id).get("state")
-        == "waiting_channel"
+        get_state(message.from_user.id).get("state") == "waiting_channel"
+        or (getattr(message, "forward_from_chat", None) is not None and getattr(message.forward_from_chat, "type", None) == "channel")
+        or (hasattr(message, "forward_origin") and getattr(getattr(message, "forward_origin", None), "type", None) == "channel")
     )
 )
 def receive_channel(message):
@@ -1678,18 +1679,27 @@ def receive_channel(message):
                 return
 
         except Exception as e:
+            # Bot kanalga admin bo'lmasa ham, userbot kanalga qo'shilib postlarni kuzatishi mumkin
             print(
-                f"⚠️ Kanal adminligini tekshirish xatosi: {e}"
+                f"ℹ️ Kanal adminligi bot orqali tekshirilmadi: {e}"
             )
 
-            bot.reply_to(
-                message,
-                "⚠️ Bot kanalga administrator qilib qo'yilganini "
-                "tekshiring va yana urinib ko'ring."
-            )
-            return
+    # Agar channel_id hali aniqlanmagan bo'lsa, userbot orqali aniqlashga urinamiz
+    if (not channel_id or str(channel_id).startswith("@")) and username and userbot and MAIN_LOOP:
+        try:
+            async def _resolve_cid():
+                ent = await userbot.get_entity(username)
+                return ent.id, getattr(ent, "title", None)
+            fut = asyncio.run_coroutine_threadsafe(_resolve_cid(), MAIN_LOOP)
+            res_id, res_title = fut.result(timeout=4)
+            if res_id:
+                channel_id = -int(f"100{clean_channel_id(res_id)}")
+                if res_title:
+                    channel_title = res_title
+        except Exception as e:
+            print(f"ℹ️ Userbot orqali channel_id aniqlash xatosi: {e}")
 
-    # Agar channel_id hali bo'lmasa, vaqtinchalik username orqali belgilaymiz
+    # Agar hali ham channel_id bo'lmasa, vaqtinchalik username orqali belgilaymiz
     if not channel_id:
         channel_id = f"@{username}"
 
