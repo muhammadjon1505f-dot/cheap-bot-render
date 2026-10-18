@@ -10242,18 +10242,24 @@ async def start_userbot():
         except Exception as e:
             log_debug(f"❌ TELETHON USERBOT EVENT XATOSI: {e}")
 
-    log_debug("USERBOT CONNECTING...")
-    await userbot.connect()
-    is_auth = await userbot.is_user_authorized()
-    log_debug(f"USERBOT CONNECTED: auth={is_auth}")
-    if not is_auth:
-        log_debug("⚠️ USERBOT: Session avtorizatsiyadan o'tmagan (fake/staging rejim). Userbot o'tkazib yuborildi.")
+    try:
+        log_debug("USERBOT CONNECTING...")
+        await asyncio.wait_for(userbot.connect(), timeout=20)
+        is_auth = await userbot.is_user_authorized()
+        log_debug(f"USERBOT CONNECTED: auth={is_auth}")
+        if not is_auth:
+            log_debug("⚠️ USERBOT: Session avtorizatsiyadan o'tmagan (fake/staging rejim). Userbot o'tkazib yuborildi.")
+            return
+    except Exception as e:
+        log_debug(f"❌ USERBOT CONNECT XATOSI: {type(e).__name__}: {repr(e)}")
+        import traceback
+        log_debug(f"TRACEBACK: {traceback.format_exc()}")
         return
 
     # ============================================================
     # FAOL KANALLARGA USERBOTNI ULASH
     # ============================================================
-    print("🔗 Faol kanallar tekshirilmoqda...")
+    log_debug("🔗 Faol kanallar tekshirilmoqda...")
 
     conn = db()
     try:
@@ -10280,11 +10286,7 @@ async def start_userbot():
             try:
                 entity = await userbot.get_entity(username)
             except Exception as e:
-                print(
-                    "⚠️ Kanal entity topilmadi:",
-                    f"@{username}",
-                    repr(e)
-                )
+                log_debug(f"⚠️ Kanal entity topilmadi: @{username}: {e}")
 
             # Username ishlamasa ID orqali urinib ko'ramiz
             if entity is None and channel_id:
@@ -10299,22 +10301,13 @@ async def start_userbot():
                             pass
 
             if entity is None:
-                print(
-                    "❌ Kanal ulanmagan:",
-                    title,
-                    "|",
-                    f"@{username}"
-                )
+                log_debug(f"❌ Kanal ulanmagan: {title} | @{username}")
                 continue
 
             # Public kanalga qo'shilish
             try:
                 await userbot(JoinChannelRequest(entity))
-                print(
-                    "✅ USERBOT KANALGA QO'SHILDI:",
-                    title,
-                    f"| @{username}"
-                )
+                log_debug(f"✅ USERBOT KANALGA QO'SHILDI: {title} | @{username}")
             except Exception as join_error:
                 err = repr(join_error)
 
@@ -10322,53 +10315,25 @@ async def start_userbot():
                     "already" in err.lower()
                     or "participant" in err.lower()
                 ):
-                    print(
-                        "✅ USERBOT ALLAQACHON A'ZO:",
-                        title,
-                        f"| @{username}"
-                    )
+                    log_debug(f"✅ USERBOT ALLAQACHON A'ZO: {title} | @{username}")
                 else:
-                    print(
-                        "⚠️ KANALGA QO'SHILISH IMKONI BO'LMADI:",
-                        title,
-                        "|",
-                        repr(join_error)
-                    )
+                    log_debug(f"⚠️ KANALGA QO'SHILISH IMKONI BO'LMADI: {title} | {join_error}")
 
         except Exception as e:
-            print(
-                "❌ FAOL KANAL TEKSHIRUVIDA XATO:",
-                title,
-                repr(e)
-            )
+            log_debug(f"❌ FAOL KANAL TEKSHIRUVIDA XATO: {title}: {e}")
 
     me = await userbot.get_me()
     bot_info = getattr(me, 'username', None) or getattr(me, 'first_name', None) or getattr(me, 'id', "Noma'lum")
     log_debug(f"✅ TELETHON USERBOT ISHLADI: {bot_info} (ID: {getattr(me, 'id', None)}) | Channels: {len(get_active_channel_ids())}")
 
-    print(
-        "📁 Session:",
-        USERBOT_SESSION
-    )
-
-    print(
-        "👀 Kuzatilayotgan kanallar:",
-        len(get_active_channel_ids())
-    )
+    log_debug(f"👀 TELETHON KUZATUV BOSHLANDI (kanallar soni: {len(get_active_channel_ids())})")
 
     while True:
         try:
-            print("👀 TELETHON: ulanish kuzatilmoqda...")
             await userbot.run_until_disconnected()
-
-            print("⚠️ TELETHON: ulanish uzildi.")
-            print("🔄 TELETHON: 5 soniyadan keyin qayta ulanadi...")
-
+            log_debug("⚠️ TELETHON: ulanish uzildi, 5 soniyadan keyin qayta ulanadi...")
         except Exception as e:
-            print(
-                "❌ TELETHON CONNECTION XATOSI:",
-                repr(e)
-            )
+            log_debug(f"❌ TELETHON CONNECTION XATOSI: {repr(e)}")
             print("🔄 TELETHON: 5 soniyadan keyin qayta ulanadi...")
 
         await asyncio.sleep(5)
