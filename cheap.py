@@ -179,8 +179,24 @@ def join_userbot_to_channel(channel_id, username=None, invite_link=None):
 
 
 # ============================================================
-# DATABASE
+# DATABASE & PLATFORM FILTERS
 # ============================================================
+
+# Instagram, TikTok va YouTube xizmatlarini to'liq chiqarib tashlash uchun SQL filtr
+EXCLUDED_PLATFORMS_SQL = """(
+    LOWER(category) LIKE '%instagram%'
+    OR LOWER(name) LIKE '%instagram%'
+    OR LOWER(category) LIKE '%insta%'
+    OR LOWER(name) LIKE '%insta%'
+    OR LOWER(category) LIKE '%tiktok%'
+    OR LOWER(name) LIKE '%tiktok%'
+    OR LOWER(category) LIKE '%tik tok%'
+    OR LOWER(name) LIKE '%tik tok%'
+    OR LOWER(category) LIKE '%youtube%'
+    OR LOWER(name) LIKE '%youtube%'
+    OR LOWER(category) LIKE '%yutube%'
+    OR LOWER(name) LIKE '%yutube%'
+)"""
 
 def db():
     conn = sqlite3.connect(DB_FILE, check_same_thread=False)
@@ -214,7 +230,7 @@ def db():
             )
 
         conn.execute(
-            """
+            f"""
             UPDATE services
             SET admin_available = 1
             WHERE active = 1
@@ -235,6 +251,15 @@ def db():
                   OR LOWER(name) LIKE '%bonus%'
                   OR price = 0
               )
+              AND NOT {EXCLUDED_PLATFORMS_SQL}
+            """
+        )
+        # Instagram, TikTok va YouTube xizmatlarini admin_available dan olib tashlaymiz
+        conn.execute(
+            f"""
+            UPDATE services
+            SET admin_available = 0
+            WHERE {EXCLUDED_PLATFORMS_SQL}
             """
         )
         conn.commit()
@@ -990,17 +1015,18 @@ SERVICE_PER_PAGE = 10
 
 
 def get_db_categories():
-    """Barcha faol Telegram va boshqa xizmat kategoriyalari."""
+    """Barcha faol Telegram xizmat kategoriyalari (Instagram, TikTok, YouTube filtrlanadi)."""
 
     conn = db()
 
     try:
-        rows = conn.execute("""
+        rows = conn.execute(f"""
             SELECT category, COUNT(*) AS total
             FROM services
             WHERE active = 1
               AND category IS NOT NULL
               AND TRIM(category) != ''
+              AND NOT {EXCLUDED_PLATFORMS_SQL}
             GROUP BY category
             ORDER BY
                 CASE
@@ -1138,7 +1164,7 @@ def get_services_by_category(category, page=0):
     try:
         offset = page * SERVICE_PER_PAGE
 
-        rows = conn.execute("""
+        rows = conn.execute(f"""
             SELECT
                 id,
                 name,
@@ -1149,6 +1175,7 @@ def get_services_by_category(category, page=0):
             FROM services
             WHERE active = 1
               AND category = ?
+              AND NOT {EXCLUDED_PLATFORMS_SQL}
             ORDER BY
                 COALESCE(price, 0) ASC,
                 sort_order ASC,
@@ -1160,11 +1187,12 @@ def get_services_by_category(category, page=0):
             offset
         )).fetchall()
 
-        count_row = conn.execute("""
+        count_row = conn.execute(f"""
             SELECT COUNT(*) AS total
             FROM services
             WHERE active = 1
               AND category = ?
+              AND NOT {EXCLUDED_PLATFORMS_SQL}
         """, (category,)).fetchone()
 
         total = int(count_row["total"] or 0)
@@ -2383,7 +2411,7 @@ AUTO_SERVICE_PAGE_SIZE = 10
 
 
 def get_auto_services(page=0):
-    """Auto Order uchun admin tomonidan mavjud qilingan xizmatlar."""
+    """Auto Order uchun admin tomonidan mavjud qilingan xizmatlar (Instagram, TikTok, YouTube filtrlanadi)."""
 
     try:
         page = max(0, int(page))
@@ -2394,16 +2422,17 @@ def get_auto_services(page=0):
 
     try:
         total = conn.execute(
-            """
+            f"""
             SELECT COUNT(*)
             FROM services
             WHERE active = 1
               AND COALESCE(admin_available, 0) = 1
+              AND NOT {EXCLUDED_PLATFORMS_SQL}
             """
         ).fetchone()[0]
 
         rows = conn.execute(
-            """
+            f"""
             SELECT
                 id,
                 name,
@@ -2414,6 +2443,7 @@ def get_auto_services(page=0):
             FROM services
             WHERE active = 1
               AND COALESCE(admin_available, 0) = 1
+              AND NOT {EXCLUDED_PLATFORMS_SQL}
             ORDER BY
                 CASE
                     WHEN COALESCE(price, 0) = 0 THEN 0
@@ -8681,11 +8711,15 @@ def sync_api_services(api_id, dry_run=False):
 
             cat_lower = (category or "").lower()
             name_lower = (name or "").lower()
-            is_avail = 1 if (
+            is_excluded = any(
+                p in cat_lower or p in name_lower
+                for p in ["instagram", "insta", "tiktok", "tik tok", "youtube", "yutube"]
+            )
+            is_avail = 0 if is_excluded else (1 if (
                 any(k in cat_lower for k in ["telegram", "reaksiya", "ko'rish", "koʼrish", "prosmotr", "ulash", "tekin", "bonus"])
                 or any(k in name_lower for k in ["telegram", "reaksiya", "ko'rish", "koʼrish", "prosmotr", "ulash", "view", "share", "bonus"])
                 or price == 0
-            ) else 0
+            ) else 0)
 
             existing = conn.execute(
                 """
@@ -8708,6 +8742,7 @@ def sync_api_services(api_id, dry_run=False):
                     or int(existing["min_qty"] or 1) != min_qty
                     or int(existing["max_qty"] or 1000000) != max_qty
                     or (is_avail and not existing["admin_available"])
+                    or (is_excluded and existing["admin_available"])
                     or existing["active"] == 0
                 )
 
@@ -8715,7 +8750,7 @@ def sync_api_services(api_id, dry_run=False):
                     result["updated"] += 1
 
                     if not dry_run:
-                        new_avail = 1 if is_avail else existing["admin_available"]
+                        new_avail = 0 if is_excluded else (1 if is_avail else existing["admin_available"])
                         conn.execute(
                             """
                             UPDATE services
