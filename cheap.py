@@ -16,6 +16,8 @@ from dotenv import load_dotenv
 
 from telethon import TelegramClient, events
 from telethon.tl.functions.channels import JoinChannelRequest
+from telethon.tl.functions.messages import ImportChatInviteRequest, CheckChatInviteRequest
+from telethon.errors import UserAlreadyParticipantError
 
 # ============================================================
 # SOZLAMALAR
@@ -66,8 +68,29 @@ user_state = {}
 MAIN_LOOP = None
 userbot = None
 
-def join_userbot_to_channel(channel_id, username=None):
-    """Kanal qo'shilganda userbotni darhol ushbu kanalga a'zo qiladi."""
+def clean_channel_id(cid):
+    if cid is None:
+        return ""
+    s = str(cid).strip()
+    if s.startswith("-100"):
+        s = s[4:]
+    elif s.startswith("-"):
+        s = s[1:]
+    return s
+
+def extract_invite_hash(link_or_text):
+    if not link_or_text:
+        return None
+    s = str(link_or_text).strip()
+    m = re.search(r"(?:t\.me/|telegram\.me/|telegram\.dog/)?(?:\+|joinchat/)([a-zA-Z0-9_-]+)", s)
+    if m:
+        return m.group(1)
+    if s.startswith("+") and len(s) > 2:
+        return s[1:].strip()
+    return None
+
+def join_userbot_to_channel(channel_id, username=None, invite_link=None):
+    """Kanal qo'shilganda userbotni darhol ushbu kanalga a'zo qiladi (ommaviy yoki maxfiy)."""
     global MAIN_LOOP, userbot
     if not MAIN_LOOP or not userbot:
         print("⚠️ Userbot yoki MAIN_LOOP faol emas, kanalga qo'shilish kechiktirildi.")
@@ -75,31 +98,63 @@ def join_userbot_to_channel(channel_id, username=None):
 
     async def _async_join():
         try:
+            # 1. Agar invite link yoki hash berilgan bo'lsa
+            invite_hash = extract_invite_hash(invite_link or username or str(channel_id))
+            if invite_hash:
+                print(f"🔗 Userbot maxfiy kanalga invite hash orqali qo'shilmoqda: {invite_hash}")
+                try:
+                    await userbot(ImportChatInviteRequest(invite_hash))
+                    print(f"✅ USERBOT MAXFIY KANALGA QO'SHILDI (hash: {invite_hash})")
+                    return
+                except UserAlreadyParticipantError:
+                    print(f"✅ Userbot allaqachon maxfiy kanalga a'zo: {invite_hash}")
+                    return
+                except Exception as e:
+                    err = repr(e)
+                    if "already" in err.lower() or "participant" in err.lower():
+                        print(f"✅ Userbot allaqachon maxfiy kanalga a'zo: {invite_hash}")
+                        return
+                    print(f"⚠️ ImportChatInviteRequest xatosi ({invite_hash}): {e}")
+
+            # 2. Public kanal username bo'lsa
             entity = None
             if username:
                 try:
                     clean_u = str(username).strip().lstrip("@")
-                    entity = await userbot.get_entity(clean_u)
+                    if clean_u.lower() != "joinchat":
+                        entity = await userbot.get_entity(clean_u)
                 except Exception as e:
                     print(f"⚠️ Entity username orqali topilmadi: {e}")
+
+            # 3. Channel ID orqali entity qidirish (agar userbot allaqachon kanal ichida bo'lsa)
             if not entity and channel_id:
                 try:
-                    c_id = int(str(channel_id).strip())
-                    entity = await userbot.get_entity(c_id)
+                    clean_id = clean_channel_id(channel_id)
+                    if clean_id.isdigit():
+                        for test_id in [-int(f"100{clean_id}"), int(clean_id), -int(clean_id)]:
+                            try:
+                                entity = await userbot.get_entity(test_id)
+                                if entity:
+                                    break
+                            except Exception:
+                                pass
                 except Exception as e:
                     print(f"⚠️ Entity channel_id orqali topilmadi: {e}")
 
             if entity:
-                await userbot(JoinChannelRequest(entity))
-                print(f"✅ USERBOT YANGI KANALGA QO'SHILDI: {username or channel_id}")
+                try:
+                    await userbot(JoinChannelRequest(entity))
+                    print(f"✅ USERBOT YANGI KANALGA QO'SHILDI: {username or channel_id}")
+                except Exception as e:
+                    err = repr(e)
+                    if "already" in err.lower() or "participant" in err.lower():
+                        print(f"✅ Userbot allaqachon kanalga a'zo: {username or channel_id}")
+                    else:
+                        print(f"⚠️ JoinChannelRequest xatosi ({username or channel_id}): {e}")
             else:
-                print(f"⚠️ Userbot kanal entity sini aniqlay olmadi: {username or channel_id}")
+                print(f"ℹ️ Kanal entity aniqlanmadi (agar maxfiy bo'lsa userbotni a'zo qiling yoki havola bering): {username or channel_id}")
         except Exception as e:
-            err = repr(e)
-            if "already" in err.lower() or "participant" in err.lower():
-                print(f"✅ Userbot allaqachon kanalga a'zo: {username or channel_id}")
-            else:
-                print(f"⚠️ Userbot kanalga qo'shilish xatosi ({username or channel_id}): {e}")
+            print(f"⚠️ Userbot kanalga qo'shilish xatosi ({username or channel_id}): {e}")
 
     try:
         asyncio.run_coroutine_threadsafe(_async_join(), MAIN_LOOP)
@@ -172,6 +227,18 @@ def db():
         print(
             f"⚠️ admin_available migration xatosi: {e}"
         )
+
+    # --------------------------------------------------------
+    # CHANNELS — INVITE_LINK MIGRATION
+    # --------------------------------------------------------
+    try:
+        ch_columns = conn.execute("PRAGMA table_info(channels)").fetchall()
+        ch_column_names = {row["name"] for row in ch_columns}
+        if "invite_link" not in ch_column_names:
+            conn.execute("ALTER TABLE channels ADD COLUMN invite_link TEXT DEFAULT ''")
+            conn.commit()
+    except Exception as e:
+        print(f"⚠️ channels invite_link migration xatosi: {e}")
 
     return conn
 
@@ -1363,10 +1430,11 @@ def auto_add_reply(message):
     bot.send_message(
         message.chat.id,
         "➕ <b>Yangi kanal ulash</b>\n\n"
-        "📌 Qo'shmoqchi bo'lgan kanalingizdan "
-        "istalgan postni shu yerga <b>forward</b> qiling.\n\n"
-        "⚠️ Bot kanalga administrator qilib qo'yilgan "
-        "bo'lishi kerak.",
+        "1️⃣ <b>Ommaviy kanal bo'lsa:</b>\n"
+        "Kanal postini shu yerga <b>forward</b> qiling yoki kanal username/havolasini (@kanal) yuboring.\n\n"
+        "2️⃣ <b>Maxfiy (yopiq) kanal bo'lsa:</b>\n"
+        "Kanalning <b>taklif havolasini</b> (https://t.me/+...) yuboring yoki postni <b>forward</b> qiling.\n\n"
+        "ℹ️ <i>Userbot kanal postlariga avtomatik buyurtma berishi uchun kanalga a'zo bo'ladi.</i>",
         parse_mode="HTML",
         reply_markup=kb
     )
@@ -1473,10 +1541,11 @@ def auto_add_callback(call):
 
     bot.edit_message_text(
         "➕ <b>Yangi kanal ulash</b>\n\n"
-        "📌 Qo'shmoqchi bo'lgan kanalingizdan "
-        "istalgan postni shu yerga <b>forward</b> qiling.\n\n"
-        "⚠️ Bot kanalga administrator qilib qo'yilgan "
-        "bo'lishi kerak.",
+        "1️⃣ <b>Ommaviy kanal bo'lsa:</b>\n"
+        "Kanal postini shu yerga <b>forward</b> qiling yoki kanal username/havolasini (@kanal) yuboring.\n\n"
+        "2️⃣ <b>Maxfiy (yopiq) kanal bo'lsa:</b>\n"
+        "Kanalning <b>taklif havolasini</b> (https://t.me/+...) yuboring yoki postni <b>forward</b> qiling.\n\n"
+        "ℹ️ <i>Userbot kanal postlariga avtomatik buyurtma berishi uchun kanalga a'zo bo'ladi.</i>",
         call.message.chat.id,
         call.message.message_id,
         reply_markup=kb
@@ -1600,6 +1669,7 @@ def handle_admin_start_forward(message):
         get_state(message.from_user.id).get("state") == "waiting_channel"
         or (getattr(message, "forward_from_chat", None) is not None and getattr(message.forward_from_chat, "type", None) == "channel")
         or (hasattr(message, "forward_origin") and getattr(getattr(message, "forward_origin", None), "type", None) == "channel")
+        or bool(message.text and extract_invite_hash(message.text))
     )
 )
 def receive_channel(message):
@@ -1618,12 +1688,13 @@ def receive_channel(message):
     channel_id = None
     channel_title = "Noma'lum"
     username = None
+    invite_link = ""
 
     if forwarded_chat:
         if forwarded_chat.type != "channel":
             bot.reply_to(
                 message,
-                "❌ Faqat kanal postini forward qiling yoki kanal username/havolasini yuboring."
+                "❌ Faqat kanal postini forward qiling yoki kanal taklif havolasini/username (@kanal) yuboring."
             )
             return
         channel_id = forwarded_chat.id
@@ -1631,30 +1702,86 @@ def receive_channel(message):
         username = getattr(forwarded_chat, "username", None)
     elif message.text:
         txt = message.text.strip()
-        m_u = re.search(r"(?:t\.me/|@)([a-zA-Z0-9_]{4,})", txt)
-        if m_u:
-            username = m_u.group(1)
-            try:
-                ch_obj = bot.get_chat(f"@{username}")
-                channel_id = ch_obj.id
-                channel_title = ch_obj.title or f"@{username}"
-            except Exception:
-                channel_id = None
-                channel_title = f"@{username}"
-        elif txt.startswith("-100") or txt.isdigit():
-            try:
-                ch_obj = bot.get_chat(int(txt))
-                channel_id = ch_obj.id
-                channel_title = ch_obj.title or str(channel_id)
-                username = ch_obj.username
-            except Exception:
-                channel_id = int(txt) if txt.startswith("-100") else int(f"-100{txt}")
-                channel_title = f"Kanal {channel_id}"
 
-    if not channel_id and not username:
+        # 1. Maxfiy kanal taklif havolasi (https://t.me/+... yoki https://t.me/joinchat/...)
+        invite_hash = extract_invite_hash(txt)
+        if invite_hash:
+            invite_link = txt
+            if userbot and MAIN_LOOP:
+                try:
+                    async def _resolve_invite():
+                        res_id = None
+                        res_title = "Maxfiy kanal"
+                        # Avval tekshiramiz
+                        try:
+                            chk = await userbot(CheckChatInviteRequest(invite_hash))
+                            if hasattr(chk, "chat"):
+                                res_id = chk.chat.id
+                                res_title = getattr(chk.chat, "title", res_title)
+                            elif hasattr(chk, "title"):
+                                res_title = chk.title
+                        except Exception as e_chk:
+                            print(f"ℹ️ CheckChatInviteRequest: {e_chk}")
+
+                        # ImportChatInviteRequest orqali a'zo bo'lamiz
+                        try:
+                            imp = await userbot(ImportChatInviteRequest(invite_hash))
+                            if hasattr(imp, "chats") and imp.chats:
+                                res_id = imp.chats[0].id
+                                res_title = getattr(imp.chats[0], "title", res_title)
+                        except Exception as e_imp:
+                            err = repr(e_imp)
+                            if "already" in err.lower() or "participant" in err.lower():
+                                print(f"✅ Userbot allaqachon kanalga a'zo: {invite_hash}")
+                                if not res_id:
+                                    try:
+                                        chk2 = await userbot(CheckChatInviteRequest(invite_hash))
+                                        if hasattr(chk2, "chat"):
+                                            res_id = chk2.chat.id
+                                            res_title = getattr(chk2.chat, "title", res_title)
+                                    except Exception:
+                                        pass
+                            else:
+                                print(f"⚠️ ImportChatInviteRequest: {e_imp}")
+
+                        return res_id, res_title
+
+                    fut = asyncio.run_coroutine_threadsafe(_resolve_invite(), MAIN_LOOP)
+                    r_id, r_title = fut.result(timeout=7)
+                    if r_id:
+                        channel_id = -int(f"100{clean_channel_id(r_id)}")
+                        channel_title = r_title or f"Maxfiy kanal {r_id}"
+                    elif r_title:
+                        channel_title = r_title
+                except Exception as e:
+                    print(f"ℹ️ Userbot invite link resolve xatosi: {e}")
+
+        # 2. Public kanal username (@kanal yoki t.me/kanal)
+        if not channel_id and not invite_link:
+            m_u = re.search(r"(?:t\.me/|@)([a-zA-Z0-9_]{4,})", txt)
+            if m_u and m_u.group(1).lower() != "joinchat":
+                username = m_u.group(1)
+                try:
+                    ch_obj = bot.get_chat(f"@{username}")
+                    channel_id = ch_obj.id
+                    channel_title = ch_obj.title or f"@{username}"
+                except Exception:
+                    channel_id = None
+                    channel_title = f"@{username}"
+            elif txt.startswith("-100") or txt.isdigit():
+                try:
+                    ch_obj = bot.get_chat(int(txt))
+                    channel_id = ch_obj.id
+                    channel_title = ch_obj.title or str(channel_id)
+                    username = ch_obj.username
+                except Exception:
+                    channel_id = int(txt) if txt.startswith("-100") else int(f"-100{txt}")
+                    channel_title = f"Kanal {channel_id}"
+
+    if not channel_id and not username and not invite_link:
         bot.reply_to(
             message,
-            "❌ Kanal postini <b>forward</b> qiling yoki kanal username/havolasini (@kanal) yuboring."
+            "❌ Kanal postini <b>forward</b> qiling, kanal username (@kanal) yoki taklif havolasini (https://t.me/+...) yuboring."
         )
         return
 
@@ -1679,7 +1806,7 @@ def receive_channel(message):
                 return
 
         except Exception as e:
-            # Bot kanalga admin bo'lmasa ham, userbot kanalga qo'shilib postlarni kuzatishi mumkin
+            # Bot kanalga admin bo'lmasa ham yoki maxfiy kanal bo'lsa ham davom etamiz
             print(
                 f"ℹ️ Kanal adminligi bot orqali tekshirilmadi: {e}"
             )
@@ -1699,9 +1826,33 @@ def receive_channel(message):
         except Exception as e:
             print(f"ℹ️ Userbot orqali channel_id aniqlash xatosi: {e}")
 
-    # Agar hali ham channel_id bo'lmasa, vaqtinchalik username orqali belgilaymiz
+    # Agar hali ham channel_id bo'lmasa, vaqtinchalik belgilaymiz
     if not channel_id:
-        channel_id = f"@{username}"
+        if username:
+            channel_id = f"@{username}"
+        elif invite_link:
+            inv_hash = extract_invite_hash(invite_link)
+            channel_id = f"+{inv_hash}"
+
+    # Userbot allaqachon kanalga a'zo ekanligini tekshiramiz
+    is_userbot_joined = False
+    if channel_id and userbot and MAIN_LOOP:
+        try:
+            async def _check_ub():
+                c_clean = clean_channel_id(channel_id)
+                if c_clean.isdigit():
+                    for tid in [-int(f"100{c_clean}"), int(c_clean), -int(c_clean)]:
+                        try:
+                            e = await userbot.get_entity(tid)
+                            if e:
+                                return True
+                        except Exception:
+                            pass
+                return False
+            fut = asyncio.run_coroutine_threadsafe(_check_ub(), MAIN_LOOP)
+            is_userbot_joined = fut.result(timeout=4)
+        except Exception:
+            is_userbot_joined = False
 
     # --------------------------------------------------------
     # KANALNI DB GA SAQLASH
@@ -1712,15 +1863,16 @@ def receive_channel(message):
     try:
         existing = conn.execute(
             """
-            SELECT id
+            SELECT id, invite_link
             FROM channels
             WHERE user_id = ?
-              AND (channel_id = ? OR (username != '' AND username = ?))
+              AND (channel_id = ? OR (username != '' AND username = ?) OR (invite_link != '' AND invite_link = ?))
             """,
             (
                 message.from_user.id,
                 str(channel_id),
-                username or ""
+                username or "",
+                invite_link or ""
             )
         ).fetchone()
 
@@ -1730,17 +1882,24 @@ def receive_channel(message):
                 UPDATE channels
                 SET username = ?,
                     title = ?,
+                    channel_id = ?,
+                    invite_link = CASE WHEN ? != '' THEN ? ELSE invite_link END,
                     active = 1
                 WHERE id = ?
                 """,
                 (
                     username or "",
                     channel_title,
+                    str(channel_id),
+                    invite_link or "",
+                    invite_link or "",
                     existing["id"]
                 )
             )
 
             channel_db_id = existing["id"]
+            if not invite_link and existing["invite_link"]:
+                invite_link = existing["invite_link"]
 
         else:
             cursor = conn.execute(
@@ -1752,15 +1911,17 @@ def receive_channel(message):
                     username,
                     title,
                     active,
-                    created_at
+                    created_at,
+                    invite_link
                 )
-                VALUES (?, ?, ?, ?, 1, datetime('now'))
+                VALUES (?, ?, ?, ?, 1, datetime('now'), ?)
                 """,
                 (
                     message.from_user.id,
                     str(channel_id),
                     username or "",
-                    channel_title
+                    channel_title,
+                    invite_link or ""
                 )
             )
 
@@ -1769,7 +1930,7 @@ def receive_channel(message):
         conn.commit()
 
         # Userbotni darhol yangi kanalga qo'shamiz
-        join_userbot_to_channel(channel_id, username)
+        join_userbot_to_channel(channel_id, username, invite_link)
 
     except Exception as e:
         conn.rollback()
@@ -1835,11 +1996,25 @@ def receive_channel(message):
         )
     )
 
+    extra_info = ""
+    if not username:
+        if invite_link or is_userbot_joined:
+            extra_info = "\n\n🔒 <i>Maxfiy kanal: Userbot kanalga muvaffaqiyatli ulandi va yangi postlarni avtomatik kuzatib boradi.</i>"
+        else:
+            extra_info = (
+                "\n\n⚠️ <b>Diqqat: Maxfiy kanal aniqlandi!</b>\n"
+                "Userbot kanal postlarini ko'rishi va buyurtma berishi uchun:\n"
+                "1️⃣ Kanalning <b>taklif havolasini</b> (https://t.me/+...) botga yuboring\n"
+                "YOKI\n"
+                "2️⃣ Userbotimizni (<code>+998932376674</code> / @Sirojjidinismoilov) kanalga a'zo yoki admin qilib qo'shing."
+            )
+
     bot.send_message(
         message.chat.id,
         "✅ <b>Kanal muvaffaqiyatli ulandi!</b>\n\n"
         f"📌 <b>{channel_title}</b>\n"
-        f"🆔 <code>{channel_id}</code>\n\n"
+        f"🆔 <code>{channel_id}</code>"
+        f"{extra_info}\n\n"
         "👇 Kanal uchun kerakli amalni tanlang:",
         reply_markup=kb
     )
@@ -1994,7 +2169,8 @@ def auto_channel_select_callback(call):
                 channel_id,
                 username,
                 title,
-                active
+                active,
+                invite_link
             FROM channels
             WHERE id = ?
               AND user_id = ?
@@ -2037,9 +2213,10 @@ def auto_channel_select_callback(call):
     if username:
         channel_line = f"🔗 @{username}"
     else:
-        channel_line = (
-            f"🆔 <code>{channel['channel_id']}</code>"
-        )
+        channel_line = f"🆔 <code>{channel['channel_id']}</code>"
+        inv_val = channel["invite_link"] if "invite_link" in channel.keys() else ""
+        if inv_val:
+            channel_line += f"\n🔗 {inv_val}"
 
     status = (
         "🟢 Faol"
@@ -2387,8 +2564,14 @@ def auto_service_list_callback(call):
     conn = db()
 
     try:
+        clean_cid = clean_channel_id(channel_id)
+        cid_variants = [str(channel_id), f"-100{clean_cid}", f"-{clean_cid}", clean_cid]
+        if state.get("username"):
+            cid_variants.append(f"@{state['username'].lstrip('@')}")
+        placeholders = ",".join("?" for _ in cid_variants)
+
         rows = conn.execute(
-            """
+            f"""
             SELECT
                 cs.id AS channel_service_id,
                 cs.service_id,
@@ -2400,13 +2583,13 @@ def auto_service_list_callback(call):
             FROM channel_services cs
             JOIN services s
                 ON s.id = cs.service_id
-            WHERE cs.channel_id = ?
+            WHERE cs.channel_id IN ({placeholders})
               AND cs.active = 1
             ORDER BY
                 COALESCE(s.price, 0) ASC,
                 cs.id DESC
             """,
-            (channel_id,)
+            cid_variants
         ).fetchall()
 
     finally:
@@ -3483,12 +3666,17 @@ def auto_delete_yes_callback(call):
         title = channel["title"] or channel["username"] or str(channel_id)
 
         # Avval kanalga biriktirilgan xizmatlarni o'chiramiz
+        clean_cid = clean_channel_id(channel_id)
+        cid_variants = [str(channel_id), f"-100{clean_cid}", f"-{clean_cid}", clean_cid]
+        if channel["username"]:
+            cid_variants.append(f"@{channel['username'].lstrip('@')}")
+        ph = ",".join("?" for _ in cid_variants)
         conn.execute(
-            """
+            f"""
             DELETE FROM channel_services
-            WHERE channel_id = ?
+            WHERE channel_id IN ({ph})
             """,
-            (channel_id,)
+            cid_variants
         )
 
         # Keyin kanalning o'zini o'chiramiz
@@ -9977,7 +10165,7 @@ async def start_userbot():
     conn = db()
     try:
         rows = conn.execute("""
-            SELECT channel_id, username, title
+            SELECT channel_id, username, title, invite_link
             FROM channels
             WHERE active = 1
         """).fetchall()
@@ -9988,12 +10176,27 @@ async def start_userbot():
         channel_id = row["channel_id"]
         username = (row["username"] or "").strip().lstrip("@")
         title = row["title"] or "Noma'lum kanal"
+        inv_link = (row["invite_link"] if "invite_link" in row.keys() else "") or ""
 
         try:
             entity = None
 
-            # Avval username orqali topamiz
-            if username:
+            # 1. Agar invite_link bo'lsa (maxfiy kanal)
+            if inv_link:
+                inv_hash = extract_invite_hash(inv_link)
+                if inv_hash:
+                    try:
+                        await userbot(ImportChatInviteRequest(inv_hash))
+                        print(f"✅ USERBOT MAXFIY KANALGA QO'SHILDI: {title} ({inv_hash})")
+                    except Exception as e_inv:
+                        err = repr(e_inv)
+                        if "already" in err.lower() or "participant" in err.lower():
+                            print(f"✅ USERBOT ALLAQACHON MAXFIY KANALGA A'ZO: {title}")
+                        else:
+                            print(f"⚠️ Maxfiy kanalga qo'shilish xatosi ({title}): {e_inv}")
+
+            # 2. Avval username orqali topamiz
+            if username and username.lower() != "joinchat":
                 try:
                     entity = await userbot.get_entity(username)
                 except Exception as e:
@@ -10003,16 +10206,17 @@ async def start_userbot():
                         repr(e)
                     )
 
-            # Username ishlamasa ID orqali urinib ko'ramiz
+            # 3. Username ishlamasa ID orqali urinib ko'ramiz
             if entity is None and channel_id:
-                try:
-                    entity = await userbot.get_entity(int(channel_id))
-                except Exception as e:
-                    print(
-                        "⚠️ Kanal ID orqali topilmadi:",
-                        channel_id,
-                        repr(e)
-                    )
+                clean_id = clean_channel_id(channel_id)
+                if clean_id.isdigit():
+                    for test_id in [-int(f"100{clean_id}"), int(clean_id), -int(clean_id)]:
+                        try:
+                            entity = await userbot.get_entity(test_id)
+                            if entity:
+                                break
+                        except Exception:
+                            pass
 
             if entity is None:
                 print(
@@ -10031,7 +10235,7 @@ async def start_userbot():
                 print(
                     "✅ USERBOT KANALGA QO'SHILDI:",
                     title,
-                    "| @"+username if username else channel_id
+                    "| @" + username if username else channel_id
                 )
             except Exception as join_error:
                 err = repr(join_error)
@@ -10043,7 +10247,7 @@ async def start_userbot():
                     print(
                         "✅ USERBOT ALLAQACHON A'ZO:",
                         title,
-                        "| @"+username if username else channel_id
+                        "| @" + username if username else channel_id
                     )
                 else:
                     print(
