@@ -38,12 +38,26 @@ OPENAI_AGENT_MODEL = os.getenv(
     "gpt-6-luna"
 ).strip()
 
-API_ID = int(os.getenv("API_ID", "38883376") or 38883376)
-API_HASH = os.getenv("API_HASH", "67909afdf0fe6c23e6af29985f645297").strip() or "67909afdf0fe6c23e6af29985f645297"
-USERBOT_SESSION = os.getenv(
-    "USERBOT_SESSION",
-    "1ApWapzMBuzwsTu81tRBCeZQ7gu4ERhma5D66ZBdVtl-uPoSGrYlyE4NyG9qwDJ989u913j0h6dnWxdoucwSVNvWNAC1g-oz5woPA7ZBpcRsu4txKXWxvU3ZLIGUEDOym-ZmK4QvIgMtrRMYTwuk5EGkdoYKt5iVK58eChFUCVJ_2tU7wCar4KkSlcB2s4UvYDFEzrTA42XkjbjKlP1w0f0c6aFuOvBgeriW4imvLDVKS0mISyLEaOGr1ef2btu4RzNgRpVtjxm3VV9zgr1cxerWl7w2rKivejMqORdVlK7bDYzxzODG9f5wb9Y86YENGHvwokxW4SocsrdbStZu4OlhymivInJQ="
-) or "1ApWapzMBuzwsTu81tRBCeZQ7gu4ERhma5D66ZBdVtl-uPoSGrYlyE4NyG9qwDJ989u913j0h6dnWxdoucwSVNvWNAC1g-oz5woPA7ZBpcRsu4txKXWxvU3ZLIGUEDOym-ZmK4QvIgMtrRMYTwuk5EGkdoYKt5iVK58eChFUCVJ_2tU7wCar4KkSlcB2s4UvYDFEzrTA42XkjbjKlP1w0f0c6aFuOvBgeriW4imvLDVKS0mISyLEaOGr1ef2btu4RzNgRpVtjxm3VV9zgr1cxerWl7w2rKivejMqORdVlK7bDYzxzODG9f5wb9Y86YENGHvwokxW4SocsrdbStZu4OlhymivInJQ="
+API_ID = 38883376
+API_HASH = "67909afdf0fe6c23e6af29985f645297"
+
+DEFAULT_USERBOT_SESSION = "1ApWapzMBuzwsTu81tRBCeZQ7gu4ERhma5D66ZBdVtl-uPoSGrYlyE4NyG9qwDJ989u913j0h6dnWxdoucwSVNvWNAC1g-oz5woPA7ZBpcRsu4txKXWxvU3ZLIGUEDOym-ZmK4QvIgMtrRMYTwuk5EGkdoYKt5iVK58eChFUCVJ_2tU7wCar4KkSlcB2s4UvYDFEzrTA42XkjbjKlP1w0f0c6aFuOvBgeriW4imvLDVKS0mISyLEaOGr1ef2btu4RzNgRpVtjxm3VV9zgr1cxerWl7w2rKivejMqORdVlK7bDYzxzODG9f5wb9Y86YENGHvwokxW4SocsrdbStZu4OlhymivInJQ="
+
+raw_session = os.getenv("USERBOT_SESSION", "").strip()
+if raw_session and len(raw_session) > 100 and raw_session.startswith("1"):
+    USERBOT_SESSION = raw_session
+else:
+    USERBOT_SESSION = DEFAULT_USERBOT_SESSION
+
+def log_debug(msg):
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{ts}] {msg}\n"
+    print(line, end="", flush=True)
+    try:
+        with open("debug.log", "a", encoding="utf-8") as f:
+            f.write(line)
+    except Exception:
+        pass
 
 if not BOT_TOKEN:
     raise SystemExit("❌ BOT_TOKEN .env faylida topilmadi")
@@ -92,8 +106,9 @@ def extract_invite_hash(link_or_text):
 def join_userbot_to_channel(channel_id, username=None, invite_link=None):
     """Kanal qo'shilganda userbotni darhol ushbu kanalga a'zo qiladi (ommaviy yoki maxfiy)."""
     global MAIN_LOOP, userbot
+    log_debug(f"JOIN_USERBOT_TO_CHANNEL: cid={channel_id}, username={username}")
     if not MAIN_LOOP or not userbot:
-        print("⚠️ Userbot yoki MAIN_LOOP faol emas, kanalga qo'shilish kechiktirildi.")
+        log_debug("⚠️ Userbot yoki MAIN_LOOP faol emas, kanalga qo'shilish kechiktirildi.")
         return
 
     async def _async_join():
@@ -101,20 +116,20 @@ def join_userbot_to_channel(channel_id, username=None, invite_link=None):
             # 1. Agar invite link yoki hash berilgan bo'lsa
             invite_hash = extract_invite_hash(invite_link or username or str(channel_id))
             if invite_hash:
-                print(f"🔗 Userbot maxfiy kanalga invite hash orqali qo'shilmoqda: {invite_hash}")
+                log_debug(f"🔗 Userbot maxfiy kanalga invite hash orqali qo'shilmoqda: {invite_hash}")
                 try:
                     await userbot(ImportChatInviteRequest(invite_hash))
-                    print(f"✅ USERBOT MAXFIY KANALGA QO'SHILDI (hash: {invite_hash})")
+                    log_debug(f"✅ USERBOT MAXFIY KANALGA QO'SHILDI (hash: {invite_hash})")
                     return
                 except UserAlreadyParticipantError:
-                    print(f"✅ Userbot allaqachon maxfiy kanalga a'zo: {invite_hash}")
+                    log_debug(f"✅ Userbot allaqachon maxfiy kanalga a'zo: {invite_hash}")
                     return
                 except Exception as e:
                     err = repr(e)
                     if "already" in err.lower() or "participant" in err.lower():
-                        print(f"✅ Userbot allaqachon maxfiy kanalga a'zo: {invite_hash}")
+                        log_debug(f"✅ Userbot allaqachon maxfiy kanalga a'zo: {invite_hash}")
                         return
-                    print(f"⚠️ ImportChatInviteRequest xatosi ({invite_hash}): {e}")
+                    log_debug(f"⚠️ ImportChatInviteRequest xatosi ({invite_hash}): {e}")
 
             # 2. Public kanal username bo'lsa
             entity = None
@@ -124,7 +139,7 @@ def join_userbot_to_channel(channel_id, username=None, invite_link=None):
                     if clean_u.lower() != "joinchat":
                         entity = await userbot.get_entity(clean_u)
                 except Exception as e:
-                    print(f"⚠️ Entity username orqali topilmadi: {e}")
+                    log_debug(f"⚠️ Entity username orqali topilmadi: {e}")
 
             # 3. Channel ID orqali entity qidirish (agar userbot allaqachon kanal ichida bo'lsa)
             if not entity and channel_id:
@@ -139,27 +154,27 @@ def join_userbot_to_channel(channel_id, username=None, invite_link=None):
                             except Exception:
                                 pass
                 except Exception as e:
-                    print(f"⚠️ Entity channel_id orqali topilmadi: {e}")
+                    log_debug(f"⚠️ Entity channel_id orqali topilmadi: {e}")
 
             if entity:
                 try:
                     await userbot(JoinChannelRequest(entity))
-                    print(f"✅ USERBOT YANGI KANALGA QO'SHILDI: {username or channel_id}")
+                    log_debug(f"✅ USERBOT YANGI KANALGA QO'SHILDI: {username or channel_id}")
                 except Exception as e:
                     err = repr(e)
                     if "already" in err.lower() or "participant" in err.lower():
-                        print(f"✅ Userbot allaqachon kanalga a'zo: {username or channel_id}")
+                        log_debug(f"✅ Userbot allaqachon kanalga a'zo: {username or channel_id}")
                     else:
-                        print(f"⚠️ JoinChannelRequest xatosi ({username or channel_id}): {e}")
+                        log_debug(f"⚠️ JoinChannelRequest xatosi ({username or channel_id}): {e}")
             else:
-                print(f"ℹ️ Kanal entity aniqlanmadi (agar maxfiy bo'lsa userbotni a'zo qiling yoki havola bering): {username or channel_id}")
+                log_debug(f"ℹ️ Kanal entity aniqlanmadi: {username or channel_id}")
         except Exception as e:
-            print(f"⚠️ Userbot kanalga qo'shilish xatosi ({username or channel_id}): {e}")
+            log_debug(f"⚠️ Userbot kanalga qo'shilish xatosi ({username or channel_id}): {e}")
 
     try:
         asyncio.run_coroutine_threadsafe(_async_join(), MAIN_LOOP)
     except Exception as e:
-        print(f"❌ join_userbot_to_channel threadsafe xatosi: {e}")
+        log_debug(f"❌ join_userbot_to_channel threadsafe xatosi: {e}")
 
 
 
@@ -9939,14 +9954,25 @@ async def process_channel_post(
             )
 
         if not username:
-            print("⚠️ TELETHON EVENT: Kanal maxfiy (username yo'q). Faqat ommaviy kanallar qabul qilinadi.")
+            conn_u = db()
+            try:
+                ch_u = conn_u.execute(
+                    "SELECT username FROM channels WHERE (channel_id = ? OR channel_id = ? OR channel_id = ?) AND active = 1 AND username != '' LIMIT 1",
+                    (str(channel_id), str(channel_id_clean), f"-100{channel_id_clean}")
+                ).fetchone()
+                if ch_u and ch_u["username"]:
+                    username = ch_u["username"].strip().lstrip("@")
+            finally:
+                conn_u.close()
+
+        if not username:
+            log_debug("⚠️ TELETHON EVENT: Kanal maxfiy (username yo'q). Faqat ommaviy kanallar qabul qilinadi.")
             return
 
         post_link = f"https://t.me/{username}/{message_id}"
 
-        print(
-            "🔗 Post link:",
-            post_link
+        log_debug(
+            f"🔗 Post link: {post_link} | Faol xizmatlar: {len(service_rows)}"
         )
 
         # ============================================
@@ -10046,10 +10072,7 @@ async def process_channel_post(
                     print("❌ Kanal egasi topilmadi:", channel_id)
                     continue
 
-                print("🚀 REAL API ORDER YUBORILMOQDA...")
-                print("👤 Owner ID:", owner_id)
-                print("🆔 Service:", service["service_id"])
-                print("🔢 Quantity:", auto_quantity)
+                log_debug(f"🚀 REAL API ORDER YUBORILMOQDA: svc={service['service_id']}, qty={auto_quantity}, link={post_link}")
 
                 try:
                     await process_real_auto_order(
@@ -10061,7 +10084,7 @@ async def process_channel_post(
                         quantity=auto_quantity
                     )
                 except Exception as s_err:
-                    print(f"❌ Xizmat #{service.get('service_id')} buyurtma berish xatosi: {s_err}")
+                    log_debug(f"❌ Xizmat #{service.get('service_id')} buyurtma berish xatosi: {s_err}")
 
             print("--------------------------------------------")
 
@@ -10096,14 +10119,14 @@ def bot_channel_post_listener(message):
         username = getattr(message.chat, "username", None)
         if not ch_id or not msg_id:
             return
-        print(f"📡 BOT API CHANNEL POST QABUL QILINDI: {title} (@{username}) | Msg: {msg_id}")
+        log_debug(f"📡 BOT API CHANNEL POST QABUL QILINDI: {title} (@{username}) | ch={ch_id} | Msg: {msg_id}")
         if MAIN_LOOP:
             asyncio.run_coroutine_threadsafe(
                 process_channel_post(ch_id, msg_id, title, username),
                 MAIN_LOOP
             )
     except Exception as e:
-        print(f"❌ BOT CHANNEL POST XATOSI: {e}")
+        log_debug(f"❌ BOT CHANNEL POST XATOSI: {e}")
 
 
 async def start_userbot():
@@ -10118,7 +10141,7 @@ async def start_userbot():
     global userbot
 
     if not API_ID or not API_HASH:
-        print("⚠️ USERBOT: API_ID/API_HASH topilmadi.")
+        log_debug("⚠️ USERBOT: API_ID/API_HASH topilmadi.")
         return
 
     from telethon.sessions import StringSession
@@ -10126,6 +10149,8 @@ async def start_userbot():
         sess = StringSession(USERBOT_SESSION)
     else:
         sess = USERBOT_SESSION or 'cheap_userbot'
+
+    log_debug(f"USERBOT INIT: sess_len={len(USERBOT_SESSION)}")
 
     userbot = TelegramClient(
         sess,
@@ -10136,15 +10161,12 @@ async def start_userbot():
     @userbot.on(events.NewMessage)
     async def new_channel_post(event):
         try:
-            print(
-                "🔔 TELETHON EVENT:",
-                "chat_id=", event.chat_id,
-                "is_channel=", event.is_channel,
-                "message_id=", event.id
+            log_debug(
+                f"🔔 TELETHON EVENT: chat_id={event.chat_id} is_channel={event.is_channel} msg_id={event.id}"
             )
 
             if not event.is_channel:
-                print("⏭️ EVENT CHANNEL EMAS")
+                log_debug("⏭️ EVENT CHANNEL EMAS")
                 return
 
             channel_id = int(event.chat_id)
@@ -10160,10 +10182,11 @@ async def start_userbot():
                 or (-int(f"100{channel_id_clean}") in active_channels if channel_id_clean.isdigit() else False)
             )
 
-            chat = None
+            chat = getattr(event, "chat", None)
             if not is_active:
                 try:
-                    chat = await event.get_chat()
+                    if chat is None:
+                        chat = await event.get_chat()
                     u_test = (getattr(chat, "username", None) or "").strip().lstrip("@").lower()
                     if u_test and (u_test in active_channels or f"@{u_test}" in active_channels):
                         is_active = True
@@ -10171,10 +10194,14 @@ async def start_userbot():
                     pass
 
             if not is_active:
+                log_debug(f"⏭️ KANAL FAOL EMAS: {channel_id}")
                 return
 
             if chat is None:
-                chat = await event.get_chat()
+                try:
+                    chat = await event.get_chat()
+                except Exception:
+                    pass
 
             title = (
                 getattr(chat, "title", None)
@@ -10187,17 +10214,23 @@ async def start_userbot():
                 None
             )
 
-            print()
-            print("============================================")
-            print("📨 YANGI KANAL POSTI")
-            print("📌 Kanal:", title)
-            print("🆔 Channel ID:", channel_id)
-            print(
-                "🔗 Username:",
-                "@" + username if username else "maxfiy"
-            )
-            print("🆔 Message ID:", event.id)
-            print("============================================")
+            if not username:
+                try:
+                    conn = db()
+                    db_ch = conn.execute(
+                        "SELECT username, title FROM channels WHERE (channel_id = ? OR channel_id = ? OR channel_id = ?) AND active = 1 AND username != '' LIMIT 1",
+                        (channel_id, channel_id_raw, channel_id_clean)
+                    ).fetchone()
+                    conn.close()
+                    if db_ch:
+                        if db_ch["username"]:
+                            username = db_ch["username"].strip().lstrip("@")
+                        if (not title or title == "Noma'lum kanal") and db_ch["title"]:
+                            title = db_ch["title"]
+                except Exception:
+                    pass
+
+            log_debug(f"📨 YANGI KANAL POSTI: {title} (@{username}) | ch_id={channel_id} | msg_id={event.id}")
 
             await process_channel_post(
                 channel_id,
@@ -10207,14 +10240,14 @@ async def start_userbot():
             )
 
         except Exception as e:
-            print(
-                "❌ TELETHON USERBOT EVENT XATOSI:",
-                repr(e)
-            )
+            log_debug(f"❌ TELETHON USERBOT EVENT XATOSI: {e}")
 
+    log_debug("USERBOT CONNECTING...")
     await userbot.connect()
-    if not await userbot.is_user_authorized():
-        print("⚠️ USERBOT: Session avtorizatsiyadan o'tmagan (fake/staging rejim). Userbot o'tkazib yuborildi.")
+    is_auth = await userbot.is_user_authorized()
+    log_debug(f"USERBOT CONNECTED: auth={is_auth}")
+    if not is_auth:
+        log_debug("⚠️ USERBOT: Session avtorizatsiyadan o'tmagan (fake/staging rejim). Userbot o'tkazib yuborildi.")
         return
 
     # ============================================================
@@ -10310,13 +10343,8 @@ async def start_userbot():
             )
 
     me = await userbot.get_me()
-
-    print(
-        "✅ TELETHON USERBOT ISHLADI:",
-        getattr(me, "username", None)
-        or getattr(me, "first_name", None)
-        or getattr(me, "id", "Noma'lum")
-    )
+    bot_info = getattr(me, 'username', None) or getattr(me, 'first_name', None) or getattr(me, 'id', "Noma'lum")
+    log_debug(f"✅ TELETHON USERBOT ISHLADI: {bot_info} (ID: {getattr(me, 'id', None)}) | Channels: {len(get_active_channel_ids())}")
 
     print(
         "📁 Session:",
@@ -10963,6 +10991,8 @@ async def process_real_auto_order(
             internal_id
         )
 
+        log_debug(f"✅ REAL AUTO ORDER YARATILDI: #{external_order_id} | svc={service_id} | qty={quantity}")
+
         send_auto_order_message(
             owner_id,
             (
@@ -10991,10 +11021,7 @@ async def process_real_auto_order(
             error_text
         )
 
-        print(
-            "❌ REAL AUTO ORDER XATOSI:",
-            repr(e)
-        )
+        log_debug(f"❌ REAL AUTO ORDER XATOSI: {repr(e)}")
 
         send_auto_order_message(
             owner_id,
