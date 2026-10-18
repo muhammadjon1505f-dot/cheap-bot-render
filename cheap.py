@@ -243,41 +243,39 @@ def db():
                 ADD COLUMN admin_available INTEGER DEFAULT 0
                 """
             )
-
-        conn.execute(
-            f"""
-            UPDATE services
-            SET admin_available = 1
-            WHERE active = 1
-              AND (
-                  LOWER(category) LIKE '%telegram%'
-                  OR LOWER(category) LIKE '%reaksiya%'
-                  OR LOWER(category) LIKE '%ko%rish%'
-                  OR LOWER(category) LIKE '%prosmotr%'
-                  OR LOWER(category) LIKE '%ulash%'
-                  OR LOWER(category) LIKE '%tekin%'
-                  OR LOWER(name) LIKE '%telegram%'
-                  OR LOWER(name) LIKE '%reaksiya%'
-                  OR LOWER(name) LIKE '%ko%rish%'
-                  OR LOWER(name) LIKE '%prosmotr%'
-                  OR LOWER(name) LIKE '%ulash%'
-                  OR LOWER(name) LIKE '%view%'
-                  OR LOWER(name) LIKE '%share%'
-                  OR LOWER(name) LIKE '%bonus%'
-                  OR price = 0
-              )
-              AND NOT {EXCLUDED_PLATFORMS_SQL}
-            """
-        )
-        # Instagram, TikTok va YouTube xizmatlarini admin_available dan olib tashlaymiz
-        conn.execute(
-            f"""
-            UPDATE services
-            SET admin_available = 0
-            WHERE {EXCLUDED_PLATFORMS_SQL}
-            """
-        )
-        conn.commit()
+            conn.execute(
+                f"""
+                UPDATE services
+                SET admin_available = 1
+                WHERE active = 1
+                  AND (
+                      LOWER(category) LIKE '%telegram%'
+                      OR LOWER(category) LIKE '%reaksiya%'
+                      OR LOWER(category) LIKE '%ko%rish%'
+                      OR LOWER(category) LIKE '%prosmotr%'
+                      OR LOWER(category) LIKE '%ulash%'
+                      OR LOWER(category) LIKE '%tekin%'
+                      OR LOWER(name) LIKE '%telegram%'
+                      OR LOWER(name) LIKE '%reaksiya%'
+                      OR LOWER(name) LIKE '%ko%rish%'
+                      OR LOWER(name) LIKE '%prosmotr%'
+                      OR LOWER(name) LIKE '%ulash%'
+                      OR LOWER(name) LIKE '%view%'
+                      OR LOWER(name) LIKE '%share%'
+                      OR LOWER(name) LIKE '%bonus%'
+                      OR price = 0
+                  )
+                  AND NOT {EXCLUDED_PLATFORMS_SQL}
+                """
+            )
+            conn.execute(
+                f"""
+                UPDATE services
+                SET admin_available = 0
+                WHERE {EXCLUDED_PLATFORMS_SQL}
+                """
+            )
+            conn.commit()
 
     except Exception as e:
         print(
@@ -7450,19 +7448,32 @@ def admin_services_bulk_action_callback(call):
             "?" for _ in selected
         )
 
-        conn.execute(
-            f"""
-            UPDATE services
-            SET admin_available = ?
-            WHERE api_id = ?
-              AND id IN ({placeholders})
-            """,
-            (
-                new_status,
-                api_id,
-                *sorted(selected)
+        if new_status == 1:
+            conn.execute(
+                f"""
+                UPDATE services
+                SET admin_available = 1, active = 1
+                WHERE api_id = ?
+                  AND id IN ({placeholders})
+                """,
+                (
+                    api_id,
+                    *sorted(selected)
+                )
             )
-        )
+        else:
+            conn.execute(
+                f"""
+                UPDATE services
+                SET admin_available = 0
+                WHERE api_id = ?
+                  AND id IN ({placeholders})
+                """,
+                (
+                    api_id,
+                    *sorted(selected)
+                )
+            )
 
         conn.commit()
 
@@ -7478,13 +7489,13 @@ def admin_services_bulk_action_callback(call):
             call.id,
             f"✅ {changed_count} ta xizmat qo'shildi."
         )
-        target_status = "active"
     else:
         bot.answer_callback_query(
             call.id,
             f"🗑 {changed_count} ta xizmat olib tashlandi."
         )
-        target_status = "inactive"
+
+    target_status = status
 
     proxy = type(
         "CallbackProxy",
@@ -7994,19 +8005,32 @@ def admin_service_search_toggle_callback(call):
             )
             return
 
-        conn.execute(
-            """
-            UPDATE services
-            SET admin_available = ?
-            WHERE id = ?
-              AND api_id = ?
-            """,
-            (
-                new_status,
-                service_id,
-                api_id
+        if new_status == 1:
+            conn.execute(
+                """
+                UPDATE services
+                SET admin_available = 1, active = 1
+                WHERE id = ?
+                  AND api_id = ?
+                """,
+                (
+                    service_id,
+                    api_id
+                )
             )
-        )
+        else:
+            conn.execute(
+                """
+                UPDATE services
+                SET admin_available = 0
+                WHERE id = ?
+                  AND api_id = ?
+                """,
+                (
+                    service_id,
+                    api_id
+                )
+            )
 
         conn.commit()
 
@@ -8861,7 +8885,6 @@ def sync_api_services(api_id, dry_run=False):
                     or float(existing["price"] or 0) != price
                     or int(existing["min_qty"] or 1) != min_qty
                     or int(existing["max_qty"] or 1000000) != max_qty
-                    or (is_avail and not existing["admin_available"])
                     or (is_excluded and existing["admin_available"])
                     or existing["active"] == 0
                 )
@@ -8870,7 +8893,7 @@ def sync_api_services(api_id, dry_run=False):
                     result["updated"] += 1
 
                     if not dry_run:
-                        new_avail = 0 if is_excluded else (1 if is_avail else existing["admin_available"])
+                        new_avail = 0 if is_excluded else existing["admin_available"]
                         conn.execute(
                             """
                             UPDATE services
