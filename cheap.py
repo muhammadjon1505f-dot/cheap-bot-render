@@ -66,6 +66,47 @@ user_state = {}
 MAIN_LOOP = None
 userbot = None
 
+def join_userbot_to_channel(channel_id, username=None):
+    """Kanal qo'shilganda userbotni darhol ushbu kanalga a'zo qiladi."""
+    global MAIN_LOOP, userbot
+    if not MAIN_LOOP or not userbot:
+        print("⚠️ Userbot yoki MAIN_LOOP faol emas, kanalga qo'shilish kechiktirildi.")
+        return
+
+    async def _async_join():
+        try:
+            entity = None
+            if username:
+                try:
+                    clean_u = str(username).strip().lstrip("@")
+                    entity = await userbot.get_entity(clean_u)
+                except Exception as e:
+                    print(f"⚠️ Entity username orqali topilmadi: {e}")
+            if not entity and channel_id:
+                try:
+                    c_id = int(str(channel_id).strip())
+                    entity = await userbot.get_entity(c_id)
+                except Exception as e:
+                    print(f"⚠️ Entity channel_id orqali topilmadi: {e}")
+
+            if entity:
+                await userbot(JoinChannelRequest(entity))
+                print(f"✅ USERBOT YANGI KANALGA QO'SHILDI: {username or channel_id}")
+            else:
+                print(f"⚠️ Userbot kanal entity sini aniqlay olmadi: {username or channel_id}")
+        except Exception as e:
+            err = repr(e)
+            if "already" in err.lower() or "participant" in err.lower():
+                print(f"✅ Userbot allaqachon kanalga a'zo: {username or channel_id}")
+            else:
+                print(f"⚠️ Userbot kanalga qo'shilish xatosi ({username or channel_id}): {e}")
+
+    try:
+        asyncio.run_coroutine_threadsafe(_async_join(), MAIN_LOOP)
+    except Exception as e:
+        print(f"❌ join_userbot_to_channel threadsafe xatosi: {e}")
+
+
 
 # ============================================================
 # DATABASE
@@ -1573,60 +1614,84 @@ def receive_channel(message):
         if getattr(origin, "type", None) == "channel" and getattr(origin, "chat", None):
             forwarded_chat = origin.chat
 
-    if not forwarded_chat:
+    channel_id = None
+    channel_title = "Noma'lum"
+    username = None
+
+    if forwarded_chat:
+        if forwarded_chat.type != "channel":
+            bot.reply_to(
+                message,
+                "❌ Faqat kanal postini forward qiling yoki kanal username/havolasini yuboring."
+            )
+            return
+        channel_id = forwarded_chat.id
+        channel_title = forwarded_chat.title or "Noma'lum"
+        username = getattr(forwarded_chat, "username", None)
+    elif message.text:
+        txt = message.text.strip()
+        m_u = re.search(r"(?:t\.me/|@)([a-zA-Z0-9_]{4,})", txt)
+        if m_u:
+            username = m_u.group(1)
+            try:
+                ch_obj = bot.get_chat(f"@{username}")
+                channel_id = ch_obj.id
+                channel_title = ch_obj.title or f"@{username}"
+            except Exception:
+                channel_id = None
+                channel_title = f"@{username}"
+        elif txt.startswith("-100") or txt.isdigit():
+            try:
+                ch_obj = bot.get_chat(int(txt))
+                channel_id = ch_obj.id
+                channel_title = ch_obj.title or str(channel_id)
+                username = ch_obj.username
+            except Exception:
+                channel_id = int(txt) if txt.startswith("-100") else int(f"-100{txt}")
+                channel_title = f"Kanal {channel_id}"
+
+    if not channel_id and not username:
         bot.reply_to(
             message,
-            "❌ Kanal postini <b>forward</b> qilib yuboring."
+            "❌ Kanal postini <b>forward</b> qiling yoki kanal username/havolasini (@kanal) yuboring."
         )
         return
-
-    if forwarded_chat.type != "channel":
-        bot.reply_to(
-            message,
-            "❌ Faqat kanal postini forward qiling."
-        )
-        return
-
-    channel_id = forwarded_chat.id
-    channel_title = forwarded_chat.title or "Noma'lum"
-
-    username = getattr(
-        forwarded_chat,
-        "username",
-        None
-    )
 
     # --------------------------------------------------------
     # KANAL ADMINLIGINI TEKSHIRISH
     # --------------------------------------------------------
 
-    try:
-        member = bot.get_chat_member(
-            channel_id,
-            message.from_user.id
-        )
+    if channel_id and not is_admin(message.from_user):
+        try:
+            member = bot.get_chat_member(
+                channel_id,
+                message.from_user.id
+            )
 
-        if member.status not in ("administrator", "creator"):
+            if member.status not in ("administrator", "creator"):
+                bot.reply_to(
+                    message,
+                    "❌ <b>Siz bu kanal administratori emassiz.</b>\n\n"
+                    "Avto buyurtma ulash uchun kanal egasi yoki "
+                    "administrator bo'lishingiz kerak."
+                )
+                return
+
+        except Exception as e:
+            print(
+                f"⚠️ Kanal adminligini tekshirish xatosi: {e}"
+            )
+
             bot.reply_to(
                 message,
-                "❌ <b>Siz bu kanal administratori emassiz.</b>\n\n"
-                "Avto buyurtma ulash uchun kanal egasi yoki "
-                "administrator bo'lishingiz kerak."
+                "⚠️ Bot kanalga administrator qilib qo'yilganini "
+                "tekshiring va yana urinib ko'ring."
             )
             return
 
-    except Exception as e:
-        print(
-            f"⚠️ Kanal adminligini tekshirish xatosi: {e}"
-        )
-
-        bot.reply_to(
-            message,
-            "❌ Kanalni tekshirib bo'lmadi.\n\n"
-            "Bot kanalga administrator qilib qo'yilganini "
-            "tekshiring va yana urinib ko'ring."
-        )
-        return
+    # Agar channel_id hali bo'lmasa, vaqtinchalik username orqali belgilaymiz
+    if not channel_id:
+        channel_id = f"@{username}"
 
     # --------------------------------------------------------
     # KANALNI DB GA SAQLASH
@@ -1640,11 +1705,12 @@ def receive_channel(message):
             SELECT id
             FROM channels
             WHERE user_id = ?
-              AND channel_id = ?
+              AND (channel_id = ? OR (username != '' AND username = ?))
             """,
             (
                 message.from_user.id,
-                channel_id
+                str(channel_id),
+                username or ""
             )
         ).fetchone()
 
@@ -1682,7 +1748,7 @@ def receive_channel(message):
                 """,
                 (
                     message.from_user.id,
-                    channel_id,
+                    str(channel_id),
                     username or "",
                     channel_title
                 )
@@ -1691,6 +1757,9 @@ def receive_channel(message):
             channel_db_id = cursor.lastrowid
 
         conn.commit()
+
+        # Userbotni darhol yangi kanalga qo'shamiz
+        join_userbot_to_channel(channel_id, username)
 
     except Exception as e:
         conn.rollback()
@@ -8473,10 +8542,9 @@ def sync_api_services(api_id, dry_run=False):
                     )
 
         if not dry_run:
-            # Provider'da hozir mavjud bo'lmagan eski xizmatlarni
-            # avtomatik o'chirish.
+            # Provider'da hozir mavjud bo'lmagan xizmatlarni aniqlash
             current_external_ids = {
-                str(item.get("service", "")).strip()
+                str(item.get("service", "")).strip().strip("'").strip('"')
                 for item in services
                 if str(item.get("service", "")).strip()
             }
@@ -8493,7 +8561,7 @@ def sync_api_services(api_id, dry_run=False):
             stale_service_ids = [
                 int(row["id"])
                 for row in db_rows
-                if str(row["external_id"] or "").strip()
+                if str(row["external_id"] or "").strip().strip("'").strip('"')
                 not in current_external_ids
             ]
 
@@ -8502,17 +8570,12 @@ def sync_api_services(api_id, dry_run=False):
                     "?" for _ in stale_service_ids
                 )
 
+                # Foydalanuvchi ulagan xizmatlar buzilmasligi uchun
+                # o'chirib yubormasdan, nofaol holatga o'tkazamiz
                 conn.execute(
                     f"""
-                    DELETE FROM channel_services
-                    WHERE service_id IN ({placeholders})
-                    """,
-                    stale_service_ids
-                )
-
-                conn.execute(
-                    f"""
-                    DELETE FROM services
+                    UPDATE services
+                    SET active = 0
                     WHERE id IN ({placeholders})
                     """,
                     stale_service_ids
@@ -9454,26 +9517,53 @@ def noop_callback(call):
 # TELETHON AUTO ORDER EVENT PROCESSOR
 # ============================================================
 
+def clean_channel_id(cid):
+    if cid is None:
+        return ""
+    s = str(cid).strip()
+    if s.startswith("-100"):
+        s = s[4:]
+    elif s.startswith("-"):
+        s = s[1:]
+    return s
+
 def get_active_channel_ids():
     """
     DB'dagi active=1 bo'lgan Auto Order kanallarini oladi.
+    ID lar har xil formatda (-100, ijobiy, string, username) mos kelishini ta'minlaydi.
     """
     conn = db()
 
     try:
         rows = conn.execute(
             """
-            SELECT channel_id
+            SELECT channel_id, username
             FROM channels
             WHERE active = 1
             """
         ).fetchall()
 
-        return {
-            int(row["channel_id"])
-            for row in rows
-            if row["channel_id"] is not None
-        }
+        result = set()
+        for row in rows:
+            cid = row["channel_id"]
+            if cid:
+                try:
+                    result.add(int(cid))
+                except Exception:
+                    pass
+                cleaned = clean_channel_id(cid)
+                if cleaned.isdigit():
+                    result.add(int(cleaned))
+                    result.add(-int(f"100{cleaned}"))
+                    result.add(-int(cleaned))
+                result.add(str(cid).strip())
+                result.add(cleaned)
+            u = (row["username"] or "").strip().lstrip("@").lower()
+            if u:
+                result.add(u)
+                result.add(f"@{u}")
+
+        return result
 
     finally:
         conn.close()
@@ -9487,13 +9577,12 @@ async def process_channel_post(
 ):
     """
     Telethon yuborgan channel_post eventni qayta ishlaydi.
-
-    Bu yerda mavjud Auto Order PREVIEW logikasi saqlanadi.
-    REAL API ORDER yuborilmaydi.
+    Kanal tekshiriladi, xizmatlar olinadi va real API buyurtma yuboriladi.
     """
 
     try:
-        channel_id = int(channel_id)
+        channel_id_str = str(channel_id).strip()
+        channel_id_clean = clean_channel_id(channel_id)
         message_id = int(message_id)
 
         title = (
@@ -9502,13 +9591,23 @@ async def process_channel_post(
         )
 
         username = (
-            str(username or "").strip()
+            str(username or "").strip().lstrip("@")
             or None
         )
 
         active_channels = get_active_channel_ids()
 
-        if channel_id not in active_channels:
+        is_active = (
+            channel_id in active_channels
+            or channel_id_str in active_channels
+            or channel_id_clean in active_channels
+            or (int(channel_id_clean) in active_channels if channel_id_clean.isdigit() else False)
+            or (-int(f"100{channel_id_clean}") in active_channels if channel_id_clean.isdigit() else False)
+            or (username and username.lower() in active_channels)
+            or (username and f"@{username.lower()}" in active_channels)
+        )
+
+        if not is_active:
             print(
                 "ℹ️ TELETHON EVENT: kanal Auto Order uchun faol emas:",
                 channel_id
@@ -9527,14 +9626,26 @@ async def process_channel_post(
         print("🆔 Message ID:", message_id)
 
         # ============================================
-        # AUTO ORDER PREVIEW
+        # AUTO ORDER XIZMATLARINI OLISH
         # ============================================
 
         conn = db()
 
         try:
+            target_ids = [
+                str(channel_id),
+                f"-100{channel_id_clean}",
+                f"-{channel_id_clean}",
+                channel_id_clean
+            ]
+            if username:
+                target_ids.append(f"@{username}")
+                target_ids.append(username)
+
+            placeholders = ",".join("?" for _ in target_ids)
+
             service_rows = conn.execute(
-                """
+                f"""
                 SELECT
                     cs.id AS channel_service_id,
                     cs.service_id,
@@ -9544,30 +9655,32 @@ async def process_channel_post(
                     s.category,
                     s.api_id,
                     s.price,
-                    a.name AS api_name, ch.user_id AS owner_id
+                    s.external_id,
+                    a.name AS api_name,
+                    ch.user_id AS owner_id
                 FROM channel_services cs
                 JOIN services s
                     ON s.id = cs.service_id
                 LEFT JOIN apis a
                     ON a.id = s.api_id
-                  JOIN channels ch
-                      ON ch.channel_id = cs.channel_id
-                WHERE cs.channel_id = ?
+                JOIN channels ch
+                    ON (ch.channel_id = cs.channel_id OR ch.channel_id IN ({placeholders}))
+                WHERE (cs.channel_id IN ({placeholders}))
                   AND cs.active = 1
                   AND s.active = 1
                 ORDER BY cs.id ASC
                 """,
-                (channel_id,)
+                target_ids + target_ids
             ).fetchall()
 
         finally:
             conn.close()
 
         print()
-        print("🧪 AUTO ORDER PREVIEW")
+        print("🧪 AUTO ORDER SERVICE TEKSHIRUVI")
         print("--------------------------------------------")
         print(
-            "🛠 Ulangan xizmatlar:",
+            "🛠 Ulangan faol xizmatlar:",
             len(service_rows)
         )
 
@@ -9581,22 +9694,18 @@ async def process_channel_post(
                 "   ├─ Service:",
                 service["service_id"]
             )
-
             print(
                 "   ├─ Nomi:",
                 service["name"]
             )
-
             print(
                 "   ├─ Min:",
                 service["min_qty"]
             )
-
             print(
                 "   ├─ Max:",
                 service["max_qty"]
             )
-
             print(
                 "   └─ API:",
                 service["api_name"] or "Noma'lum",
@@ -9609,10 +9718,14 @@ async def process_channel_post(
             post_link = (
                 f"https://t.me/{username}/{message_id}"
             )
+        else:
+            post_link = (
+                f"https://t.me/c/{channel_id_clean}/{message_id}"
+            )
 
         print(
-            "🔗 Post:",
-            post_link or "Username mavjud emas"
+            "🔗 Post link:",
+            post_link
         )
 
         # ============================================
@@ -9788,17 +9901,19 @@ async def start_userbot():
                 return
 
             channel_id = int(event.chat_id)
-
-            print(
-                "🔎 CHANNEL ID:",
-                channel_id,
-                "| ACTIVE:",
-                get_active_channel_ids()
-            )
-
+            channel_id_raw = str(channel_id).strip()
+            channel_id_clean = clean_channel_id(channel_id)
             active_channels = get_active_channel_ids()
 
-            if channel_id not in active_channels:
+            is_active = (
+                channel_id in active_channels
+                or channel_id_raw in active_channels
+                or channel_id_clean in active_channels
+                or (int(channel_id_clean) in active_channels if channel_id_clean.isdigit() else False)
+                or (-int(f"100{channel_id_clean}") in active_channels if channel_id_clean.isdigit() else False)
+            )
+
+            if not is_active:
                 return
 
             chat = await event.get_chat()
@@ -10198,7 +10313,7 @@ def send_real_auto_order(
     )
 
     external_service_id = (
-        str(service["external_id"] or "").strip()
+        str(service["external_id"] or "").strip().strip("'").strip('"')
     )
 
     if not api_url:
