@@ -198,30 +198,31 @@ def db():
                 """
             )
 
-            allowed_categories = (
-                "Ko'rishlar - ( 1 ta Postga ) - Telegram",
-                "Eng Arzon Reaksiyalar ( 👍 ❤️ 🔥 😁 🎉 ) - Telegram",
-                "O’zbek ( Reaksiyalar ) - Telegram",
-                "Tezkor reaksiyalar ( 👍 ❤️ 🔥 😁 🎉 ) - Telegram",
-                "Post ulashishlar ( Oddiy ) - Telegram",
-                "Ulashishlar ( 🇺🇿 O’zbek ) - Telegram",
-            )
-
-            placeholders = ",".join(
-                "?" for _ in allowed_categories
-            )
-
-            conn.execute(
-                f"""
-                UPDATE services
-                SET admin_available = 1
-                WHERE active = 1
-                  AND category IN ({placeholders})
-                """,
-                allowed_categories
-            )
-
-            conn.commit()
+        conn.execute(
+            """
+            UPDATE services
+            SET admin_available = 1
+            WHERE active = 1
+              AND (
+                  LOWER(category) LIKE '%telegram%'
+                  OR LOWER(category) LIKE '%reaksiya%'
+                  OR LOWER(category) LIKE '%ko%rish%'
+                  OR LOWER(category) LIKE '%prosmotr%'
+                  OR LOWER(category) LIKE '%ulash%'
+                  OR LOWER(category) LIKE '%tekin%'
+                  OR LOWER(name) LIKE '%telegram%'
+                  OR LOWER(name) LIKE '%reaksiya%'
+                  OR LOWER(name) LIKE '%ko%rish%'
+                  OR LOWER(name) LIKE '%prosmotr%'
+                  OR LOWER(name) LIKE '%ulash%'
+                  OR LOWER(name) LIKE '%view%'
+                  OR LOWER(name) LIKE '%share%'
+                  OR LOWER(name) LIKE '%bonus%'
+                  OR price = 0
+              )
+            """
+        )
+        conn.commit()
 
     except Exception as e:
         print(
@@ -906,7 +907,7 @@ SERVICE_PER_PAGE = 10
 
 
 def get_db_categories():
-    """Faqat oddiy Telegram reaksiya, ko'rish va ulashish kategoriyalari."""
+    """Barcha faol Telegram va boshqa xizmat kategoriyalari."""
 
     conn = db()
 
@@ -917,16 +918,15 @@ def get_db_categories():
             WHERE active = 1
               AND category IS NOT NULL
               AND TRIM(category) != ''
-              AND category IN (
-                  'Eng Arzon Reaksiyalar ( 👍 ❤️ 🔥 😁 🎉 ) - Telegram',
-                  'Ko''rishlar - ( 1 ta Postga ) - Telegram',
-                  'O’zbek ( Reaksiyalar ) - Telegram',
-                  'Post ulashishlar ( Oddiy ) - Telegram',
-                  'Tezkor reaksiyalar ( 👍 ❤️ 🔥 😁 🎉 ) - Telegram',
-                  'Ulashishlar ( 🇺🇿 O’zbek ) - Telegram'
-              )
             GROUP BY category
-            ORDER BY MIN(sort_order), category
+            ORDER BY
+                CASE
+                    WHEN LOWER(category) LIKE '%tekin%' OR LOWER(category) LIKE '%bonus%' THEN 0
+                    WHEN LOWER(category) LIKE '%telegram%' THEN 1
+                    ELSE 2
+                END,
+                MIN(sort_order),
+                category
         """).fetchall()
 
         return [
@@ -1066,17 +1066,6 @@ def get_services_by_category(category, page=0):
             FROM services
             WHERE active = 1
               AND category = ?
-              AND category LIKE '%Telegram%'
-              AND (
-                    category LIKE '%Reaksiya%'
-                    OR category LIKE '%reaksiya%'
-                    OR category LIKE '%Ko%rish%'
-                    OR category LIKE '%Ko’rish%'
-                    OR category LIKE '%Ulashish%'
-                    OR category LIKE '%ulashish%'
-                    OR category LIKE '%Repost%'
-                    OR category LIKE '%repost%'
-              )
             ORDER BY
                 COALESCE(price, 0) ASC,
                 sort_order ASC,
@@ -1093,17 +1082,6 @@ def get_services_by_category(category, page=0):
             FROM services
             WHERE active = 1
               AND category = ?
-              AND category LIKE '%Telegram%'
-              AND (
-                    category LIKE '%Reaksiya%'
-                    OR category LIKE '%reaksiya%'
-                    OR category LIKE '%Ko%rish%'
-                    OR category LIKE '%Ko’rish%'
-                    OR category LIKE '%Ulashish%'
-                    OR category LIKE '%ulashish%'
-                    OR category LIKE '%Repost%'
-                    OR category LIKE '%repost%'
-              )
         """, (category,)).fetchone()
 
         total = int(count_row["total"] or 0)
@@ -2392,9 +2370,10 @@ def auto_service_keyboard(page=0):
         else:
             price_text = f"{price:,.2f}".replace(",", " ")
 
+        short_name = name[:45] + ("..." if len(name) > 45 else "")
         kb.add(
             types.InlineKeyboardButton(
-                f"🛠 {name[:45]}... — {price_text}",
+                f"🛠 {short_name} — {price_text}",
                 callback_data=f"auto_service:{row['id']}"
             )
         )
@@ -4179,7 +4158,7 @@ def home_menu_callback(call):
 def admin_settings_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     bot.edit_message_text(
@@ -4222,7 +4201,7 @@ def admin_command(message):
 def admin_stats_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     conn = db()
@@ -5477,7 +5456,7 @@ def admin_users_input(message):
 def admin_deposits_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     conn = db()
@@ -5672,7 +5651,7 @@ def show_api_panel(chat_id, message_id=None):
 def admin_apis_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     show_api_panel(
@@ -5685,7 +5664,7 @@ def admin_apis_callback(call):
     func=lambda call: call.data.startswith("api_view:")
 )
 def api_view_callback(call):
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     bot.answer_callback_query(call.id)
@@ -5783,7 +5762,7 @@ def api_view_callback(call):
     func=lambda call: call.data.startswith("api_toggle:")
 )
 def api_toggle_callback(call):
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -5838,7 +5817,7 @@ def api_toggle_callback(call):
     func=lambda call: call.data.startswith("api_sync:")
 )
 def api_sync_callback(call):
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -5907,7 +5886,7 @@ def api_sync_callback(call):
     func=lambda call: call.data == "api_sync_all"
 )
 def api_sync_all_callback(call):
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     bot.answer_callback_query(
@@ -6012,7 +5991,7 @@ def api_sync_all_callback(call):
     func=lambda call: call.data.startswith("api_delete_confirm:")
 )
 def api_delete_confirm_callback(call):
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     bot.answer_callback_query(call.id)
@@ -6081,7 +6060,7 @@ def api_delete_confirm_callback(call):
     func=lambda call: call.data.startswith("api_delete:")
 )
 def api_delete_callback(call):
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -6160,7 +6139,7 @@ def api_delete_callback(call):
     func=lambda call: call.data == "api_add_start"
 )
 def api_add_start_callback(call):
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     bot.answer_callback_query(call.id)
@@ -6186,7 +6165,7 @@ def api_add_start_callback(call):
 @bot.message_handler(
     content_types=["text"],
     func=lambda message: (
-        message.from_user.id == ADMIN_ID
+        is_admin(message.from_user)
         and get_state(message.from_user.id).get("state")
         in (
             "api_add_name",
@@ -6329,7 +6308,7 @@ def api_add_input(message):
 def admin_services_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     state = get_state(call.from_user.id)
@@ -6636,7 +6615,7 @@ def admin_services_api_keyboard(
 def admin_services_api_list_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -6748,7 +6727,7 @@ def admin_services_api_list_callback(call):
 def admin_services_api_select_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -6888,7 +6867,7 @@ def admin_services_bulk_keyboard(
 def admin_services_list_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -7079,7 +7058,7 @@ def admin_services_list_callback(call):
     )
 )
 def admin_service_select_callback(call):
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -7150,7 +7129,7 @@ def admin_service_select_callback(call):
     )
 )
 def admin_services_bulk_action_callback(call):
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -7298,7 +7277,7 @@ def admin_services_bulk_action_callback(call):
     )
 )
 def admin_service_search_start_callback(call):
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -7350,7 +7329,7 @@ def admin_service_search_start_callback(call):
 @bot.message_handler(
     content_types=["text"],
     func=lambda message: (
-        message.from_user.id == ADMIN_ID
+        is_admin(message.from_user)
         and get_state(message.from_user.id).get("state")
         == "admin_service_search"
     )
@@ -7723,7 +7702,7 @@ def admin_service_search_input(message):
     )
 )
 def admin_service_search_toggle_callback(call):
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     try:
@@ -8443,7 +8422,7 @@ BOT CONTEXT:
 @bot.message_handler(commands=["ai"])
 def ai_admin_command(message):
 
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user):
         bot.send_message(
             message.chat.id,
             "❌ AI yordamchi faqat administrator uchun."
@@ -8614,10 +8593,19 @@ def sync_api_services(api_id, dry_run=False):
             except Exception:
                 max_qty = 1000000
 
+            cat_lower = (category or "").lower()
+            name_lower = (name or "").lower()
+            is_avail = 1 if (
+                any(k in cat_lower for k in ["telegram", "reaksiya", "ko'rish", "koʼrish", "prosmotr", "ulash", "tekin", "bonus"])
+                or any(k in name_lower for k in ["telegram", "reaksiya", "ko'rish", "koʼrish", "prosmotr", "ulash", "view", "share", "bonus"])
+                or price == 0
+            ) else 0
+
             existing = conn.execute(
                 """
                 SELECT id, name, category, price,
-                       min_qty, max_qty, active
+                       min_qty, max_qty, active,
+                       COALESCE(admin_available, 0) AS admin_available
                 FROM services
                 WHERE api_id = ?
                   AND external_id = ?
@@ -8633,12 +8621,15 @@ def sync_api_services(api_id, dry_run=False):
                     or float(existing["price"] or 0) != price
                     or int(existing["min_qty"] or 1) != min_qty
                     or int(existing["max_qty"] or 1000000) != max_qty
+                    or (is_avail and not existing["admin_available"])
+                    or existing["active"] == 0
                 )
 
                 if changed:
                     result["updated"] += 1
 
                     if not dry_run:
+                        new_avail = 1 if is_avail else existing["admin_available"]
                         conn.execute(
                             """
                             UPDATE services
@@ -8646,7 +8637,9 @@ def sync_api_services(api_id, dry_run=False):
                                 category = ?,
                                 price = ?,
                                 min_qty = ?,
-                                max_qty = ?
+                                max_qty = ?,
+                                admin_available = ?,
+                                active = 1
                             WHERE id = ?
                             """,
                             (
@@ -8655,6 +8648,7 @@ def sync_api_services(api_id, dry_run=False):
                                 price,
                                 min_qty,
                                 max_qty,
+                                new_avail,
                                 existing["id"]
                             )
                         )
@@ -8679,7 +8673,7 @@ def sync_api_services(api_id, dry_run=False):
                             sort_order,
                             admin_available
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, 0)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, ?)
                         """,
                         (
                             api_id,
@@ -8688,7 +8682,8 @@ def sync_api_services(api_id, dry_run=False):
                             category,
                             price,
                             min_qty,
-                            max_qty
+                            max_qty,
+                            is_avail
                         )
                     )
 
@@ -8756,7 +8751,7 @@ def sync_api_services(api_id, dry_run=False):
 def admin_ai_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     set_state(
@@ -8791,7 +8786,7 @@ def admin_ai_callback(call):
 def stars_settings_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     show_stars_settings(
@@ -8808,7 +8803,7 @@ def stars_settings_callback(call):
 def stars_set_rate_callback(call):
     bot.answer_callback_query(call.id)
 
-    if call.from_user.id != ADMIN_ID:
+    if not is_admin(call.from_user):
         return
 
     set_state(
@@ -8837,7 +8832,7 @@ def stars_set_rate_callback(call):
     )
 )
 def stars_admin_input(message):
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user):
         return
 
     state = get_state(message.from_user.id)
@@ -11114,7 +11109,7 @@ async def auto_order_status_worker():
 @bot.message_handler(
     content_types=["text"],
     func=lambda message: (
-        message.from_user.id == ADMIN_ID
+        is_admin(message.from_user)
         and not (message.text or "").startswith("/")
         and get_state(message.from_user.id).get("state") == "admin_ai"
     )
