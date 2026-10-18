@@ -9883,8 +9883,9 @@ async def process_channel_post(
                 FROM channel_services cs
                 JOIN services s
                     ON s.id = cs.service_id
-                LEFT JOIN apis a
+                JOIN apis a
                     ON a.id = s.api_id
+                   AND a.active = 1
                 JOIN channels ch
                     ON ch.user_id = cs.user_id
                    AND (ch.channel_id = cs.channel_id OR ch.channel_id IN ({placeholders}))
@@ -10050,14 +10051,17 @@ async def process_channel_post(
                 print("🆔 Service:", service["service_id"])
                 print("🔢 Quantity:", auto_quantity)
 
-                await process_real_auto_order(
-                    channel_id=channel_id,
-                    message_id=message_id,
-                    owner_id=int(owner_id),
-                    service=service,
-                    link=post_link,
-                    quantity=auto_quantity
-                )
+                try:
+                    await process_real_auto_order(
+                        channel_id=channel_id,
+                        message_id=message_id,
+                        owner_id=int(owner_id),
+                        service=service,
+                        link=post_link,
+                        quantity=auto_quantity
+                    )
+                except Exception as s_err:
+                    print(f"❌ Xizmat #{service.get('service_id')} buyurtma berish xatosi: {s_err}")
 
             print("--------------------------------------------")
 
@@ -10863,8 +10867,7 @@ async def process_real_auto_order(
                 "⛔ AUTO ORDER TO'XTATILDI: BALANS YETARLI EMAS"
             )
 
-            await asyncio.to_thread(
-                send_auto_order_message,
+            send_auto_order_message(
                 owner_id,
                 (
                     "⚠️ <b>Avtomatik buyurtma berilmadi</b>\n\n"
@@ -10881,8 +10884,7 @@ async def process_real_auto_order(
         # Atomik yechish:
         # parallel buyurtmalarda ham bitta balansni
         # ikki marta ishlatib yubormaydi.
-        reserved = await asyncio.to_thread(
-            reserve_auto_order_balance,
+        reserved = reserve_auto_order_balance(
             owner_id,
             estimated_price
         )
@@ -10896,8 +10898,7 @@ async def process_real_auto_order(
                 "⛔ AUTO ORDER TO'XTATILDI: ATOMIK BALANS TEKSHIRUVI"
             )
 
-            await asyncio.to_thread(
-                send_auto_order_message,
+            send_auto_order_message(
                 owner_id,
                 (
                     "⚠️ <b>Avtomatik buyurtma berilmadi</b>\n\n"
@@ -10928,8 +10929,7 @@ async def process_real_auto_order(
 
     if not record:
         if estimated_price > 0:
-            await asyncio.to_thread(
-                refund_auto_order_balance,
+            refund_auto_order_balance(
                 owner_id,
                 estimated_price
             )
@@ -10956,18 +10956,14 @@ async def process_real_auto_order(
         # 🚀 FAQAT BALANS TASDIQLANGANDAN KEYIN API
         # ====================================================
 
-        external_order_id = (
-            await asyncio.to_thread(
-                send_real_auto_order,
-                api,
-                link,
-                quantity,
-                internal_id
-            )
+        external_order_id = send_real_auto_order(
+            api,
+            link,
+            quantity,
+            internal_id
         )
 
-        await asyncio.to_thread(
-            send_auto_order_message,
+        send_auto_order_message(
             owner_id,
             (
                 "✅ <b>Buyurtma berildi!</b>\n\n"
@@ -10985,8 +10981,7 @@ async def process_real_auto_order(
 
         # API xato bersa, oldindan yechilgan pul qaytariladi.
         if estimated_price > 0:
-            await asyncio.to_thread(
-                refund_auto_order_balance,
+            refund_auto_order_balance(
                 owner_id,
                 estimated_price
             )
@@ -11001,8 +10996,7 @@ async def process_real_auto_order(
             repr(e)
         )
 
-        await asyncio.to_thread(
-            send_auto_order_message,
+        send_auto_order_message(
             owner_id,
             (
                 "❌ <b>Avtomatik buyurtma berilmadi</b>\n\n"
@@ -11620,6 +11614,21 @@ async def keep_alive_worker():
             print("⚠️ KEEP-ALIVE PING XATOSI:", e)
 
 
+async def bot_polling_worker():
+    while True:
+        try:
+            print("🚀 TeleBot polling boshlandi...")
+            await asyncio.to_thread(
+                bot.infinity_polling,
+                skip_pending=False,
+                timeout=30,
+                long_polling_timeout=30
+            )
+        except Exception as e:
+            print(f"⚠️ TeleBot polling to'xtadi: {e}, 3 soniyada qayta uriniladi...")
+            await asyncio.sleep(3)
+
+
 async def run_all():
     global MAIN_LOOP
 
@@ -11630,47 +11639,15 @@ async def run_all():
     except Exception:
         pass
 
-    bot_task = asyncio.create_task(
-        asyncio.to_thread(
-            bot.infinity_polling,
-            skip_pending=False,
-            timeout=30,
-            long_polling_timeout=30
-        )
-    )
-
-    userbot_task = asyncio.create_task(
-        start_userbot()
-    )
-
-    api_sync_task = asyncio.create_task(
-        api_auto_sync_worker()
-    )
-
-    userbot_schedule_task = asyncio.create_task(
-        userbot_schedule_worker()
-    )
-
-    auto_order_status_task = asyncio.create_task(
-        auto_order_status_worker()
-    )
-
-    keep_alive_task = asyncio.create_task(
-        keep_alive_worker()
-    )
-
-    auto_group_post_task = asyncio.create_task(
-        auto_group_post_worker()
-    )
-
     await asyncio.gather(
-        bot_task,
-        userbot_task,
-        api_sync_task,
-        userbot_schedule_task,
-        auto_order_status_task,
-        keep_alive_task,
-        auto_group_post_task
+        bot_polling_worker(),
+        start_userbot(),
+        api_auto_sync_worker(),
+        userbot_schedule_worker(),
+        auto_order_status_worker(),
+        keep_alive_worker(),
+        auto_group_post_worker(),
+        return_exceptions=True
     )
 
 
