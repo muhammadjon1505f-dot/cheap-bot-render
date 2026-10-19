@@ -805,6 +805,80 @@ def main_reply_keyboard(user_id):
 def main_inline_keyboard(user_id):
     return types.InlineKeyboardMarkup()
 
+# ============================================================
+# START CONFIG DB & FILE MANAGER
+# ============================================================
+
+def get_start_config():
+    """Bazada va faylda saqlangan /start konfiguratsiyasini yuklaydi."""
+    conn = db()
+    try:
+        row = conn.execute(
+            "SELECT value FROM system_settings WHERE key = 'start_config'"
+        ).fetchone()
+        if row and row[0]:
+            try:
+                return json.loads(row[0])
+            except Exception:
+                pass
+    except Exception as e:
+        log_debug(f"⚠️ get_start_config db error: {e}")
+    finally:
+        conn.close()
+
+    start_cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "start_config.json")
+    if os.path.exists(start_cfg_file):
+        try:
+            with open(start_cfg_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return None
+
+def save_start_config(cfg):
+    """Start konfiguratsiyasini ham DB ga, ham start_config.json fayliga saqlaydi."""
+    cfg_json = json.dumps(cfg, ensure_ascii=False, indent=2)
+    conn = db()
+    try:
+        conn.execute(
+            """
+            INSERT INTO system_settings (key, value)
+            VALUES ('start_config', ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            (cfg_json,)
+        )
+        conn.commit()
+    except Exception as e:
+        log_debug(f"⚠️ save_start_config db error: {e}")
+    finally:
+        conn.close()
+
+    try:
+        start_cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "start_config.json")
+        with open(start_cfg_file, "w", encoding="utf-8") as f:
+            f.write(cfg_json)
+    except Exception as e:
+        log_debug(f"⚠️ save_start_config file error: {e}")
+
+def delete_start_config():
+    """Start konfiguratsiyasini DB va fayldan tozalaydi."""
+    conn = db()
+    try:
+        conn.execute("DELETE FROM system_settings WHERE key = 'start_config'")
+        conn.commit()
+    except Exception as e:
+        log_debug(f"⚠️ delete_start_config db error: {e}")
+    finally:
+        conn.close()
+
+    start_cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "start_config.json")
+    if os.path.exists(start_cfg_file):
+        try:
+            os.remove(start_cfg_file)
+        except Exception:
+            pass
+
 def send_start_screen(chat_id, user=None):
     from datetime import datetime
     import html
@@ -846,12 +920,9 @@ def send_start_screen(chat_id, user=None):
     if is_admin(user) or user_id == ADMIN_ID or user_id == 8191930658:
         keyboard.row("⚙️ Admin panel")
 
-    start_cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "start_config.json")
-    if os.path.exists(start_cfg_file):
+    cfg = get_start_config()
+    if cfg:
         try:
-            with open(start_cfg_file, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-
             def _format_vars(s):
                 if not s:
                     return ""
@@ -864,15 +935,9 @@ def send_start_screen(chat_id, user=None):
                     .replace("{bot_username}", f"@{bot_username}")
                     .replace("{now}", str(now))
                 )
-                # Avtomatik sana va vaqtni joriy real vaqt bilan almashtirish
-                formatted = re.sub(r'\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}', str(now), formatted)
-
-                # Avtomatik bot username'ni joriy bot bilan almashtirish
-                formatted = re.sub(r'@[A-Za-z0-9_]+bot', f'@{bot_username}', formatted, flags=re.IGNORECASE)
-
-                # Avtomatik foydalanuvchi ismini joylashtirish
-                formatted = re.sub(r'(👋?\s*Salom!?,?\s*(?:<b>)?)[^<@\n]+((?:<\/b>)?\s*(?:<b>)?@)', rf'\g<1>{first_name} \g<2>', formatted)
-
+                formatted = re.sub(r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}", str(now), formatted)
+                formatted = re.sub(r"@[A-Za-z0-9_]+bot", f"@{bot_username}", formatted, flags=re.IGNORECASE)
+                formatted = re.sub(r"(👋?\s*Salom!?,?\s*(?:<b>)?)[^<@\n]+((?:<\/b>)?\s*(?:<b>)?@)", rf"\g<1>{first_name} \g<2>", formatted)
                 return formatted
 
             m_type = cfg.get("type")
@@ -915,12 +980,12 @@ def send_start_screen(chat_id, user=None):
             print("❌ Custom start screen error:", e)
 
     default_text = (
-        f'👋 Salom! <b>{first_name}</b> '
-        f'<a href="https://t.me/{bot_username}">@{bot_username}</a> '
+        f"👋 Salom! <b>{first_name}</b> "
+        f"<a href=\"https://t.me/{bot_username}\">@{bot_username}</a> "
         "ga xush kelibsiz!\n\n"
-        "<blockquote>🤖 Ushbu bot orqali siz <b>Tekin AI</b> bilan bemalol suhbatlashishingiz, "
-        "kanallaringizga avto buyurtmalar ulashingiz va SMM xizmatlaridan foydalanishingiz mumkin.</blockquote>\n\n"
-        "<i>📌 Savolingiz bo'lsa xabar yuboring — AI darhol javob beradi!</i>\n\n"
+        "<blockquote>📈 Ushbu bot orqali kanallaringizga avto buyurtmalar ulashingiz "
+        "va SMM xizmatlaridan qulay foydalanishingiz mumkin.</blockquote>\n\n"
+        "<i>📌 Botdan foydalanish uchun quyidagi menyulardan birini tanlang.</i>\n\n"
         "🙌 Bizni tanlaganingizdan xursandmiz!\n"
         f"{now}"
     )
@@ -1781,20 +1846,11 @@ def admin_set_start_cmd(message):
     bot.reply_to(
         message,
         "📌 <b>Yangi /start xabarini o'rnatish:</b>\n\n"
-        "Istalgan kanal yoki chatdan xabarni (matn, rasm yoki video) to'g'ridan-to'g'ri botga <b>FORWARD</b> qilib yuboring!\n"
-        "Bot uni darhol saqlab, yangi /start xabari qilib sozlaydi. 🚀",
+        "Istalgan kanal yoki chatdan xabarni (matn, rasm yoki video) <b>FORWARD</b> qilib yuboring "
+        "yoki to'g'ridan-to'g'ri yangi matn/rasm/video yuboring!\n"
+        "Bot uni darhol bazaga doimiy saqlab, yangi /start xabari qilib sozlaydi. 🚀",
         parse_mode="HTML",
         reply_markup=kb
-    )
-
-@bot.callback_query_handler(func=lambda call: call.data == "cancel_setstart")
-def cancel_setstart_callback(call):
-    bot.answer_callback_query(call.id)
-    clear_state(call.from_user.id)
-    bot.edit_message_text(
-        "❌ /start sozlash bekor qilindi.",
-        call.message.chat.id,
-        call.message.message_id
     )
 
 @bot.message_handler(commands=["resetstart"])
@@ -1802,12 +1858,7 @@ def admin_reset_start_cmd(message):
     if not is_admin(message.from_user):
         return
     clear_state(message.from_user.id)
-    start_cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "start_config.json")
-    if os.path.exists(start_cfg_file):
-        try:
-            os.remove(start_cfg_file)
-        except Exception:
-            pass
+    delete_start_config()
     bot.reply_to(
         message,
         "🔄 <b>/start xabari standart holatiga qaytarildi!</b>",
@@ -1819,14 +1870,11 @@ def admin_reset_start_cmd(message):
     content_types=["text", "photo", "video", "animation"],
     func=lambda message: (
         is_admin(message.from_user)
-        and is_forwarded_message(message)
         and get_state(message.from_user.id).get("state") == "waiting_setstart"
     )
 )
 def handle_admin_start_forward(message):
-    import json
     clear_state(message.from_user.id)
-    start_cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "start_config.json")
 
     cfg = {}
     if message.photo:
@@ -1846,18 +1894,18 @@ def handle_admin_start_forward(message):
         cfg = {"type": "text", "text": text}
 
     try:
-        with open(start_cfg_file, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        save_start_config(cfg)
 
         bot.reply_to(
             message,
-            "✅ <b>Qabul qilindi! Forward qilingan xabar /start xabari sifatida muvaffaqiyatli saqlandi!</b>\n\n"
+            "✅ <b>Qabul qilindi! /start xabari bazaga muvaffaqiyatli saqlandi!</b>\n\n"
             "👇 <i>Quyida yangi /start ko'rinishi namoyish etilmoqda:</i>",
             parse_mode="HTML"
         )
         send_start_screen(message.chat.id, message.from_user)
     except Exception as e:
         bot.reply_to(message, f"❌ Xatolik yuz berdi: {e}")
+
 
 
 # ============================================================
@@ -4353,6 +4401,10 @@ def build_admin_keyboard():
             "⭐ Stars",
             callback_data="stars_settings"
         ),
+        types.InlineKeyboardButton(
+            "✉️ /start xabari",
+            callback_data="admin_start_msg"
+        )
     )
 
     kb.row(
@@ -4403,6 +4455,114 @@ def admin_settings_callback(call):
         parse_mode="HTML",
         reply_markup=build_admin_keyboard()
     )
+
+
+def admin_start_msg_menu(chat_id, message_id=None):
+    cfg = get_start_config()
+    if cfg:
+        m_type = cfg.get("type", "matn")
+        status_text = f"🟢 <b>Maxsus xabar faol</b> ({m_type})"
+    else:
+        status_text = "⚪️ <b>Standart xabar faol</b>"
+
+    text = (
+        "✉️ <b>/START XABARINI SOZLASH</b>\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
+        f"📌 <b>Holat:</b> {status_text}\n\n"
+        "Ushbu bo'lim orqali botning /start xabarini o'zingiz xohlagan matn, rasm yoki video bilan sozlashingiz mumkin.\n"
+        "Sozlangan xabar ma'lumotlar bazasida doimiy saqlanadi."
+    )
+
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    kb.add(
+        types.InlineKeyboardButton(
+            "📝 Yangi /start xabari o'rnatish",
+            callback_data="admin_set_start"
+        ),
+        types.InlineKeyboardButton(
+            "👁 Joriy ko'rinishni sinash",
+            callback_data="admin_preview_start"
+        ),
+        types.InlineKeyboardButton(
+            "🔄 Standart holatga qaytarish",
+            callback_data="admin_reset_start"
+        ),
+        types.InlineKeyboardButton(
+            "↩️ Admin panel",
+            callback_data="admin_settings"
+        )
+    )
+
+    if message_id:
+        try:
+            bot.edit_message_text(
+                text,
+                chat_id,
+                message_id,
+                parse_mode="HTML",
+                reply_markup=kb
+            )
+            return
+        except Exception:
+            pass
+
+    bot.send_message(
+        chat_id,
+        text,
+        parse_mode="HTML",
+        reply_markup=kb
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_start_msg")
+def admin_start_msg_callback(call):
+    bot.answer_callback_query(call.id)
+    if not is_admin(call.from_user):
+        return
+    admin_start_msg_menu(call.message.chat.id, call.message.message_id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_set_start")
+def admin_set_start_callback(call):
+    bot.answer_callback_query(call.id)
+    if not is_admin(call.from_user):
+        return
+    set_state(call.from_user.id, "waiting_setstart")
+    kb = types.InlineKeyboardMarkup()
+    kb.add(
+        types.InlineKeyboardButton(
+            "❌ Bekor qilish",
+            callback_data="cancel_setstart"
+        )
+    )
+    bot.edit_message_text(
+        "📝 <b>Yangi /start xabarini yuboring:</b>\n\n"
+        "Istalgan kanal yoki chatdan xabarni (matn, rasm yoki video) <b>FORWARD</b> qilib yuboring "
+        "yoki to'g'ridan-to'g'ri yangi matn/rasm/video yuboring.\n\n"
+        "<i>Bot uni bazaga doimiy saqlab oladi va yangi /start xabari qilib sozlaydi.</i> 🚀",
+        call.message.chat.id,
+        call.message.message_id,
+        parse_mode="HTML",
+        reply_markup=kb
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_reset_start")
+def admin_reset_start_callback(call):
+    if not is_admin(call.from_user):
+        return
+    delete_start_config()
+    bot.answer_callback_query(call.id, "✅ /start xabari standart holatiga qaytarildi!", show_alert=True)
+    admin_start_msg_menu(call.message.chat.id, call.message.message_id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_preview_start")
+def admin_preview_start_callback(call):
+    bot.answer_callback_query(call.id, "👁 Sinov ko'rinishi...")
+    if not is_admin(call.from_user):
+        return
+    send_start_screen(call.message.chat.id, call.from_user)
+
 
 
 # ============================================================
@@ -11496,7 +11656,7 @@ def ai_plain_admin_message(message):
 
 
 # ============================================================
-# 🤖 TEKIN AI — BARCHA FOYDALANUVCHILAR UCHUN AI JAVOBI
+# ODDIY FOYDALANUVCHILAR UCHUN ODDIY XABAR (AI O'CHIRILGAN)
 # ============================================================
 
 EXCLUDED_BUTTONS = {
@@ -11515,82 +11675,27 @@ EXCLUDED_BUTTONS = {
         and not get_state(message.from_user.id).get("state")
     )
 )
-def tekin_ai_chat_message(message):
-    question = (message.text or "").strip()
-    if not question:
-        return
-
+def default_user_message(message):
     try:
         save_message_history(
             message.from_user.id,
             message.chat.id,
             message.message_id,
             "in",
-            question
+            (message.text or "").strip()
         )
     except Exception:
         pass
 
     try:
-        bot.send_chat_action(message.chat.id, "typing")
-        wait = bot.send_message(
+        bot.send_message(
             message.chat.id,
-            "🤖 <i>Tekin AI javob yozmoqda...</i>",
-            parse_mode="HTML"
+            "📌 Iltimos, kerakli bo'limni tanlash uchun pastdagi menyu tugmalaridan foydalaning.",
+            reply_markup=main_reply_keyboard(message.from_user.id)
         )
+    except Exception:
+        pass
 
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "Siz 'Tekin AI' botining aqlli, muloyim va foydali sun'iy intellekt yordamchisisiz. "
-                    "Foydalanuvchilarga o'zbek tilida aniq, ravon va to'liq javob bering. "
-                    "Har qanday savolga javob bera olasiz: matnlar yozish, g'oyalar berish, maslahat berish."
-                )
-            },
-            {"role": "user", "content": question}
-        ]
-
-        reply = ai_call_provider(messages)
-        if reply:
-            try:
-                bot.edit_message_text(
-                    reply,
-                    message.chat.id,
-                    wait.message_id,
-                    parse_mode="HTML"
-                )
-            except Exception:
-                bot.edit_message_text(
-                    reply,
-                    message.chat.id,
-                    wait.message_id
-                )
-            try:
-                save_message_history(
-                    message.from_user.id,
-                    message.chat.id,
-                    wait.message_id,
-                    "out",
-                    reply
-                )
-            except Exception:
-                pass
-        else:
-            bot.edit_message_text(
-                "⚠️ Javob tayyorlashda xatolik yuz berdi. Iltimos qaytadan urinib ko'ring.",
-                message.chat.id,
-                wait.message_id
-            )
-    except Exception as e:
-        print("❌ TEKIN AI CHAT XATOSI:", repr(e))
-        try:
-            bot.send_message(
-                message.chat.id,
-                "🤖 Hozirda AI xizmatida vaqtinchalik uzilish yuz berdi. Birozdan so'ng qayta yozing."
-            )
-        except Exception:
-            pass
 
 
 # ============================================================
