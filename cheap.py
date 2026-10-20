@@ -359,30 +359,16 @@ def init_core_tables(conn):
     conn.commit()
 
 
-def send_database_backup(reason="Avtomatik"):
-    """Ma'lumotlar bazasi (smm_bot.db) zaxirasini Telegram orqali ADMIN_ID ga yuboradi."""
+def save_local_db_backup(reason="Avtomatik"):
+    """Ma'lumotlar bazasining lokal zaxira nusxasini serverning o'zida saqlaydi (foydalanuvchiga yubormaydi)."""
     try:
         if not os.path.exists(DB_FILE):
             return
-        size_bytes = os.path.getsize(DB_FILE)
-        if size_bytes == 0:
-            return
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(DB_FILE, "rb") as f:
-            bot.send_document(
-                ADMIN_ID,
-                f,
-                caption=(
-                    f"💾 <b>Ma'lumotlar bazasi zaxirasi</b>\n"
-                    f"📌 Sabab: <b>{html.escape(reason)}</b>\n"
-                    f"📅 Vaqt: <code>{now_str}</code>\n"
-                    f"📊 Hajm: <code>{size_bytes / 1024:.1f} KB</code>\n\n"
-                    "<i>Ushbu fayl barcha foydalanuvchilar, adminlar va qo'shilgan APIlarni o'z ichiga oladi.</i>"
-                ),
-                parse_mode="HTML"
-            )
+        import shutil
+        bak_file = f"{DB_FILE}.bak"
+        shutil.copy2(DB_FILE, bak_file)
     except Exception as e:
-        log_debug(f"⚠️ send_database_backup xatosi: {e}")
+        log_debug(f"⚠️ save_local_db_backup xatosi: {e}")
 
 
 def db():
@@ -4589,10 +4575,6 @@ def build_admin_keyboard():
 
     kb.row(
         types.InlineKeyboardButton(
-            "💾 Baza zaxirasi",
-            callback_data="admin_db_backup"
-        ),
-        types.InlineKeyboardButton(
             "🤖 AI yordamchi",
             callback_data="admin_ai"
         )
@@ -4747,20 +4729,6 @@ def admin_preview_start_callback(call):
         return
     send_start_screen(call.message.chat.id, call.from_user)
 
-
-@bot.callback_query_handler(func=lambda call: call.data == "admin_db_backup")
-def admin_db_backup_callback(call):
-    if not is_admin(call.from_user):
-        bot.answer_callback_query(call.id, "⛔️ Ruxsat berilmagan!", show_alert=True)
-        return
-    bot.answer_callback_query(call.id, "💾 Baza zaxirasi yuborilmoqda...")
-    send_database_backup(reason="Admin so'rovi bo'yicha")
-    bot.send_message(
-        call.message.chat.id,
-        "✅ <b>Ma'lumotlar bazasi zaxirasi yuborildi!</b>\n\n"
-        "<i>Ushbu fayl orqali barcha ma'lumotlarni (APIlar, foydalanuvchilar, kanallar) istalgan vaqtda qayta tiklashingiz mumkin.</i>",
-        parse_mode="HTML"
-    )
 
 
 @bot.message_handler(
@@ -6751,8 +6719,8 @@ def api_delete_callback(call):
 
         conn.commit()
 
-        # Avtomatik zaxira
-        send_database_backup(reason=f"API #{api_id} o'chirildi")
+        # Avtomatik lokal zaxira
+        save_local_db_backup(reason=f"API #{api_id} o'chirildi")
 
     finally:
         conn.close()
@@ -6917,8 +6885,8 @@ def api_add_input(message):
 
         clear_state(user_id)
 
-        # Yangi API qo'shilganda avtomatik zaxira yuborish
-        send_database_backup(reason=f"Yangi API #{api_id} ({name}) qo'shildi")
+        # Yangi API qo'shilganda lokal zaxira
+        save_local_db_backup(reason=f"Yangi API #{api_id} ({name}) qo'shildi")
 
         bot.send_message(
             message.chat.id,
@@ -12199,10 +12167,10 @@ async def keep_alive_worker():
         except Exception as e:
             print("⚠️ KEEP-ALIVE PING XATOSI:", e)
 
-        # Har 2 soatda avtomatik DB zaxirasini adminga yuborish
+        # Har 2 soatda avtomatik DB lokal zaxirasi
         if ping_count % 15 == 0:
             try:
-                send_database_backup(reason="Rejali avtomatik 2 soatlik zaxira")
+                save_local_db_backup(reason="Rejali avtomatik 2 soatlik zaxira")
             except Exception:
                 pass
 
