@@ -3,12 +3,28 @@ import asyncio
 import sqlite3
 import math
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import json
 import re
 import random
 import html
 from datetime import datetime
 from pathlib import Path
+
+# ============================================================
+# HTTP SESSION & POOLING (MUKAMMAL ALOQA TIZIMI)
+# ============================================================
+HTTP_SESSION = requests.Session()
+_http_retries = Retry(
+    total=3,
+    backoff_factor=0.3,
+    status_forcelist=[500, 502, 503, 504],
+    allowed_methods=["HEAD", "GET", "POST", "OPTIONS"]
+)
+_http_adapter = HTTPAdapter(max_retries=_http_retries, pool_connections=30, pool_maxsize=60)
+HTTP_SESSION.mount("http://", _http_adapter)
+HTTP_SESSION.mount("https://", _http_adapter)
 
 import telebot
 from telebot import types
@@ -346,6 +362,26 @@ def init_core_tables(conn):
             UNIQUE(owner_id, channel_id, message_id, service_id)
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS userbot_schedules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target TEXT NOT NULL,
+            text TEXT NOT NULL,
+            run_at TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            created_at TEXT NOT NULL
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS auto_post_groups (
+            chat_id INTEGER PRIMARY KEY,
+            title TEXT,
+            active INTEGER DEFAULT 1,
+            last_post_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     try:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_services_category ON services(category)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_services_sort ON services(sort_order, id)")
@@ -356,59 +392,15 @@ def init_core_tables(conn):
         conn.execute("CREATE INDEX IF NOT EXISTS idx_auto_orders_post ON auto_orders(channel_id, message_id, service_id)")
     except Exception:
         pass
-    conn.commit()
-
-
-def save_local_db_backup(reason="Avtomatik"):
-    """Ma'lumotlar bazasining lokal zaxira nusxasini serverning o'zida saqlaydi (foydalanuvchiga yubormaydi)."""
-    try:
-        if not os.path.exists(DB_FILE):
-            return
-        import shutil
-        bak_file = f"{DB_FILE}.bak"
-        shutil.copy2(DB_FILE, bak_file)
-    except Exception as e:
-        log_debug(f"⚠️ save_local_db_backup xatosi: {e}")
-
-
-def db():
-    global _tables_initialized
-    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-
-    if not _tables_initialized:
-        try:
-            init_core_tables(conn)
-            _tables_initialized = True
-        except Exception as e:
-            log_debug(f"⚠️ init_core_tables xatosi: {e}")
 
     # --------------------------------------------------------
-    # SERVICES — ADMIN AVAILABLE MIGRATION
-    # --------------------------------------------------------
-    # admin_available:
-    # 1 = Admin panelda mavjud / Xizmat qo'shishda ko'rinadi
-    # 0 = Admin panelda mavjud emas
-    #
-    # Bu ustun API xizmatlarini o'chirmaydi.
+    # MIGRATSIYALAR (Faqat tizim ishga tushganda 1 marta bajariladi)
     # --------------------------------------------------------
     try:
-        columns = conn.execute(
-            "PRAGMA table_info(services)"
-        ).fetchall()
-
-        column_names = {
-            row["name"]
-            for row in columns
-        }
-
+        columns = conn.execute("PRAGMA table_info(services)").fetchall()
+        column_names = {row["name"] for row in columns}
         if "admin_available" not in column_names:
-            conn.execute(
-                """
-                ALTER TABLE services
-                ADD COLUMN admin_available INTEGER DEFAULT 0
-                """
-            )
+            conn.execute("ALTER TABLE services ADD COLUMN admin_available INTEGER DEFAULT 0")
             conn.execute(
                 f"""
                 UPDATE services
@@ -434,23 +426,11 @@ def db():
                   AND NOT {EXCLUDED_PLATFORMS_SQL}
                 """
             )
-            conn.execute(
-                f"""
-                UPDATE services
-                SET admin_available = 0
-                WHERE {EXCLUDED_PLATFORMS_SQL}
-                """
-            )
+            conn.execute(f"UPDATE services SET admin_available = 0 WHERE {EXCLUDED_PLATFORMS_SQL}")
             conn.commit()
-
     except Exception as e:
-        print(
-            f"⚠️ admin_available migration xatosi: {e}"
-        )
+        log_debug(f"⚠️ admin_available migration xatosi: {e}")
 
-    # --------------------------------------------------------
-    # CHANNELS — INVITE_LINK MIGRATION
-    # --------------------------------------------------------
     try:
         ch_columns = conn.execute("PRAGMA table_info(channels)").fetchall()
         ch_column_names = {row["name"] for row in ch_columns}
@@ -458,11 +438,8 @@ def db():
             conn.execute("ALTER TABLE channels ADD COLUMN invite_link TEXT DEFAULT ''")
             conn.commit()
     except Exception as e:
-        print(f"⚠️ channels invite_link migration xatosi: {e}")
+        log_debug(f"⚠️ channels invite_link migration xatosi: {e}")
 
-    # --------------------------------------------------------
-    # CHANNEL_SERVICES — USER_ID MIGRATION
-    # --------------------------------------------------------
     try:
         cs_cols = {row["name"] for row in conn.execute("PRAGMA table_info(channel_services)").fetchall()}
         if "user_id" not in cs_cols:
@@ -491,11 +468,8 @@ def db():
             conn.execute("CREATE INDEX IF NOT EXISTS idx_channel_services_user ON channel_services(user_id, channel_id)")
             conn.commit()
     except Exception as e:
-        print(f"⚠️ channel_services user_id migration xatosi: {e}")
+        log_debug(f"⚠️ channel_services user_id migration xatosi: {e}")
 
-    # --------------------------------------------------------
-    # AUTO_ORDERS — MULTI-SERVICE / MULTI-USER MIGRATION
-    # --------------------------------------------------------
     try:
         ao_sql = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='auto_orders'").fetchone()
         if ao_sql and "UNIQUE(channel_id, message_id)" in ao_sql[0]:
@@ -526,13 +500,44 @@ def db():
             conn.execute("CREATE INDEX IF NOT EXISTS idx_auto_orders_owner ON auto_orders(owner_id, id DESC)")
             conn.commit()
     except Exception as e:
-        print(f"⚠️ auto_orders migration xatosi: {e}")
+        log_debug(f"⚠️ auto_orders migration xatosi: {e}")
 
     try:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_auto_orders_post ON auto_orders(channel_id, message_id, service_id)")
         conn.commit()
     except Exception:
         pass
+    conn.commit()
+
+
+def save_local_db_backup(reason="Avtomatik"):
+    """Ma'lumotlar bazasining lokal zaxira nusxasini serverning o'zida saqlaydi (foydalanuvchiga yubormaydi)."""
+    try:
+        if not os.path.exists(DB_FILE):
+            return
+        import shutil
+        bak_file = f"{DB_FILE}.bak"
+        shutil.copy2(DB_FILE, bak_file)
+    except Exception as e:
+        log_debug(f"⚠️ save_local_db_backup xatosi: {e}")
+
+
+def db():
+    """Tezkor va xavfsiz SQLite ulanishi (WAL rejimida)."""
+    global _tables_initialized
+    conn = sqlite3.connect(DB_FILE, timeout=15.0, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 10000")
+
+    if not _tables_initialized:
+        try:
+            conn.execute("PRAGMA journal_mode = WAL")
+            conn.execute("PRAGMA synchronous = NORMAL")
+            conn.execute("PRAGMA temp_store = MEMORY")
+            init_core_tables(conn)
+            _tables_initialized = True
+        except Exception as e:
+            log_debug(f"⚠️ init_core_tables xatosi: {e}")
 
     return conn
 
@@ -8851,7 +8856,7 @@ def ai_call_provider(messages):
 
     for provider in providers:
         try:
-            response = requests.post(
+            response = HTTP_SESSION.post(
                 provider["url"],
                 headers={
                     "Authorization":
@@ -9151,7 +9156,7 @@ def fetch_api_services(api_id):
     if not api["active"]:
         raise RuntimeError("API faol emas")
 
-    response = requests.post(
+    response = HTTP_SESSION.post(
         api["url"],
         data={
             "key": api["api_key"],
@@ -10814,18 +10819,24 @@ async def start_userbot():
         except Exception as e:
             log_debug(f"❌ TELETHON USERBOT EVENT XATOSI: {e}")
 
-    try:
-        log_debug("USERBOT CONNECTING...")
-        await asyncio.wait_for(userbot.connect(), timeout=20)
-        is_auth = await userbot.is_user_authorized()
-        log_debug(f"USERBOT CONNECTED: auth={is_auth}")
-        if not is_auth:
-            log_debug("⚠️ USERBOT: Session avtorizatsiyadan o'tmagan (fake/staging rejim). Userbot o'tkazib yuborildi.")
-            return
-    except Exception as e:
-        log_debug(f"❌ USERBOT CONNECT XATOSI: {type(e).__name__}: {repr(e)}")
-        import traceback
-        log_debug(f"TRACEBACK: {traceback.format_exc()}")
+    connected = False
+    for attempt in range(1, 6):
+        try:
+            log_debug(f"USERBOT CONNECTING (urinish {attempt}/5)...")
+            await asyncio.wait_for(userbot.connect(), timeout=25)
+            is_auth = await userbot.is_user_authorized()
+            log_debug(f"USERBOT CONNECTED: auth={is_auth}")
+            if not is_auth:
+                log_debug("⚠️ USERBOT: Session avtorizatsiyadan o'tmagan. Userbot to'xtatildi.")
+                return
+            connected = True
+            break
+        except Exception as e:
+            log_debug(f"⚠️ USERBOT CONNECT urinish {attempt} xatosi: {type(e).__name__}: {e}")
+            await asyncio.sleep(5)
+
+    if not connected:
+        log_debug("❌ USERBOT: 5 ta urinishdan so'ng ham ulanib bo'lmadi.")
         return
 
     # ============================================================
@@ -11230,7 +11241,7 @@ def send_real_auto_order(
         service["api_name"]
     )
 
-    response = requests.post(
+    response = HTTP_SESSION.post(
         api_url,
         data=payload,
         timeout=30
@@ -11688,7 +11699,7 @@ def check_real_auto_order_status(row):
             "API faol emas"
         )
 
-    response = requests.post(
+    response = HTTP_SESSION.post(
         row["api_url"],
         data={
             "key": row["api_key"],
@@ -11956,30 +11967,20 @@ async def userbot_schedule_worker():
         try:
             now = datetime.now().strftime("%Y-%m-%d %H:%M")
             conn = db()
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS userbot_schedules (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    target TEXT NOT NULL,
-                    text TEXT NOT NULL,
-                    run_at TEXT NOT NULL,
-                    status TEXT DEFAULT 'pending',
-                    created_at TEXT NOT NULL
-                )
-            """)
-            conn.commit()
-
-            rows = conn.execute(
-                """
-                SELECT id, target, text, run_at
-                FROM userbot_schedules
-                WHERE status = 'pending'
-                  AND run_at <= ?
-                ORDER BY id ASC
-                LIMIT 10
-                """,
-                (now,)
-            ).fetchall()
-            conn.close()
+            try:
+                rows = conn.execute(
+                    """
+                    SELECT id, target, text, run_at
+                    FROM userbot_schedules
+                    WHERE status = 'pending'
+                      AND run_at <= ?
+                    ORDER BY id ASC
+                    LIMIT 10
+                    """,
+                    (now,)
+                ).fetchall()
+            finally:
+                conn.close()
 
             for row in rows:
                 try:
@@ -12041,7 +12042,7 @@ def generate_interesting_fact():
                 "#qiziqarli #fakt\n"
                 "Faqat shu formatda qaytar."
             )
-            res = requests.post(
+            res = HTTP_SESSION.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
                 json={
@@ -12122,17 +12123,10 @@ async def auto_group_post_worker():
         await asyncio.sleep(300)  # Har 5 daqiqada
         try:
             conn = db()
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS auto_post_groups (
-                    chat_id INTEGER PRIMARY KEY,
-                    title TEXT,
-                    active INTEGER DEFAULT 1,
-                    last_post_at TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            rows = conn.execute("SELECT chat_id, title FROM auto_post_groups WHERE active = 1").fetchall()
-            conn.close()
+            try:
+                rows = conn.execute("SELECT chat_id, title FROM auto_post_groups WHERE active = 1").fetchall()
+            finally:
+                conn.close()
 
             if rows:
                 fact = generate_interesting_fact()
@@ -12147,7 +12141,7 @@ async def auto_group_post_worker():
 
             render_url = os.getenv("RENDER_EXTERNAL_URL", "https://cheap-bot-gahc.onrender.com")
             try:
-                requests.get(render_url, timeout=10)
+                HTTP_SESSION.get(render_url, timeout=10)
             except Exception:
                 pass
 
@@ -12162,7 +12156,7 @@ async def keep_alive_worker():
         await asyncio.sleep(480)
         ping_count += 1
         try:
-            r = requests.get(render_url, timeout=10)
+            r = HTTP_SESSION.get(render_url, timeout=10)
             print(f"💓 KEEP-ALIVE PING: {r.status_code}")
         except Exception as e:
             print("⚠️ KEEP-ALIVE PING XATOSI:", e)
@@ -12190,6 +12184,20 @@ async def bot_polling_worker():
             await asyncio.sleep(3)
 
 
+async def supervised_worker(coro_fn, name):
+    """Fonda ishlovchi workerlarni nazorat qiluvchi va kutilmagan xatolikda qayta ishga tushiruvchi supervisor."""
+    while True:
+        try:
+            await coro_fn()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            log_debug(f"⚠️ SUPERVISOR [{name}] xatosi: {e}. 5 soniyada qayta ishga tushadi...")
+            import traceback
+            log_debug(f"TRACEBACK: {traceback.format_exc()}")
+            await asyncio.sleep(5)
+
+
 async def run_all():
     global MAIN_LOOP
 
@@ -12204,13 +12212,13 @@ async def run_all():
         pass
 
     await asyncio.gather(
-        bot_polling_worker(),
-        start_userbot(),
-        api_auto_sync_worker(),
-        userbot_schedule_worker(),
-        auto_order_status_worker(),
-        keep_alive_worker(),
-        auto_group_post_worker(),
+        supervised_worker(bot_polling_worker, "bot_polling"),
+        supervised_worker(start_userbot, "userbot"),
+        supervised_worker(api_auto_sync_worker, "api_auto_sync"),
+        supervised_worker(userbot_schedule_worker, "userbot_schedule"),
+        supervised_worker(auto_order_status_worker, "auto_order_status"),
+        supervised_worker(keep_alive_worker, "keep_alive"),
+        supervised_worker(auto_group_post_worker, "auto_group_post"),
         return_exceptions=True
     )
 
