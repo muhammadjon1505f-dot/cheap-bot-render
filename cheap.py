@@ -213,9 +213,189 @@ EXCLUDED_PLATFORMS_SQL = """(
     OR LOWER(name) LIKE '%yutube%'
 )"""
 
+_tables_initialized = False
+
+def init_core_tables(conn):
+    """Barcha jadvallarni va indekslarni xavfsiz yaratadi."""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT,
+            first_name TEXT,
+            balance REAL DEFAULT 0,
+            banned INTEGER DEFAULT 0,
+            created_at TEXT,
+            total_deposited REAL DEFAULT 0,
+            role TEXT DEFAULT 'user'
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS apis (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            url TEXT NOT NULL,
+            api_key TEXT NOT NULL,
+            active INTEGER DEFAULT 1,
+            created_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS services (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            api_id INTEGER,
+            external_id TEXT,
+            name TEXT,
+            category TEXT,
+            price REAL DEFAULT 0,
+            min_qty INTEGER DEFAULT 1,
+            max_qty INTEGER DEFAULT 1000000,
+            active INTEGER DEFAULT 1,
+            sort_order INTEGER DEFAULT 0,
+            admin_available INTEGER DEFAULT 0,
+            FOREIGN KEY(api_id) REFERENCES apis(id)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            service_id INTEGER,
+            external_order_id TEXT,
+            link TEXT,
+            quantity INTEGER,
+            price REAL,
+            status TEXT DEFAULT 'Pending',
+            created_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS deposits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            amount REAL NOT NULL DEFAULT 0,
+            method TEXT DEFAULT '',
+            status TEXT DEFAULT 'Pending',
+            comment TEXT DEFAULT '',
+            created_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_states (
+            user_id INTEGER PRIMARY KEY,
+            state TEXT NOT NULL,
+            data TEXT DEFAULT '{}',
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS channels (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            channel_id INTEGER NOT NULL,
+            username TEXT DEFAULT '',
+            title TEXT DEFAULT '',
+            active INTEGER DEFAULT 1,
+            created_at TEXT,
+            invite_link TEXT DEFAULT '',
+            UNIQUE(user_id, channel_id)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS system_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT DEFAULT ''
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS admin_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            target_id INTEGER DEFAULT 0,
+            details TEXT DEFAULT '',
+            created_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS channel_services (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL DEFAULT 0,
+            channel_id INTEGER NOT NULL,
+            service_id INTEGER NOT NULL,
+            active INTEGER DEFAULT 1,
+            created_at TEXT,
+            min_qty INTEGER,
+            max_qty INTEGER,
+            UNIQUE(user_id, channel_id, service_id)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS auto_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel_id INTEGER NOT NULL,
+            message_id INTEGER NOT NULL,
+            owner_id INTEGER NOT NULL,
+            service_id INTEGER NOT NULL,
+            link TEXT NOT NULL,
+            quantity INTEGER NOT NULL,
+            external_order_id TEXT DEFAULT '',
+            price REAL DEFAULT 0,
+            status TEXT DEFAULT 'Pending',
+            error TEXT DEFAULT '',
+            created_at TEXT,
+            UNIQUE(owner_id, channel_id, message_id, service_id)
+        )
+    """)
+    try:
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_services_category ON services(category)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_services_sort ON services(sort_order, id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id, id DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_channels_user ON channels(user_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_channel_services_user ON channel_services(user_id, channel_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_auto_orders_owner ON auto_orders(owner_id, id DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_auto_orders_post ON auto_orders(channel_id, message_id, service_id)")
+    except Exception:
+        pass
+    conn.commit()
+
+
+def send_database_backup(reason="Avtomatik"):
+    """Ma'lumotlar bazasi (smm_bot.db) zaxirasini Telegram orqali ADMIN_ID ga yuboradi."""
+    try:
+        if not os.path.exists(DB_FILE):
+            return
+        size_bytes = os.path.getsize(DB_FILE)
+        if size_bytes == 0:
+            return
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(DB_FILE, "rb") as f:
+            bot.send_document(
+                ADMIN_ID,
+                f,
+                caption=(
+                    f"💾 <b>Ma'lumotlar bazasi zaxirasi</b>\n"
+                    f"📌 Sabab: <b>{html.escape(reason)}</b>\n"
+                    f"📅 Vaqt: <code>{now_str}</code>\n"
+                    f"📊 Hajm: <code>{size_bytes / 1024:.1f} KB</code>\n\n"
+                    "<i>Ushbu fayl barcha foydalanuvchilar, adminlar va qo'shilgan APIlarni o'z ichiga oladi.</i>"
+                ),
+                parse_mode="HTML"
+            )
+    except Exception as e:
+        log_debug(f"⚠️ send_database_backup xatosi: {e}")
+
+
 def db():
+    global _tables_initialized
     conn = sqlite3.connect(DB_FILE, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+
+    if not _tables_initialized:
+        try:
+            init_core_tables(conn)
+            _tables_initialized = True
+        except Exception as e:
+            log_debug(f"⚠️ init_core_tables xatosi: {e}")
 
     # --------------------------------------------------------
     # SERVICES — ADMIN AVAILABLE MIGRATION
@@ -4409,6 +4589,10 @@ def build_admin_keyboard():
 
     kb.row(
         types.InlineKeyboardButton(
+            "💾 Baza zaxirasi",
+            callback_data="admin_db_backup"
+        ),
+        types.InlineKeyboardButton(
             "🤖 AI yordamchi",
             callback_data="admin_ai"
         )
@@ -4562,6 +4746,58 @@ def admin_preview_start_callback(call):
     if not is_admin(call.from_user):
         return
     send_start_screen(call.message.chat.id, call.from_user)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_db_backup")
+def admin_db_backup_callback(call):
+    if not is_admin(call.from_user):
+        bot.answer_callback_query(call.id, "⛔️ Ruxsat berilmagan!", show_alert=True)
+        return
+    bot.answer_callback_query(call.id, "💾 Baza zaxirasi yuborilmoqda...")
+    send_database_backup(reason="Admin so'rovi bo'yicha")
+    bot.send_message(
+        call.message.chat.id,
+        "✅ <b>Ma'lumotlar bazasi zaxirasi yuborildi!</b>\n\n"
+        "<i>Ushbu fayl orqali barcha ma'lumotlarni (APIlar, foydalanuvchilar, kanallar) istalgan vaqtda qayta tiklashingiz mumkin.</i>",
+        parse_mode="HTML"
+    )
+
+
+@bot.message_handler(
+    content_types=["document"],
+    func=lambda message: is_admin(message.from_user) and message.document and (
+        (message.document.file_name and message.document.file_name.lower().endswith(('.db', '.sqlite', '.sqlite3')))
+        or (message.caption and '#RESTORE' in message.caption.upper())
+    )
+)
+def handle_db_restore(message):
+    try:
+        doc = message.document
+        file_info = bot.get_file(doc.file_id)
+        downloaded = bot.download_file(file_info.file_path)
+        if len(downloaded) < 100 or downloaded[:16] != b'SQLite format 3\x00':
+            bot.reply_to(message, "❌ <b>Xatolik:</b> Bu fayl haqiqiy SQLite formatidagi ma'lumotlar bazasi emas!", parse_mode="HTML")
+            return
+
+        if os.path.exists(DB_FILE):
+            bak_name = f"{DB_FILE}.bak_{int(datetime.now().timestamp())}"
+            try:
+                import shutil
+                shutil.copy2(DB_FILE, bak_name)
+            except Exception:
+                pass
+
+        with open(DB_FILE, "wb") as f:
+            f.write(downloaded)
+
+        bot.reply_to(
+            message,
+            "✅ <b>Ma'lumotlar bazasi muvaffaqiyatli tiklandi!</b>\n\n"
+            "Barcha APIlar, foydalanuvchilar, kanallar va buyurtmalar yangilandi va saqlandi.",
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        bot.reply_to(message, f"❌ Tiklashda xatolik yuz berdi: {e}")
 
 
 
@@ -6515,6 +6751,9 @@ def api_delete_callback(call):
 
         conn.commit()
 
+        # Avtomatik zaxira
+        send_database_backup(reason=f"API #{api_id} o'chirildi")
+
     finally:
         conn.close()
 
@@ -6677,6 +6916,9 @@ def api_add_input(message):
             conn.close()
 
         clear_state(user_id)
+
+        # Yangi API qo'shilganda avtomatik zaxira yuborish
+        send_database_backup(reason=f"Yangi API #{api_id} ({name}) qo'shildi")
 
         bot.send_message(
             message.chat.id,
@@ -11947,13 +12189,22 @@ async def auto_group_post_worker():
 
 async def keep_alive_worker():
     render_url = os.getenv("RENDER_EXTERNAL_URL", "https://cheap-bot-gahc.onrender.com")
+    ping_count = 0
     while True:
         await asyncio.sleep(480)
+        ping_count += 1
         try:
             r = requests.get(render_url, timeout=10)
             print(f"💓 KEEP-ALIVE PING: {r.status_code}")
         except Exception as e:
             print("⚠️ KEEP-ALIVE PING XATOSI:", e)
+
+        # Har 2 soatda avtomatik DB zaxirasini adminga yuborish
+        if ping_count % 15 == 0:
+            try:
+                send_database_backup(reason="Rejali avtomatik 2 soatlik zaxira")
+            except Exception:
+                pass
 
 
 async def bot_polling_worker():
