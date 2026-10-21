@@ -4457,7 +4457,7 @@ def build_orders_view(user_id, section="all", page=0, auto_sync=True):
 
     orders = get_filtered_orders(user_id, section)
     total_items = len(orders)
-    page_size = 10
+    page_size = 5
     total_pages = max(1, math.ceil(total_items / page_size))
     page = max(0, min(page, total_pages - 1))
 
