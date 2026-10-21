@@ -249,6 +249,9 @@ EXCLUDED_PLATFORMS_SQL = """(
     OR LOWER(category) LIKE '%izoh%' OR LOWER(name) LIKE '%izoh%'
     OR LOWER(category) LIKE '%sharh%' OR LOWER(name) LIKE '%sharh%'
     OR LOWER(category) LIKE '%коммент%' OR LOWER(name) LIKE '%коммент%'
+    OR LOWER(category) LIKE '%start%' OR LOWER(name) LIKE '%start%'
+    OR LOWER(category) LIKE '%botga%' OR LOWER(name) LIKE '%botga%'
+    OR LOWER(category) LIKE '%bot uchun%' OR LOWER(name) LIKE '%bot uchun%'
 )"""
 
 _tables_initialized = False
@@ -9259,7 +9262,7 @@ def sync_api_services(api_id, dry_run=False):
                     "obunachi", "subscriber", "follower", "подписчик", "member",
                     "jonli efir", "jonli", "live stream", "stream", "трансляци", "эфир",
                     "sorovnoma", "so'rovnoma", "sórovnoma", "ovoz", "poll", "vote", "опрос", "голосован",
-                    "koment", "komment", "kament", "comment", "izoh", "sharh", "коммент"
+                    "koment", "komment", "kament", "comment", "izoh", "sharh", "коммент", "start", "botga", "bot uchun"
                 ]
             )
             is_avail = 0 if is_excluded else (1 if (
