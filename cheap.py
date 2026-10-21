@@ -4250,12 +4250,16 @@ def auto_cancel_callback(call):
 def show_balance(chat_id, user_id):
     balance = get_balance(user_id)
 
-    kb = types.InlineKeyboardMarkup()
+    kb = types.InlineKeyboardMarkup(row_width=2)
 
-    kb.add(
+    kb.row(
         types.InlineKeyboardButton(
             "💵 Pul kiritish",
             callback_data="deposit"
+        ),
+        types.InlineKeyboardButton(
+            "📦 Buyurtmalarim",
+            callback_data="orders_menu"
         )
     )
 
@@ -4283,10 +4287,25 @@ def show_orders(chat_id, user_id):
 
     rows = conn.execute(
         """
-        SELECT *
-        FROM orders
-        WHERE user_id = ?
-        ORDER BY id DESC
+        SELECT o.id, o.quantity, o.price, o.status, o.created_at,
+               COALESCE(s.name, 'SMM xizmati') AS service_name
+        FROM orders o
+        LEFT JOIN services s ON o.service_id = s.id
+        WHERE o.user_id = ?
+        ORDER BY o.id DESC
+        LIMIT 10
+        """,
+        (user_id,)
+    ).fetchall()
+
+    auto_rows = conn.execute(
+        """
+        SELECT ao.id, ao.quantity, ao.price, ao.status, ao.created_at,
+               COALESCE(s.name, 'Avto buyurtma') AS service_name
+        FROM auto_orders ao
+        LEFT JOIN services s ON ao.service_id = s.id
+        WHERE ao.owner_id = ?
+        ORDER BY ao.id DESC
         LIMIT 10
         """,
         (user_id,)
@@ -4294,43 +4313,70 @@ def show_orders(chat_id, user_id):
 
     conn.close()
 
-    if not rows:
+    all_orders = []
+    for r in rows:
+        all_orders.append({
+            "id": r["id"],
+            "type": "Oddiy",
+            "service": r["service_name"],
+            "qty": r["quantity"] or 0,
+            "price": float(r["price"] or 0),
+            "status": r["status"] or "Pending",
+            "time": (r["created_at"] or "")[:19]
+        })
+
+    for r in auto_rows:
+        all_orders.append({
+            "id": r["id"],
+            "type": "Avto",
+            "service": r["service_name"],
+            "qty": r["quantity"] or 0,
+            "price": float(r["price"] or 0),
+            "status": r["status"] or "Pending",
+            "time": (r["created_at"] or "")[:19]
+        })
+
+    # Sort newest first
+    all_orders.sort(key=lambda x: str(x.get("time") or ""), reverse=True)
+    all_orders = all_orders[:10]
+
+    status_map = {
+        "completed": "✅ Bajarilgan",
+        "in progress": "⚡️ Bajarilmoqda",
+        "pending": "⏳ Kutilmoqda",
+        "processing": "🔄 Jarayonda",
+        "canceled": "❌ Bekor qilingan",
+        "partial": "⭕️ Qisman"
+    }
+
+    if not all_orders:
         text = (
             "📦 <b>Buyurtmalarim</b>\n\n"
-            "📭 Hozircha buyurtmalar mavjud emas."
+            "📭 Hozircha sizda faol yoki yakunlangan buyurtmalar mavjud emas."
         )
     else:
-        parts = [
-            "📦 <b>Buyurtmalarim</b>\n"
-        ]
-
-        for row in rows:
-            service_name = (
-                row["service_name"]
-                if "service_name" in row.keys()
-                else "Noma'lum xizmat"
-            )
-
-            quantity = row["quantity"] or 0
-            price = float(row["price"] or 0)
-            status = row["status"] or "unknown"
-
+        parts = ["📦 <b>So'nggi buyurtmalaringiz ro'yxati:</b>\n"]
+        for o in all_orders:
+            st = status_map.get(str(o["status"]).lower(), f"📌 {o['status']}")
             parts.append(
-                f"🆔 <b>#{row['id']}</b>\n"
-                f"🛠 {service_name}\n"
-                f"📊 Miqdor: <b>{quantity}</b>\n"
-                f"💰 Narx: <b>{price:,.2f}</b> so'm\n"
-                f"📌 Status: <b>{status}</b>\n"
+                f"🆔 <b>#{o['id']}</b> ({o['type']})\n"
+                f"🛠 <b>Xizmat:</b> {o['service']}\n"
+                f"📊 <b>Miqdor:</b> {o['qty']} ta\n"
+                f"💰 <b>Narxi:</b> {format(o['price'], ',.2f').replace(',', ' ')} so'm\n"
+                f"📌 <b>Holati:</b> {st}\n"
             )
-
         text = "\n".join(parts)
 
-    kb = types.InlineKeyboardMarkup()
-
+    kb = types.InlineKeyboardMarkup(row_width=2)
+    kb.row(
+        types.InlineKeyboardButton("🔄 Yangilash", callback_data="orders_menu"),
+        types.InlineKeyboardButton("⬅️ Kabinet", callback_data="cabinet_menu")
+    )
 
     bot.send_message(
         chat_id,
         text,
+        parse_mode="HTML",
         reply_markup=kb
     )
 
@@ -4361,12 +4407,16 @@ def show_cabinet(chat_id, user_id):
         else 0
     )
 
-    kb = types.InlineKeyboardMarkup()
+    kb = types.InlineKeyboardMarkup(row_width=2)
 
-    kb.add(
+    kb.row(
         types.InlineKeyboardButton(
             "💵 Pul kiritish",
             callback_data="deposit"
+        ),
+        types.InlineKeyboardButton(
+            "📦 Buyurtmalarim",
+            callback_data="orders_menu"
         )
     )
 
@@ -10118,12 +10168,16 @@ def balance_callback(call):
 
     balance = get_balance(call.from_user.id)
 
-    kb = types.InlineKeyboardMarkup()
+    kb = types.InlineKeyboardMarkup(row_width=2)
 
-    kb.add(
+    kb.row(
         types.InlineKeyboardButton(
             "💵 Pul kiritish",
             callback_data="deposit"
+        ),
+        types.InlineKeyboardButton(
+            "📦 Buyurtmalarim",
+            callback_data="orders_menu"
         )
     )
 
@@ -10151,10 +10205,25 @@ def orders_callback(call):
 
     rows = conn.execute(
         """
-        SELECT *
-        FROM orders
-        WHERE user_id = ?
-        ORDER BY id DESC
+        SELECT o.id, o.quantity, o.price, o.status, o.created_at,
+               COALESCE(s.name, 'SMM xizmati') AS service_name
+        FROM orders o
+        LEFT JOIN services s ON o.service_id = s.id
+        WHERE o.user_id = ?
+        ORDER BY o.id DESC
+        LIMIT 10
+        """,
+        (call.from_user.id,)
+    ).fetchall()
+
+    auto_rows = conn.execute(
+        """
+        SELECT ao.id, ao.quantity, ao.price, ao.status, ao.created_at,
+               COALESCE(s.name, 'Avto buyurtma') AS service_name
+        FROM auto_orders ao
+        LEFT JOIN services s ON ao.service_id = s.id
+        WHERE ao.owner_id = ?
+        ORDER BY ao.id DESC
         LIMIT 10
         """,
         (call.from_user.id,)
@@ -10162,37 +10231,80 @@ def orders_callback(call):
 
     conn.close()
 
-    kb = types.InlineKeyboardMarkup()
+    all_orders = []
+    for r in rows:
+        all_orders.append({
+            "id": r["id"],
+            "type": "Oddiy",
+            "service": r["service_name"],
+            "qty": r["quantity"] or 0,
+            "price": float(r["price"] or 0),
+            "status": r["status"] or "Pending",
+            "time": (r["created_at"] or "")[:19]
+        })
 
+    for r in auto_rows:
+        all_orders.append({
+            "id": r["id"],
+            "type": "Avto",
+            "service": r["service_name"],
+            "qty": r["quantity"] or 0,
+            "price": float(r["price"] or 0),
+            "status": r["status"] or "Pending",
+            "time": (r["created_at"] or "")[:19]
+        })
 
-    if not rows:
+    all_orders.sort(key=lambda x: str(x.get("time") or ""), reverse=True)
+    all_orders = all_orders[:10]
+
+    status_map = {
+        "completed": "✅ Bajarilgan",
+        "in progress": "⚡️ Bajarilmoqda",
+        "pending": "⏳ Kutilmoqda",
+        "processing": "🔄 Jarayonda",
+        "canceled": "❌ Bekor qilingan",
+        "partial": "⭕️ Qisman"
+    }
+
+    if not all_orders:
         text = (
             "📦 <b>Buyurtmalarim</b>\n\n"
-            "📭 Hozircha buyurtmalar mavjud emas."
+            "📭 Hozircha sizda faol yoki yakunlangan buyurtmalar mavjud emas."
         )
     else:
-        parts = ["📦 <b>Buyurtmalarim</b>\n"]
-
-        for row in rows:
-            quantity = row["quantity"] or 0
-            price = float(row["price"] or 0)
-            status = row["status"] or "unknown"
-
+        parts = ["📦 <b>So'nggi buyurtmalaringiz ro'yxati:</b>\n"]
+        for o in all_orders:
+            st = status_map.get(str(o["status"]).lower(), f"📌 {o['status']}")
             parts.append(
-                f"🆔 <b>#{row['id']}</b>\n"
-                f"📊 Miqdor: <b>{quantity}</b>\n"
-                f"💰 Narx: <b>{price:,.2f}</b> so'm\n"
-                f"📌 Status: <b>{status}</b>\n"
+                f"🆔 <b>#{o['id']}</b> ({o['type']})\n"
+                f"🛠 <b>Xizmat:</b> {o['service']}\n"
+                f"📊 <b>Miqdor:</b> {o['qty']} ta\n"
+                f"💰 <b>Narxi:</b> {format(o['price'], ',.2f').replace(',', ' ')} so'm\n"
+                f"📌 <b>Holati:</b> {st}\n"
             )
-
         text = "\n".join(parts)
 
-    bot.edit_message_text(
-        text,
-        call.message.chat.id,
-        call.message.message_id,
-        reply_markup=kb
+    kb = types.InlineKeyboardMarkup(row_width=2)
+    kb.row(
+        types.InlineKeyboardButton("🔄 Yangilash", callback_data="orders_menu"),
+        types.InlineKeyboardButton("⬅️ Kabinetga qaytish", callback_data="cabinet_menu")
     )
+
+    try:
+        bot.edit_message_text(
+            text,
+            call.message.chat.id,
+            call.message.message_id,
+            parse_mode="HTML",
+            reply_markup=kb
+        )
+    except Exception:
+        bot.send_message(
+            call.message.chat.id,
+            text,
+            parse_mode="HTML",
+            reply_markup=kb
+        )
 
 
 # ============================================================
@@ -10228,12 +10340,16 @@ def cabinet_callback(call):
         else 0
     )
 
-    kb = types.InlineKeyboardMarkup()
+    kb = types.InlineKeyboardMarkup(row_width=2)
 
-    kb.add(
+    kb.row(
         types.InlineKeyboardButton(
             "💵 Pul kiritish",
             callback_data="deposit"
+        ),
+        types.InlineKeyboardButton(
+            "📦 Buyurtmalarim",
+            callback_data="orders_menu"
         )
     )
 
