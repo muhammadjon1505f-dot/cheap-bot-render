@@ -1154,9 +1154,12 @@ def send_start_screen(chat_id, user=None):
         f"👋 Salom! <b>{first_name}</b> "
         f"<a href=\"https://t.me/{bot_username}\">@{bot_username}</a> "
         "ga xush kelibsiz!\n\n"
-        "<blockquote>📈 Ushbu bot orqali kanallaringizga avto buyurtmalar ulashingiz "
-        "va SMM xizmatlaridan qulay foydalanishingiz mumkin.</blockquote>\n\n"
-        "<i>📌 Botdan foydalanish uchun quyidagi menyulardan birini tanlang.</i>\n\n"
+        "<blockquote>🤖 Ushbu bot orqali siz <b>Tekin AI</b> bilan bemalol suhbatlashishingiz, kanallaringizga avto buyurtmalar ulashingiz va SMM xizmatlaridan qulay foydalanishingiz mumkin.</blockquote>
+
+"
+        "<i>📌 Savolingiz bo'lsa xabar yuboring — AI darhol javob beradi yoki quyidagi menyudan foydalaning!</i>
+
+"
         "🙌 Bizni tanlaganingizdan xursandmiz!\n"
         f"{now}"
     )
@@ -10828,6 +10831,7 @@ async def start_userbot():
             log_debug(f"USERBOT CONNECTED: auth={is_auth}")
             if not is_auth:
                 log_debug("⚠️ USERBOT: Session avtorizatsiyadan o'tmagan. Userbot to'xtatildi.")
+                await asyncio.sleep(300)
                 return
             connected = True
             break
@@ -10837,6 +10841,7 @@ async def start_userbot():
 
     if not connected:
         log_debug("❌ USERBOT: 5 ta urinishdan so'ng ham ulanib bo'lmadi.")
+        await asyncio.sleep(300)
         return
 
     # ============================================================
@@ -11896,26 +11901,82 @@ EXCLUDED_BUTTONS = {
         and not get_state(message.from_user.id).get("state")
     )
 )
-def default_user_message(message):
+def tekin_ai_chat_message(message):
+    question = (message.text or "").strip()
+    if not question:
+        return
+
     try:
         save_message_history(
             message.from_user.id,
             message.chat.id,
             message.message_id,
             "in",
-            (message.text or "").strip()
+            question
         )
     except Exception:
         pass
 
     try:
-        bot.send_message(
+        bot.send_chat_action(message.chat.id, "typing")
+        wait = bot.send_message(
             message.chat.id,
-            "📌 Iltimos, kerakli bo'limni tanlash uchun pastdagi menyu tugmalaridan foydalaning.",
-            reply_markup=main_reply_keyboard(message.from_user.id)
+            "🤖 <i>Tekin AI javob yozmoqda...</i>",
+            parse_mode="HTML"
         )
-    except Exception:
-        pass
+
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "Siz 'Tekin AI' botining aqlli, muloyim va foydali sun'iy intellekt yordamchisisiz. "
+                    "Foydalanuvchilarga o'zbek tilida aniq, ravon va to'liq javob bering. "
+                    "Har qanday savolga javob bera olasiz: matnlar yozish, g'oyalar berish, maslahat berish."
+                )
+            },
+            {"role": "user", "content": question}
+        ]
+
+        reply = ai_call_provider(messages)
+        if reply:
+            try:
+                bot.edit_message_text(
+                    reply,
+                    message.chat.id,
+                    wait.message_id,
+                    parse_mode="HTML"
+                )
+            except Exception:
+                bot.edit_message_text(
+                    reply,
+                    message.chat.id,
+                    wait.message_id
+                )
+            try:
+                save_message_history(
+                    message.from_user.id,
+                    message.chat.id,
+                    wait.message_id,
+                    "out",
+                    reply
+                )
+            except Exception:
+                pass
+        else:
+            bot.edit_message_text(
+                "⚠️ Javob tayyorlashda xatolik yuz berdi. Iltimos qaytadan urinib ko'ring.",
+                message.chat.id,
+                wait.message_id
+            )
+    except Exception as e:
+        print("❌ TEKIN AI CHAT XATOSI:", repr(e))
+        try:
+            bot.send_message(
+                message.chat.id,
+                "🤖 Hozirda AI xizmatida vaqtinchalik uzilish yuz berdi. Birozdan so'ng qayta yozing."
+            )
+        except Exception:
+            pass
 
 
 
