@@ -41,7 +41,7 @@ from telethon.errors import UserAlreadyParticipantError
 
 load_dotenv(override=True)
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8657770745:AAHxznnwFSgmHgA1lUEP35Bnuy3L9pEKPOo").strip() or "8657770745:AAHxznnwFSgmHgA1lUEP35Bnuy3L9pEKPOo"
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8657770745:AAFeSH563EHiKpSDvawmU3_zzwKC6rAvN1c").strip() or "8657770745:AAFeSH563EHiKpSDvawmU3_zzwKC6rAvN1c"
 ADMIN_ID = int(os.getenv("ADMIN_ID", "8191930658") or 8191930658)
 DB_FILE = os.getenv("DB_FILE", "smm_bot.db")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
