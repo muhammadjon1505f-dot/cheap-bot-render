@@ -4279,75 +4279,98 @@ def show_balance(chat_id, user_id):
 
 
 # ============================================================
-# BUYURTMALARIM — BO'LIMLAR (SECTIONS) VA RO'YXAT
+# BUYURTMALARIM — AVTO YANGILASH VA BARCHASINI BITTADA KO'RSATISH
 # ============================================================
 
-def get_user_order_stats(user_id):
-    """Foydalanuvchi buyurtmalarining umumiy va bo'limlar bo'yicha sonini hisoblash."""
+def sync_user_orders_status(user_id):
+    """
+    Foydalanuvchining pending / in progress buyurtmalarini API orqali avtomatik yangilash.
+    """
     conn = db()
     try:
-        rows = conn.execute("""
-            SELECT status FROM orders WHERE user_id = ?
+        auto_pending = conn.execute("""
+            SELECT ao.id, ao.external_order_id, ao.status, ao.owner_id,
+                   s.name as service_name, a.url as api_url, a.api_key, a.active as api_active
+            FROM auto_orders ao
+            JOIN services s ON s.id = ao.service_id
+            JOIN apis a ON a.id = s.api_id
+            WHERE ao.owner_id = ?
+              AND ao.external_order_id IS NOT NULL
+              AND TRIM(ao.external_order_id) != ''
+              AND LOWER(COALESCE(ao.status, '')) IN ('pending', 'processing', 'in progress')
+            LIMIT 10
         """, (user_id,)).fetchall()
 
-        auto_rows = conn.execute("""
-            SELECT status FROM auto_orders WHERE owner_id = ?
+        orders_pending = conn.execute("""
+            SELECT o.id, o.external_order_id, o.status, o.user_id as owner_id,
+                   s.name as service_name, a.url as api_url, a.api_key, a.active as api_active
+            FROM orders o
+            JOIN services s ON s.id = o.service_id
+            JOIN apis a ON a.id = s.api_id
+            WHERE o.user_id = ?
+              AND o.external_order_id IS NOT NULL
+              AND TRIM(o.external_order_id) != ''
+              AND LOWER(COALESCE(o.status, '')) IN ('pending', 'processing', 'in progress')
+            LIMIT 10
         """, (user_id,)).fetchall()
     finally:
         conn.close()
 
-    total_manual = len(rows)
-    total_auto = len(auto_rows)
+    for row in auto_pending:
+        try:
+            if not row["api_active"] or not row["api_url"]:
+                continue
+            resp = HTTP_SESSION.post(
+                row["api_url"],
+                data={"key": row["api_key"], "action": "status", "order": str(row["external_order_id"])},
+                timeout=6
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                new_st = str(data.get("status") or data.get("state") or "").strip()
+                err_msg = str(data.get("error") or "")
+                c = db()
+                try:
+                    if err_msg and any(w in err_msg.lower() for w in ["topilmadi", "not found"]):
+                        c.execute("UPDATE auto_orders SET status = 'Canceled', error = ? WHERE id = ?", (err_msg, row["id"]))
+                        c.commit()
+                    elif new_st:
+                        norm = new_st.lower()
+                        mapped = "Completed" if norm in ("completed", "complete", "success") else ("Canceled" if norm in ("canceled", "cancelled") else new_st)
+                        c.execute("UPDATE auto_orders SET status = ? WHERE id = ?", (mapped, row["id"]))
+                        c.commit()
+                finally:
+                    c.close()
+        except Exception:
+            pass
 
-    all_statuses = [str(r["status"] or "").lower() for r in rows] + [str(r["status"] or "").lower() for r in auto_rows]
-
-    in_progress = sum(1 for s in all_statuses if any(x in s for x in ['pend', 'progress', 'process']))
-    completed = sum(1 for s in all_statuses if 'complet' in s)
-    canceled = sum(1 for s in all_statuses if any(x in s for x in ['cancel', 'partial', 'error', 'fail']))
-    total = len(all_statuses)
-
-    return {
-        "all": total,
-        "in_progress": in_progress,
-        "completed": completed,
-        "auto": total_auto,
-        "manual": total_manual,
-        "canceled": canceled
-    }
-
-
-def orders_hub_keyboard(stats):
-    """Buyurtmalarim bo'limlar inline tugmalari."""
-    kb = types.InlineKeyboardMarkup(row_width=2)
-    kb.row(
-        types.InlineKeyboardButton(f"⚡️ Jarayonda ({stats['in_progress']})", callback_data="orders_sec:in_progress:0"),
-        types.InlineKeyboardButton(f"✅ Bajarilgan ({stats['completed']})", callback_data="orders_sec:completed:0")
-    )
-    kb.row(
-        types.InlineKeyboardButton(f"🤖 Avto ({stats['auto']})", callback_data="orders_sec:auto:0"),
-        types.InlineKeyboardButton(f"📦 Oddiy ({stats['manual']})", callback_data="orders_sec:manual:0")
-    )
-    kb.row(
-        types.InlineKeyboardButton(f"❌ Bekor / Xato ({stats['canceled']})", callback_data="orders_sec:canceled:0"),
-        types.InlineKeyboardButton(f"📋 Barchasi ({stats['all']})", callback_data="orders_sec:all:0")
-    )
-    kb.row(
-        types.InlineKeyboardButton("🔄 Yangilash", callback_data="orders_menu"),
-        types.InlineKeyboardButton("⬅️ Kabinetga qaytish", callback_data="cabinet_menu")
-    )
-    return kb
-
-
-def build_orders_hub_view(user_id):
-    """Buyurtmalarim bo'limlari asosiy menyusi matni va tugmalari."""
-    stats = get_user_order_stats(user_id)
-    text = (
-        "📦 <b>Buyurtmalarim bo'limi</b>\n\n"
-        f"Sizning jami buyurtmalaringiz: <b>{stats['all']} ta</b>\n\n"
-        "👇 Kerakli bo'limni tanlang:"
-    )
-    kb = orders_hub_keyboard(stats)
-    return text, kb
+    for row in orders_pending:
+        try:
+            if not row["api_active"] or not row["api_url"]:
+                continue
+            resp = HTTP_SESSION.post(
+                row["api_url"],
+                data={"key": row["api_key"], "action": "status", "order": str(row["external_order_id"])},
+                timeout=6
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                new_st = str(data.get("status") or data.get("state") or "").strip()
+                err_msg = str(data.get("error") or "")
+                c = db()
+                try:
+                    if err_msg and any(w in err_msg.lower() for w in ["topilmadi", "not found"]):
+                        c.execute("UPDATE orders SET status = 'Canceled' WHERE id = ?", (row["id"],))
+                        c.commit()
+                    elif new_st:
+                        norm = new_st.lower()
+                        mapped = "Completed" if norm in ("completed", "complete", "success") else ("Canceled" if norm in ("canceled", "cancelled") else new_st)
+                        c.execute("UPDATE orders SET status = ? WHERE id = ?", (mapped, row["id"]))
+                        c.commit()
+                finally:
+                    c.close()
+        except Exception:
+            pass
 
 
 def get_filtered_orders(user_id, section):
@@ -4411,17 +4434,15 @@ def get_filtered_orders(user_id, section):
     return filtered
 
 
-def build_orders_section_view(user_id, section, page=0):
-    """Muayyan bo'lim ichidagi buyurtmalar ro'yxati va sahifalash (pagination)."""
-    section_titles = {
-        "in_progress": "⚡️ <b>Jarayondagi buyurtmalar</b>",
-        "completed": "✅ <b>Bajarilgan buyurtmalar</b>",
-        "auto": "🤖 <b>Avto buyurtmalar</b>",
-        "manual": "📦 <b>Oddiy buyurtmalar</b>",
-        "canceled": "❌ <b>Bekor qilingan / Xatoliklar</b>",
-        "all": "📋 <b>Barcha buyurtmalar</b>"
-    }
-    title = section_titles.get(section, "📦 <b>Buyurtmalar</b>")
+def build_orders_view(user_id, section="all", page=0, auto_sync=True):
+    """
+    Barcha buyurtmalarni bittada chiqarish va avtomatik yangilash.
+    """
+    if auto_sync:
+        try:
+            sync_user_orders_status(user_id)
+        except Exception:
+            pass
 
     status_map = {
         "completed": "✅ Bajarilgan",
@@ -4430,13 +4451,13 @@ def build_orders_section_view(user_id, section, page=0):
         "processing": "🔄 Jarayonda",
         "canceled": "❌ Bekor qilingan",
         "cancelled": "❌ Bekor qilingan",
-        "partial": "⭕️ Qisman bajarilgan",
-        "error": "❌ Xatolik yuz bergan"
+        "partial": "⭕️ Qisman",
+        "error": "❌ Xatolik"
     }
 
     orders = get_filtered_orders(user_id, section)
     total_items = len(orders)
-    page_size = 5
+    page_size = 20
     total_pages = max(1, math.ceil(total_items / page_size))
     page = max(0, min(page, total_pages - 1))
 
@@ -4444,36 +4465,50 @@ def build_orders_section_view(user_id, section, page=0):
     end = start + page_size
     page_items = orders[start:end]
 
+    section_titles = {
+        "in_progress": "⚡️ <b>Jarayondagi buyurtmalar</b>",
+        "completed": "✅ <b>Bajarilgan buyurtmalar</b>",
+        "auto": "🤖 <b>Avto buyurtmalar</b>",
+        "manual": "📦 <b>Oddiy buyurtmalar</b>",
+        "canceled": "❌ <b>Bekor qilingan / Xato buyurtmalar</b>",
+        "all": "📦 <b>Barcha buyurtmalaringiz</b>"
+    }
+    title = section_titles.get(section, "📦 <b>Barcha buyurtmalaringiz</b>")
+
     if not total_items:
         text = (
             f"{title}\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
-            "📭 Ushbu bo'limda hech qanday buyurtma topilmadi."
+            "📭 Hozircha sizda buyurtmalar mavjud emas."
         )
     else:
         parts = [
             f"{title} (Jami: <b>{total_items} ta</b>)\n"
-            f"📄 Sahifa: <b>{page + 1}/{total_pages}</b>\n"
+            "🔄 <i>Holatlar avtomatik yangilandi</i>\n"
             "━━━━━━━━━━━━━━━━━━\n"
         ]
         for o in page_items:
             st = status_map.get(str(o["status"]).lower(), f"📌 {o['status']}")
-            err_line = f"\n⚠️ <b>Izoh:</b> <code>{html.escape(str(o['error'])[:90])}</code>" if o.get("error") else ""
-            link_line = f"\n🔗 <b>Havola:</b> {html.escape(str(o['link']))}" if o.get("link") else ""
+            err = f" (⚠️ {html.escape(str(o['error'])[:35])})" if o.get("error") else ""
             service_name = html.escape(str(o['service']))
             parts.append(
-                f"🆔 <b>#{o['id']}</b> ({o['type']})\n"
-                f"🛠 <b>Xizmat:</b> {service_name}\n"
-                f"📊 <b>Miqdor:</b> {o['qty']} ta\n"
-                f"💰 <b>Narxi:</b> {format(o['price'], ',.2f').replace(',', ' ')} so'm\n"
-                f"📌 <b>Holati:</b> {st}\n"
-                f"🕒 <b>Vaqti:</b> {o['time']}"
-                f"{link_line}"
-                f"{err_line}\n"
+                f"🆔 <b>#{o['id']}</b> ({o['type']}) | {st}\n"
+                f"🛠 <b>{service_name}</b>\n"
+                f"📊 {o['qty']} ta • 💰 {format(o['price'], ',.2f').replace(',', ' ')} so'm{err}\n"
+                f"🕒 {o['time']}\n"
             )
         text = "\n".join(parts)
 
     kb = types.InlineKeyboardMarkup(row_width=3)
+
+    # 1-qator: Tezkor filtrlar
+    kb.row(
+        types.InlineKeyboardButton("📋 Barchasi", callback_data="orders_sec:all:0"),
+        types.InlineKeyboardButton("⚡️ Jarayonda", callback_data="orders_sec:in_progress:0"),
+        types.InlineKeyboardButton("✅ Bajarilgan", callback_data="orders_sec:completed:0")
+    )
+
+    # 2-qator: Sahifalash (agar 20 tadan ko'p bo'lsa)
     if total_pages > 1:
         nav = []
         if page > 0:
@@ -4490,24 +4525,24 @@ def build_orders_section_view(user_id, section, page=0):
 
         kb.row(*nav)
 
+    # 3-qator: Yangilash va Kabinet
     kb.row(
-        types.InlineKeyboardButton("📂 Bo'limlar", callback_data="orders_menu"),
-        types.InlineKeyboardButton("🔄 Yangilash", callback_data=f"orders_sec:{section}:{page}")
-    )
-    kb.row(
+        types.InlineKeyboardButton("🔄 Yangilash", callback_data=f"orders_sec:{section}:{page}"),
         types.InlineKeyboardButton("⬅️ Kabinetga qaytish", callback_data="cabinet_menu")
     )
+
     return text, kb
 
 
 def show_orders(chat_id, user_id):
-    """Buyurtmalarim bo'limini yangi xabar sifatida chiqarish."""
-    text, kb = build_orders_hub_view(user_id)
+    """Buyurtmalarim ro'yxatini yangi xabar sifatida bittada chiqarish."""
+    text, kb = build_orders_view(user_id, section="all", page=0, auto_sync=True)
     bot.send_message(
         chat_id,
         text,
         parse_mode="HTML",
-        reply_markup=kb
+        reply_markup=kb,
+        disable_web_page_preview=True
     )
 
 
@@ -10335,21 +10370,23 @@ def ignore_button_callback(call):
 )
 def orders_callback(call):
     bot.answer_callback_query(call.id)
-    text, kb = build_orders_hub_view(call.from_user.id)
+    text, kb = build_orders_view(call.from_user.id, section="all", page=0, auto_sync=True)
     try:
         bot.edit_message_text(
             text,
             call.message.chat.id,
             call.message.message_id,
             parse_mode="HTML",
-            reply_markup=kb
+            reply_markup=kb,
+            disable_web_page_preview=True
         )
     except Exception:
         bot.send_message(
             call.message.chat.id,
             text,
             parse_mode="HTML",
-            reply_markup=kb
+            reply_markup=kb,
+            disable_web_page_preview=True
         )
 
 
@@ -10365,7 +10402,7 @@ def orders_section_callback(call):
     except ValueError:
         page = 0
 
-    text, kb = build_orders_section_view(call.from_user.id, section, page)
+    text, kb = build_orders_view(call.from_user.id, section, page, auto_sync=True)
     try:
         bot.edit_message_text(
             text,
@@ -11959,8 +11996,14 @@ def check_real_auto_order_status(row):
         )
 
     if data.get("error"):
+        err_str = str(data["error"])
+        if any(w in err_str.lower() for w in ["topilmadi", "not found"]):
+            try:
+                update_auto_order_status(row["id"], "Canceled")
+            except Exception:
+                pass
         raise RuntimeError(
-            str(data["error"])
+            err_str
         )
 
     status = str(
@@ -11974,8 +12017,8 @@ def check_real_auto_order_status(row):
 
 async def auto_order_status_worker():
     """
-    Real API order statuslarini tekshiradi.
-    Completed bo'lganda kanal egasiga bir marta xabar yuboradi.
+    Real API order statuslarini avtomatik tekshiradi.
+    Completed bo'lganda buyurtmachiga bir marta xabar yuboradi.
     """
 
     while True:
@@ -12048,13 +12091,57 @@ async def auto_order_status_worker():
                         repr(e)
                     )
 
+            # Oddiy buyurtmalar (orders) statusini tekshirish
+            conn = db()
+            try:
+                manual_pending = conn.execute("""
+                    SELECT o.*, s.name AS service_name, a.url AS api_url, a.api_key, a.active AS api_active
+                    FROM orders o
+                    JOIN services s ON s.id = o.service_id
+                    JOIN apis a ON a.id = s.api_id
+                    WHERE o.external_order_id IS NOT NULL
+                      AND TRIM(o.external_order_id) != ''
+                      AND LOWER(COALESCE(o.status, 'pending')) NOT IN ('completed', 'complete', 'success', 'successful', 'canceled', 'cancelled', 'error')
+                    ORDER BY o.id ASC
+                    LIMIT 20
+                """).fetchall()
+            finally:
+                conn.close()
+
+            for mrow in manual_pending:
+                try:
+                    mstatus = await asyncio.to_thread(check_real_auto_order_status, mrow)
+                    if mstatus:
+                        mnorm = mstatus.lower()
+                        if mnorm in ("completed", "complete", "success", "successful"):
+                            c = db()
+                            try:
+                                c.execute("UPDATE orders SET status = 'Completed' WHERE id = ?", (mrow["id"],))
+                                c.commit()
+                            finally:
+                                c.close()
+                            await asyncio.to_thread(
+                                send_auto_order_message,
+                                mrow["user_id"],
+                                f"✅ <b>Buyurtmangiz bajarildi!</b>\n\n🔢 Buyurtma: <code>#{mrow['id']}</code>\n🛠 Xizmat: {mrow['service_name']}\n🔢 Miqdor: <b>{mrow['quantity']}</b>"
+                            )
+                        elif mnorm in ("canceled", "cancelled"):
+                            c = db()
+                            try:
+                                c.execute("UPDATE orders SET status = 'Canceled' WHERE id = ?", (mrow["id"],))
+                                c.commit()
+                            finally:
+                                c.close()
+                except Exception:
+                    pass
+
         except Exception as e:
             print(
                 "❌ AUTO ORDER STATUS WORKER XATOSI:",
                 repr(e)
             )
 
-        await asyncio.sleep(60)
+        await asyncio.sleep(20)
 
 
 
