@@ -4504,9 +4504,8 @@ def build_orders_view(user_id, section="all", page=0, auto_sync=True):
         types.InlineKeyboardButton("Keyingi ➡️", callback_data=next_cb)
     )
 
-    # 2-qator: Yangilash va Orqaga
+    # 2-qator: Orqaga (Holatlar avtomatik yangilanadi)
     kb.row(
-        types.InlineKeyboardButton("🔄 Yangilash", callback_data=f"orders_page:{page}"),
         types.InlineKeyboardButton("⬅️ Orqaga", callback_data="cabinet_menu")
     )
 
@@ -10358,7 +10357,7 @@ def orders_last_page_callback(call):
     func=lambda call: call.data.startswith("orders_page:")
 )
 def orders_page_callback(call):
-    bot.answer_callback_query(call.id, "✅ Yangilandi!")
+    bot.answer_callback_query(call.id)
     try:
         page = int(call.data.split(":")[1])
     except Exception:
