@@ -4457,7 +4457,7 @@ def build_orders_view(user_id, section="all", page=0, auto_sync=True):
 
     orders = get_filtered_orders(user_id, section)
     total_items = len(orders)
-    page_size = 20
+    page_size = 10
     total_pages = max(1, math.ceil(total_items / page_size))
     page = max(0, min(page, total_pages - 1))
 
@@ -4465,15 +4465,7 @@ def build_orders_view(user_id, section="all", page=0, auto_sync=True):
     end = start + page_size
     page_items = orders[start:end]
 
-    section_titles = {
-        "in_progress": "⚡️ <b>Jarayondagi buyurtmalar</b>",
-        "completed": "✅ <b>Bajarilgan buyurtmalar</b>",
-        "auto": "🤖 <b>Avto buyurtmalar</b>",
-        "manual": "📦 <b>Oddiy buyurtmalar</b>",
-        "canceled": "❌ <b>Bekor qilingan / Xato buyurtmalar</b>",
-        "all": "📦 <b>Barcha buyurtmalaringiz</b>"
-    }
-    title = section_titles.get(section, "📦 <b>Barcha buyurtmalaringiz</b>")
+    title = "📦 <b>Barcha buyurtmalaringiz</b>"
 
     if not total_items:
         text = (
@@ -4484,6 +4476,7 @@ def build_orders_view(user_id, section="all", page=0, auto_sync=True):
     else:
         parts = [
             f"{title} (Jami: <b>{total_items} ta</b>)\n"
+            f"📄 Sahifa: <b>{page + 1}/{total_pages}</b>\n"
             "🔄 <i>Holatlar avtomatik yangilandi</i>\n"
             "━━━━━━━━━━━━━━━━━━\n"
         ]
@@ -4501,34 +4494,20 @@ def build_orders_view(user_id, section="all", page=0, auto_sync=True):
 
     kb = types.InlineKeyboardMarkup(row_width=3)
 
-    # 1-qator: Tezkor filtrlar
+    # 1-qator: Oldingi, Sahifa, Keyingi
+    prev_cb = f"orders_page:{page-1}" if page > 0 else "orders_first_page"
+    next_cb = f"orders_page:{page+1}" if page < total_pages - 1 else "orders_last_page"
+
     kb.row(
-        types.InlineKeyboardButton("📋 Barchasi", callback_data="orders_sec:all:0"),
-        types.InlineKeyboardButton("⚡️ Jarayonda", callback_data="orders_sec:in_progress:0"),
-        types.InlineKeyboardButton("✅ Bajarilgan", callback_data="orders_sec:completed:0")
+        types.InlineKeyboardButton("⬅️ Oldingi", callback_data=prev_cb),
+        types.InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data="ignore_btn"),
+        types.InlineKeyboardButton("Keyingi ➡️", callback_data=next_cb)
     )
 
-    # 2-qator: Sahifalash (agar 20 tadan ko'p bo'lsa)
-    if total_pages > 1:
-        nav = []
-        if page > 0:
-            nav.append(types.InlineKeyboardButton("⬅️ Oldingi", callback_data=f"orders_sec:{section}:{page-1}"))
-        else:
-            nav.append(types.InlineKeyboardButton("⏹", callback_data="ignore_btn"))
-
-        nav.append(types.InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data="ignore_btn"))
-
-        if page < total_pages - 1:
-            nav.append(types.InlineKeyboardButton("Keyingi ➡️", callback_data=f"orders_sec:{section}:{page+1}"))
-        else:
-            nav.append(types.InlineKeyboardButton("⏹", callback_data="ignore_btn"))
-
-        kb.row(*nav)
-
-    # 3-qator: Yangilash va Kabinet
+    # 2-qator: Yangilash va Orqaga
     kb.row(
-        types.InlineKeyboardButton("🔄 Yangilash", callback_data=f"orders_sec:{section}:{page}"),
-        types.InlineKeyboardButton("⬅️ Kabinetga qaytish", callback_data="cabinet_menu")
+        types.InlineKeyboardButton("🔄 Yangilash", callback_data=f"orders_page:{page}"),
+        types.InlineKeyboardButton("⬅️ Orqaga", callback_data="cabinet_menu")
     )
 
     return text, kb
@@ -10357,7 +10336,7 @@ def balance_callback(call):
 
 
 # ============================================================
-# INLINE BUYURTMALARIM — BO'LIMLAR CALLBACK HANDLERS
+# INLINE BUYURTMALARIM — CALLBACK HANDLERS
 # ============================================================
 
 @bot.callback_query_handler(func=lambda call: call.data == "ignore_btn")
@@ -10365,12 +10344,26 @@ def ignore_button_callback(call):
     bot.answer_callback_query(call.id)
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "orders_first_page")
+def orders_first_page_callback(call):
+    bot.answer_callback_query(call.id, "Siz 1-sahifadasiz")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "orders_last_page")
+def orders_last_page_callback(call):
+    bot.answer_callback_query(call.id, "Siz oxirgi sahifadasiz")
+
+
 @bot.callback_query_handler(
-    func=lambda call: call.data == "orders_menu"
+    func=lambda call: call.data.startswith("orders_page:")
 )
-def orders_callback(call):
-    bot.answer_callback_query(call.id)
-    text, kb = build_orders_view(call.from_user.id, section="all", page=0, auto_sync=True)
+def orders_page_callback(call):
+    bot.answer_callback_query(call.id, "✅ Yangilandi!")
+    try:
+        page = int(call.data.split(":")[1])
+    except Exception:
+        page = 0
+    text, kb = build_orders_view(call.from_user.id, section="all", page=page, auto_sync=True)
     try:
         bot.edit_message_text(
             text,
@@ -10391,18 +10384,11 @@ def orders_callback(call):
 
 
 @bot.callback_query_handler(
-    func=lambda call: call.data.startswith("orders_sec:")
+    func=lambda call: call.data == "orders_menu" or call.data.startswith("orders_sec:")
 )
-def orders_section_callback(call):
+def orders_callback(call):
     bot.answer_callback_query(call.id)
-    parts = call.data.split(":")
-    section = parts[1] if len(parts) > 1 else "all"
-    try:
-        page = int(parts[2]) if len(parts) > 2 else 0
-    except ValueError:
-        page = 0
-
-    text, kb = build_orders_view(call.from_user.id, section, page, auto_sync=True)
+    text, kb = build_orders_view(call.from_user.id, section="all", page=0, auto_sync=True)
     try:
         bot.edit_message_text(
             text,
