@@ -215,18 +215,40 @@ def join_userbot_to_channel(channel_id, username=None, invite_link=None):
 
 # Instagram, TikTok va YouTube xizmatlarini to'liq chiqarib tashlash uchun SQL filtr
 EXCLUDED_PLATFORMS_SQL = """(
-    LOWER(category) LIKE '%instagram%'
-    OR LOWER(name) LIKE '%instagram%'
-    OR LOWER(category) LIKE '%insta%'
-    OR LOWER(name) LIKE '%insta%'
-    OR LOWER(category) LIKE '%tiktok%'
-    OR LOWER(name) LIKE '%tiktok%'
-    OR LOWER(category) LIKE '%tik tok%'
-    OR LOWER(name) LIKE '%tik tok%'
-    OR LOWER(category) LIKE '%youtube%'
-    OR LOWER(name) LIKE '%youtube%'
-    OR LOWER(category) LIKE '%yutube%'
-    OR LOWER(name) LIKE '%yutube%'
+    LOWER(category) LIKE '%instagram%' OR LOWER(name) LIKE '%instagram%'
+    OR LOWER(category) LIKE '%insta%' OR LOWER(name) LIKE '%insta%'
+    OR LOWER(category) LIKE '%tiktok%' OR LOWER(name) LIKE '%tiktok%'
+    OR LOWER(category) LIKE '%tik tok%' OR LOWER(name) LIKE '%tik tok%'
+    OR LOWER(category) LIKE '%youtube%' OR LOWER(name) LIKE '%youtube%'
+    OR LOWER(category) LIKE '%you tube%' OR LOWER(name) LIKE '%you tube%'
+    OR LOWER(category) LIKE '%yutube%' OR LOWER(name) LIKE '%yutube%'
+    OR LOWER(category) LIKE '%yt %' OR LOWER(name) LIKE '%yt %'
+    OR LOWER(category) LIKE '%obunachi%' OR LOWER(name) LIKE '%obunachi%'
+    OR LOWER(category) LIKE '%subscriber%' OR LOWER(name) LIKE '%subscriber%'
+    OR LOWER(category) LIKE '%follower%' OR LOWER(name) LIKE '%follower%'
+    OR LOWER(category) LIKE '%подписчик%' OR LOWER(name) LIKE '%подписчик%'
+    OR LOWER(category) LIKE '%member%' OR LOWER(name) LIKE '%member%'
+    OR LOWER(category) LIKE '%jonli efir%' OR LOWER(name) LIKE '%jonli efir%'
+    OR LOWER(category) LIKE '%jonli%' OR LOWER(name) LIKE '%jonli%'
+    OR LOWER(category) LIKE '%live stream%' OR LOWER(name) LIKE '%live stream%'
+    OR LOWER(category) LIKE '%stream%' OR LOWER(name) LIKE '%stream%'
+    OR LOWER(category) LIKE '%трансляци%' OR LOWER(name) LIKE '%трансляци%'
+    OR LOWER(category) LIKE '%эфир%' OR LOWER(name) LIKE '%эфир%'
+    OR LOWER(category) LIKE '%sorovnoma%' OR LOWER(name) LIKE '%sorovnoma%'
+    OR LOWER(category) LIKE '%so''rovnoma%' OR LOWER(name) LIKE '%so''rovnoma%'
+    OR LOWER(category) LIKE '%sórovnoma%' OR LOWER(name) LIKE '%sórovnoma%'
+    OR LOWER(category) LIKE '%ovoz%' OR LOWER(name) LIKE '%ovoz%'
+    OR LOWER(category) LIKE '%poll%' OR LOWER(name) LIKE '%poll%'
+    OR LOWER(category) LIKE '%vote%' OR LOWER(name) LIKE '%vote%'
+    OR LOWER(category) LIKE '%опрос%' OR LOWER(name) LIKE '%опрос%'
+    OR LOWER(category) LIKE '%голосован%' OR LOWER(name) LIKE '%голосован%'
+    OR LOWER(category) LIKE '%koment%' OR LOWER(name) LIKE '%koment%'
+    OR LOWER(category) LIKE '%komment%' OR LOWER(name) LIKE '%komment%'
+    OR LOWER(category) LIKE '%kament%' OR LOWER(name) LIKE '%kament%'
+    OR LOWER(category) LIKE '%comment%' OR LOWER(name) LIKE '%comment%'
+    OR LOWER(category) LIKE '%izoh%' OR LOWER(name) LIKE '%izoh%'
+    OR LOWER(category) LIKE '%sharh%' OR LOWER(name) LIKE '%sharh%'
+    OR LOWER(category) LIKE '%коммент%' OR LOWER(name) LIKE '%коммент%'
 )"""
 
 _tables_initialized = False
@@ -9232,7 +9254,13 @@ def sync_api_services(api_id, dry_run=False):
             name_lower = (name or "").lower()
             is_excluded = any(
                 p in cat_lower or p in name_lower
-                for p in ["instagram", "insta", "tiktok", "tik tok", "youtube", "yutube"]
+                for p in [
+                    "instagram", "insta", "tiktok", "tik tok", "youtube", "you tube", "yutube", "yt ",
+                    "obunachi", "subscriber", "follower", "подписчик", "member",
+                    "jonli efir", "jonli", "live stream", "stream", "трансляци", "эфир",
+                    "sorovnoma", "so'rovnoma", "sórovnoma", "ovoz", "poll", "vote", "опрос", "голосован",
+                    "koment", "komment", "kament", "comment", "izoh", "sharh", "коммент"
+                ]
             )
             is_avail = 0 if is_excluded else (1 if (
                 any(k in cat_lower for k in ["telegram", "reaksiya", "ko'rish", "koʼrish", "prosmotr", "ulash", "tekin", "bonus"])
