@@ -9,7 +9,7 @@ import json
 import re
 import random
 import html
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # ============================================================
@@ -1076,7 +1076,7 @@ def delete_start_config():
             pass
 
 def send_start_screen(chat_id, user=None):
-    from datetime import datetime
+    from datetime import datetime, timedelta
     import html
     import json
 
@@ -1196,7 +1196,7 @@ def send_start_screen(chat_id, user=None):
 
 def main_menu_text(message=None):
     import html
-    from datetime import datetime
+    from datetime import datetime, timedelta
 
     first_name = "Do'stim"
     if message:
@@ -9124,147 +9124,404 @@ def ai_call_provider(messages):
     )
 
 
+# ============================================================
+# USERBOT ACTION DISPATCHER FOR AI AGENT
+# ============================================================
+
+def run_userbot_coro(coro, timeout=25):
+    """Telethon asinxron vazifasini MAIN_LOOP da xavfsiz va sinxron ishga tushirish."""
+    global MAIN_LOOP
+    if not MAIN_LOOP or not MAIN_LOOP.is_running():
+        return False, "❌ Telethon asinxron sikli (MAIN_LOOP) hozir faol emas yoki to'xtagan."
+    try:
+        fut = asyncio.run_coroutine_threadsafe(coro, MAIN_LOOP)
+        return fut.result(timeout=timeout)
+    except Exception as e:
+        return False, f"❌ Userbot amalini bajarishda xatolik: {e}"
+
+
+async def _userbot_send_message_async(target, text):
+    global userbot
+    if not userbot:
+        return False, "❌ Userbot ishga tushirilmagan."
+    try:
+        if not userbot.is_connected():
+            await userbot.connect()
+    except Exception as e:
+        return False, f"❌ Userbot ulanish xatosi: {e}"
+
+    if not await userbot.is_user_authorized():
+        return False, "❌ Userbot sessiyasi avtorizatsiyadan o'tmagan."
+
+    parsed = target
+    if isinstance(target, str):
+        t_clean = target.strip()
+        if t_clean.lstrip("-").isdigit():
+            parsed = int(t_clean)
+        else:
+            parsed = t_clean
+
+    try:
+        msg = await userbot.send_message(parsed, text)
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return True, (
+            "✅ <b>Userbot orqali xabar muvaffaqiyatli yuborildi!</b>\n\n"
+            f"👤 <b>Qabul qiluvchi:</b> <code>{target}</code>\n"
+            f"💬 <b>Xabar matni:</b>\n<i>{html.escape(text)}</i>\n"
+            f"🕒 <b>Vaqt:</b> {now_str}"
+        )
+    except Exception as e:
+        if isinstance(parsed, str):
+            alt = parsed[1:] if parsed.startswith("@") else f"@{parsed}"
+            try:
+                msg = await userbot.send_message(alt, text)
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                return True, (
+                    "✅ <b>Userbot orqali xabar muvaffaqiyatli yuborildi!</b>\n\n"
+                    f"👤 <b>Qabul qiluvchi:</b> <code>{alt}</code>\n"
+                    f"💬 <b>Xabar matni:</b>\n<i>{html.escape(text)}</i>\n"
+                    f"🕒 <b>Vaqt:</b> {now_str}"
+                )
+            except Exception:
+                pass
+        return False, f"❌ Xabar yuborishda xatolik: {html.escape(str(e))}"
+
+
+def userbot_schedule_message(target, text, run_at):
+    conn = db()
+    try:
+        conn.execute(
+            """
+            INSERT INTO userbot_schedules (target, text, run_at, status, created_at)
+            VALUES (?, ?, ?, 'pending', ?)
+            """,
+            (str(target), str(text), str(run_at), datetime.now().isoformat())
+        )
+        conn.commit()
+        return True, (
+            "⏰ <b>Xabar rejalashtirildi!</b>\n\n"
+            f"👤 <b>Qabul qiluvchi:</b> <code>{target}</code>\n"
+            f"🕒 <b>Yuborilish vaqti:</b> <code>{run_at}</code>\n"
+            f"💬 <b>Xabar matni:</b>\n<i>{html.escape(text)}</i>"
+        )
+    except Exception as e:
+        return False, f"❌ Rejalashtirishda xatolik: {e}"
+    finally:
+        conn.close()
+
+
+async def _userbot_join_channel_async(target):
+    global userbot
+    if not userbot or not userbot.is_connected():
+        return False, "❌ Userbot faol emas."
+    try:
+        clean_t = str(target).strip()
+        if "t.me/+" in clean_t or "joinchat/" in clean_t:
+            hash_val = clean_t.split("+")[-1].split("/")[-1]
+            await userbot(ImportChatInviteRequest(hash_val))
+        else:
+            clean_u = clean_t.lstrip("@").split("/")[-1]
+            ent = await userbot.get_entity(clean_u)
+            await userbot(JoinChannelRequest(ent))
+        return True, f"✅ Userbot <b>{target}</b> kanal/guruhiga muvaffaqiyatli a'zo bo'ldi!"
+    except Exception as e:
+        err = repr(e)
+        if "already" in err.lower() or "participant" in err.lower():
+            return True, f"ℹ️ Userbot allaqachon <b>{target}</b> ga a'zo bo'lgan."
+        return False, f"❌ A'zo bo'lishda xatolik: {e}"
+
+
+async def _userbot_leave_channel_async(target):
+    global userbot
+    if not userbot or not userbot.is_connected():
+        return False, "❌ Userbot faol emas."
+    try:
+        clean_t = str(target).strip()
+        if clean_t.lstrip("-").isdigit():
+            clean_t = int(clean_t)
+        ent = await userbot.get_entity(clean_t)
+        await userbot.delete_dialog(ent)
+        return True, f"🚪 Userbot <b>{target}</b> kanal/guruhidan muvaffaqiyatli chiqdi."
+    except Exception as e:
+        return False, f"❌ Chiqishda xatolik: {e}"
+
+
+async def _userbot_get_info_async(target):
+    global userbot
+    if not userbot or not userbot.is_connected():
+        return False, "❌ Userbot faol emas."
+    try:
+        clean_t = str(target).strip()
+        if clean_t.lstrip("-").isdigit():
+            clean_t = int(clean_t)
+        ent = await userbot.get_entity(clean_t)
+        first_name = getattr(ent, "first_name", "") or ""
+        last_name = getattr(ent, "last_name", "") or ""
+        username = getattr(ent, "username", "") or ""
+        u_id = getattr(ent, "id", "")
+        phone = getattr(ent, "phone", "") or "Yashirin"
+        is_bot = "Ha" if getattr(ent, "bot", False) else "Yo'q"
+
+        info = (
+            f"👤 <b>Foydalanuvchi ma'lumotlari:</b>\n\n"
+            f"🆔 <b>ID:</b> <code>{u_id}</code>\n"
+            f"📛 <b>Ism:</b> {html.escape(first_name + ' ' + last_name)}\n"
+            f"🔗 <b>Username:</b> @{username}\n"
+            f"📞 <b>Telefon:</b> {phone}\n"
+            f"🤖 <b>Bot:</b> {is_bot}"
+        )
+        return True, info
+    except Exception as e:
+        return False, f"❌ Ma'lumot olishda xatolik: {e}"
+
+
+async def _userbot_status_async():
+    global userbot
+    if not userbot:
+        return True, "⚠️ Userbot yuklanmagan."
+    connected = userbot.is_connected()
+    if not connected:
+        return True, "⚠️ Userbot serverga ulanmagan."
+    authorized = await userbot.is_user_authorized()
+    if not authorized:
+        return True, "⚠️ Userbot ulangan, ammo avtorizatsiyadan o'tmagan."
+    me = await userbot.get_me()
+    name = f"{getattr(me, 'first_name', '')} {getattr(me, 'last_name', '')}".strip()
+    username = getattr(me, 'username', '')
+    active_channels = len(get_active_channel_ids())
+    return True, (
+        f"✅ <b>Userbot faol va ishlamoqda!</b>\n\n"
+        f"👤 <b>Akkaunt:</b> {html.escape(name)} (@{username})\n"
+        f"🆔 <b>ID:</b> <code>{getattr(me, 'id', '')}</code>\n"
+        f"📡 <b>Kuzatilayotgan kanallar:</b> {active_channels} ta"
+    )
+
+
+def execute_userbot_direct_intent(question):
+    """
+    Tezkor regex orqali userbot buyruqlarini aniqlash va darhol bajarish (0 soniya kechikish).
+    """
+    q = str(question or "").strip()
+
+    # 1. Xabar yuborish: @user ga salom deb yoz / yubor
+    rx_send = re.compile(
+        r'^(?:/ai\s+)?(?:userbot\s+)?(?:orqali\s+)?(@[A-Za-z0-9_]{3,64}|\d{5,20})\s+ga\s+[\"\'«]?(.*?)[\"\'»]?\s*(?:deb|dib)?\s*(?:yoz|yubor|jo[\'‘`]?nat|yozib\s+yubor)[\.!\?]?$',
+        re.IGNORECASE
+    )
+    m = rx_send.match(q)
+    if m:
+        target, text = m.group(1), m.group(2).strip()
+        if not text:
+            text = "Salom!"
+        ok, res = run_userbot_coro(_userbot_send_message_async(target, text))
+        return res
+
+    # 1b. Xabar yubor: @user: xabar matni
+    rx_send2 = re.compile(
+        r'^(?:/ai\s+)?(?:userbot\s+)?(?:orqali\s+)?(?:xabar\s+yoz|xabar\s+yubor)\s+(@[A-Za-z0-9_]{3,64}|\d{5,20})(?:\s*:\s*|\s+ga\s+)(.+)$',
+        re.IGNORECASE
+    )
+    m = rx_send2.match(q)
+    if m:
+        target, text = m.group(1), m.group(2).strip()
+        ok, res = run_userbot_coro(_userbot_send_message_async(target, text))
+        return res
+
+    # 2. Rejalashtirilgan xabar: ertaga/bugun HH:MM da @user ga ...
+    rx_sched = re.compile(
+        r'^(?:/ai\s+)?(ertaga|bugun)\s+(\d{1,2}:\d{2})\s*(?:da)?\s+(@[A-Za-z0-9_]{3,64}|\d{5,20})\s+ga\s+[\"\'«]?(.*?)[\"\'»]?\s*(?:deb|dib)?\s*(?:yoz|yubor|jo[\'‘`]?nat|eslatma)[\.!\?]?$',
+        re.IGNORECASE
+    )
+    m = rx_sched.match(q)
+    if m:
+        day_word, time_str, target, text = m.group(1).lower(), m.group(2), m.group(3), m.group(4).strip()
+        if not text:
+            text = "Salom!"
+        target_date = datetime.now()
+        if day_word == "ertaga":
+            target_date += timedelta(days=1)
+        run_at = f"{target_date.strftime('%Y-%m-%d')} {time_str}"
+        ok, res = userbot_schedule_message(target, text, run_at)
+        return res
+
+    # 3. Userbot status
+    rx_status = re.compile(
+        r'^(?:/ai\s+)?(?:userbot\s+)?(?:status|holati|ishlayaptimi|tekshir)[\.!\?]?$',
+        re.IGNORECASE
+    )
+    if rx_status.match(q):
+        ok, res = run_userbot_coro(_userbot_status_async())
+        return res
+
+    # 4. User info: @user haqida ma'lumot
+    rx_info = re.compile(
+        r'^(?:/ai\s+)?(?:userbot\s+)?(@[A-Za-z0-9_]{3,64}|\d{5,20})\s+(?:haqida\s+ma[\'‘`]?lumot|profilini\s+tekshir|profilini\s+ko[\'‘`]?r)[\.!\?]?$',
+        re.IGNORECASE
+    )
+    m = rx_info.match(q)
+    if m:
+        target = m.group(1)
+        ok, res = run_userbot_coro(_userbot_get_info_async(target))
+        return res
+
+    # 5. Kanalga a'zo bo'lish: @kanal ga a'zo bo'l
+    rx_join = re.compile(
+        r'^(?:/ai\s+)?(?:userbot\s+)?(?:kanalga\s+)?(@[A-Za-z0-9_]{3,64}|https?://t\.me/\S+)\s+(?:ga\s+)?(?:a[\'‘`]?zo\s+bo[\'‘`]?l|qo[\'‘`]?shil)[\.!\?]?$',
+        re.IGNORECASE
+    )
+    m = rx_join.match(q)
+    if m:
+        target = m.group(1)
+        ok, res = run_userbot_coro(_userbot_join_channel_async(target))
+        return res
+
+    # 6. Kanaldan chiqish: @kanal dan chiq
+    rx_leave = re.compile(
+        r'^(?:/ai\s+)?(?:userbot\s+)?(?:kanaldan\s+)?(@[A-Za-z0-9_]{3,64}|https?://t\.me/\S+)\s+dan\s+chiq[\.!\?]?$',
+        re.IGNORECASE
+    )
+    m = rx_leave.match(q)
+    if m:
+        target = m.group(1)
+        ok, res = run_userbot_coro(_userbot_leave_channel_async(target))
+        return res
+
+    return None
+
+
 def ai_agent_execute(admin_id, question):
     """
-    AI Agent 2.0.
-
-    AI faqat bot holatini o'qiydi va tahlil qiladi.
-    Moliyaviy o'zgartirish, ban, API order yoki
-    arbitrary code execution bu qatlamdan bajarilmaydi.
+    AI Agent — Aqlli yordamchi va Userbot buyruqlarini bajaruvchi markaz.
     """
-
     question = str(question or "").strip()
 
     if not question:
-        return "❌ Savol bo'sh."
+        return "❌ Savol yoki buyruq kiritilmadi."
 
     if len(question) > 4000:
         question = question[:4000]
 
+    # 1. Tezkor to'g'ridan-to'g'ri userbot buyruqlarini tekshirish (0 soniyada bajariladi)
+    direct_res = execute_userbot_direct_intent(question)
+    if direct_res:
+        ai_save_memory(
+            admin_id,
+            f"Admin buyrug'i: {question[:500]}\nNatija: {direct_res[:1000]}"
+        )
+        return direct_res
+
+    # 2. Agar to'g'ridan-to'g'ri pattern bo'lmasa, AI (Groq / OpenAI) orqali tahlil qilish
     context = ai_collect_context(question)
     memory = ai_get_memory(admin_id)
 
     system_prompt = """
 Siz CheapReaction Telegram botining administrator AI yordamchisisiz.
+Admin sizga bot bo'yicha tahliliy savollar berishi yoki USERBOT orqali amallarni bajarishni buyurishi mumkin.
 
-Javob tili: o'zbek tili.
-Javobni qisqa, aniq va amaliy bering.
+SIZDA USERBOT BOSHQARUVI MAVJUD:
+Agar admin biror kishiga yoki kanalga xabar yuborishni, xabar rejalashtirishni, kanalga a'zo bo'lishni yoki userbot amallarini so'rasa, quyidagi formatda faqat toza JSON qaytaring:
 
-Sizga berilgan BOT CONTEXT faqat o'qish uchun.
-Hech qachon o'zingizcha:
-- pul qo'shmang;
-- pul ayirmang;
-- balansni o'zgartirmang;
-- foydalanuvchini bloklamang yoki blokdan chiqarmang;
-- real SMM API order yubormang;
-- Telegram xabar yubormang;
-- shell/Python kod bajarmang;
-- fayl o'chirmang;
-- token, API key yoki maxfiy ma'lumotni ko'rsatmang.
+1. Xabar yuborish uchun:
+```json
+{"action": "userbot_send_message", "target": "@username_yoki_id", "text": "xabar matni"}
+```
 
-Agar administrator shunday amalni so'rasa,
-amal bajarilgan deb YOLG'ON aytmang.
-Buning o'rniga kerakli amalni aniq tushuntiring
-va administrator panelidagi tegishli bo'limdan
-bajarish kerakligini ayting.
+2. Rejalashtirilgan xabar uchun:
+```json
+{"action": "userbot_schedule_message", "target": "@username_yoki_id", "text": "xabar matni", "run_at": "YYYY-MM-DD HH:MM"}
+```
 
-Agar user ID yoki username topilsa,
-uning ko'rsatilgan ma'lumotlarini tahlil qiling.
+3. Kanal/guruhga a'zo bo'lish:
+```json
+{"action": "userbot_join_channel", "target": "@kanal_yoki_link"}
+```
 
-Agar statistika so'ralsa,
-faqat berilgan raqamlardan foydalaning.
+4. Foydalanuvchi/Kanal haqida ma'lumot olish:
+```json
+{"action": "userbot_get_info", "target": "@username_yoki_id"}
+```
 
-BOT CONTEXT:
+5. Userbot holati:
+```json
+{"action": "userbot_status"}
+```
+
+Agar admin oddiy savol bersa yoki tahlil so'rasa, JSON chiqarmang, o'zbek tilida qisqa, tushunarli va aniq javob bering.
 """
 
-    prompt = (
-        system_prompt
-        + "\n"
-        + json.dumps(
-            context,
-            ensure_ascii=False,
-            indent=2,
-            default=str
-        )
-        + "\n\nOLD MEMORY:\n"
-        + (memory[-6000:] if memory else "Yo'q")
-        + "\n\nADMIN QUESTION:\n"
-        + question
-    )
+    prompt_messages = [
+        {"role": "system", "content": system_prompt},
+        {
+            "role": "user",
+            "content": (
+                "BOT CONTEXT:\n"
+                + json.dumps(context, ensure_ascii=False, indent=2, default=str)
+                + "\n\nOLD MEMORY:\n"
+                + (memory[-4000:] if memory else "Yo'q")
+                + "\n\nADMIN BUYRUG'I / SAVOLI:\n"
+                + question
+            )
+        }
+    ]
 
-    result = ai_call_provider(
-        [
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
-            {
-                "role": "user",
-                "content": (
-                    "BOT CONTEXT:\n"
-                    + json.dumps(
-                        context,
-                        ensure_ascii=False,
-                        indent=2,
-                        default=str
-                    )
-                    + "\n\nOLD MEMORY:\n"
-                    + (
-                        memory[-6000:]
-                        if memory
-                        else "Yo'q"
-                    )
-                    + "\n\nADMIN QUESTION:\n"
-                    + question
-                ),
-            },
-        ]
-    )
+    try:
+        raw_res = ai_call_provider(prompt_messages)
+    except Exception as e:
+        return f"❌ AI xatosi: {e}"
 
-    # Memory'ga maxfiy tokenlar emas,
-    # faqat suhbatning qisqa mazmunini saqlaymiz.
-    new_memory = (
-        "Oxirgi admin savoli: "
-        + question[:1500]
-        + "\nAI javobi: "
-        + result[:3000]
-    )
+    # LLM javobida action JSON borligini tekshirish
+    action_match = re.search(r'\{[^{}]*"action"\s*:\s*"userbot_[a-z_]+"[^{}]*\}', raw_res, re.DOTALL)
+    if action_match:
+        try:
+            act_data = json.loads(action_match.group(0))
+            action_type = act_data.get("action")
+            if action_type == "userbot_send_message":
+                target = act_data.get("target")
+                text = act_data.get("text", "Salom!")
+                ok, res = run_userbot_coro(_userbot_send_message_async(target, text))
+                ai_save_memory(admin_id, f"Admin: {question[:300]}\nNatija: {res[:500]}")
+                return res
+            elif action_type == "userbot_schedule_message":
+                target = act_data.get("target")
+                text = act_data.get("text", "Salom!")
+                run_at = act_data.get("run_at", datetime.now().strftime("%Y-%m-%d %H:%M"))
+                ok, res = userbot_schedule_message(target, text, run_at)
+                ai_save_memory(admin_id, f"Admin: {question[:300]}\nNatija: {res[:500]}")
+                return res
+            elif action_type == "userbot_join_channel":
+                target = act_data.get("target")
+                ok, res = run_userbot_coro(_userbot_join_channel_async(target))
+                ai_save_memory(admin_id, f"Admin: {question[:300]}\nNatija: {res[:500]}")
+                return res
+            elif action_type == "userbot_get_info":
+                target = act_data.get("target")
+                ok, res = run_userbot_coro(_userbot_get_info_async(target))
+                ai_save_memory(admin_id, f"Admin: {question[:300]}\nNatija: {res[:500]}")
+                return res
+            elif action_type == "userbot_status":
+                ok, res = run_userbot_coro(_userbot_status_async())
+                ai_save_memory(admin_id, f"Admin: {question[:300]}\nNatija: {res[:500]}")
+                return res
+        except Exception:
+            pass
 
-    ai_save_memory(
-        admin_id,
-        new_memory
-    )
+    new_memory = f"Admin: {question[:500]}\nAI: {raw_res[:1000]}"
+    ai_save_memory(admin_id, new_memory)
 
     conn = db()
-
     try:
         conn.execute(
             """
-            INSERT INTO ai_agent_runs
-            (
-                admin_id,
-                question,
-                plan,
-                result,
-                created_at
-            )
+            INSERT INTO ai_agent_runs (admin_id, question, plan, result, created_at)
             VALUES (?, ?, ?, ?, ?)
             """,
-            (
-                int(admin_id),
-                question,
-                "READ_ONLY_ANALYSIS",
-                result[:10000],
-                datetime.now().isoformat()
-            )
+            (int(admin_id), question, "AI_ANALYSIS", raw_res[:10000], datetime.now().isoformat())
         )
-
         conn.commit()
-
     finally:
         conn.close()
 
-    return result
+    return raw_res
 
 
 
@@ -12196,6 +12453,33 @@ EXCLUDED_BUTTONS = {
     )
 )
 def default_user_message(message):
+    # Agar admin xabar yozsa — to'g'ridan-to'g'ri AI / Userbot buyrug'i sifatida bajariladi
+    if is_admin(message.from_user):
+        question = (message.text or "").strip()
+        wait = bot.send_message(
+            message.chat.id,
+            "🤖 <b>AI Agent ishlayapti...</b>",
+            parse_mode="HTML"
+        )
+        try:
+            result = ai_agent_execute(message.from_user.id, question)
+            bot.edit_message_text(
+                result,
+                message.chat.id,
+                wait.message_id,
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            try:
+                bot.edit_message_text(
+                    f"❌ Xatolik yuz berdi: {e}",
+                    message.chat.id,
+                    wait.message_id
+                )
+            except Exception:
+                pass
+        return
+
     try:
         save_message_history(
             message.from_user.id,
