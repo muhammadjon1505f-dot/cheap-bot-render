@@ -9140,6 +9140,102 @@ def run_userbot_coro(coro, timeout=25):
         return False, f"❌ Userbot amalini bajarishda xatolik: {e}"
 
 
+async def resolve_userbot_entity(target):
+    """
+    Telethon uchun har qanday target (ID, @username, link) ni xavfsiz entity ko'rinishida aniqlash.
+    MTProto 'Could not find the input entity' xatosining oldini oladi.
+    """
+    global userbot
+    if not userbot:
+        raise ValueError("Userbot ishga tushirilmagan.")
+
+    # 1. Agar allaqachon entity ob'ekti bo'lsa
+    if hasattr(target, "id") or hasattr(target, "user_id"):
+        return target
+
+    t_str = str(target).strip()
+
+    # 2. Agar t.me havolasi bo'lsa (masalan https://t.me/xua202 yoki t.me/xua202)
+    if "t.me/" in t_str:
+        clean_link = t_str.split("t.me/")[-1].split("?")[0].strip("/")
+        if clean_link.startswith("+") or "joinchat/" in t_str:
+            return clean_link
+        t_str = clean_link
+
+    # 3. Agar username bo'lsa (masalan @xua202 yoki xua202)
+    if not t_str.lstrip("-").isdigit():
+        clean_u = t_str.lstrip("@")
+        try:
+            return await userbot.get_entity(clean_u)
+        except Exception:
+            try:
+                return await userbot.get_entity(f"@{clean_u}")
+            except Exception as ue:
+                raise ValueError(f"Foydalanuvchi yoki kanal topilmadi (@{clean_u}): {ue}")
+
+    # 4. Agar raqamli ID bo'lsa (masalan 8191930658 yoki -100...)
+    u_id = int(t_str)
+
+    # 4a. Avval Telethon ichki keshidan to'g'ridan-to'g'ri tekshirish
+    try:
+        return await userbot.get_entity(u_id)
+    except Exception:
+        pass
+
+    # 4b. smm_bot.db foydalanuvchilar bazasidan username ni qidirish
+    try:
+        conn = db()
+        row = conn.execute("SELECT username FROM users WHERE user_id = ?", (u_id,)).fetchone()
+        conn.close()
+        if row and row["username"]:
+            uname = str(row["username"]).strip().lstrip("@")
+            if uname:
+                try:
+                    return await userbot.get_entity(uname)
+                except Exception:
+                    pass
+    except Exception as dbe:
+        print(f"⚠️ resolve_userbot_entity DB qidiruvida xatolik: {dbe}")
+
+    # 4c. channels jadvalidan kanal username ini qidirish (agar kanal ID si bo'lsa)
+    try:
+        conn = db()
+        ch_row = conn.execute(
+            "SELECT username FROM channels WHERE channel_id = ? OR channel_id = ? LIMIT 1",
+            (u_id, str(u_id))
+        ).fetchone()
+        conn.close()
+        if ch_row and ch_row["username"]:
+            ch_uname = str(ch_row["username"]).strip().lstrip("@")
+            if ch_uname:
+                try:
+                    return await userbot.get_entity(ch_uname)
+                except Exception:
+                    pass
+    except Exception as che:
+        print(f"⚠️ resolve_userbot_entity kanal DB qidiruvida xatolik: {che}")
+
+    # 4d. Userbot ning faol dialoglaridan (suhbatlaridan) qidirish
+    try:
+        async for dialog in userbot.iter_dialogs(limit=100):
+            ent = dialog.entity
+            if getattr(ent, "id", None) == u_id:
+                return ent
+    except Exception as de:
+        print(f"⚠️ resolve_userbot_entity dialoglarda qidiruvda xatolik: {de}")
+
+    # 4e. get_input_entity orqali oxirgi urinish
+    try:
+        return await userbot.get_input_entity(u_id)
+    except Exception:
+        pass
+
+    raise ValueError(
+        f"Foydalanuvchi/Kanal ({u_id}) Telegram entity keshida topilmadi. "
+        f"Telegram MTProto qoidalariga ko'ra ID orqali xabar yozish uchun u bilan avval suhbat bo'lgan bo'lishi yoki uning @username ini kiritishingiz kerak."
+    )
+
+
 async def _userbot_send_message_async(target, text):
     global userbot
     if not userbot:
@@ -9153,38 +9249,37 @@ async def _userbot_send_message_async(target, text):
     if not await userbot.is_user_authorized():
         return False, "❌ Userbot sessiyasi avtorizatsiyadan o'tmagan."
 
-    parsed = target
-    if isinstance(target, str):
-        t_clean = target.strip()
-        if t_clean.lstrip("-").isdigit():
-            parsed = int(t_clean)
-        else:
-            parsed = t_clean
-
     try:
-        msg = await userbot.send_message(parsed, text)
+        entity = await resolve_userbot_entity(target)
+        msg = await userbot.send_message(entity, text)
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        disp = str(target)
+        if hasattr(entity, "username") and entity.username:
+            disp = f"@{entity.username}"
+            if str(target) != str(entity.username) and str(target) != f"@{entity.username}":
+                disp += f" (ID: <code>{getattr(entity, 'id', target)}</code>)"
+        elif hasattr(entity, "first_name") and entity.first_name:
+            disp = f"{entity.first_name} (ID: <code>{getattr(entity, 'id', target)}</code>)"
+        elif hasattr(entity, "title") and entity.title:
+            disp = f"{entity.title} (ID: <code>{getattr(entity, 'id', target)}</code>)"
+
         return True, (
             "✅ <b>Userbot orqali xabar muvaffaqiyatli yuborildi!</b>\n\n"
-            f"👤 <b>Qabul qiluvchi:</b> <code>{target}</code>\n"
+            f"👤 <b>Qabul qiluvchi:</b> {disp}\n"
             f"💬 <b>Xabar matni:</b>\n<i>{html.escape(text)}</i>\n"
             f"🕒 <b>Vaqt:</b> {now_str}"
         )
     except Exception as e:
-        if isinstance(parsed, str):
-            alt = parsed[1:] if parsed.startswith("@") else f"@{parsed}"
-            try:
-                msg = await userbot.send_message(alt, text)
-                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                return True, (
-                    "✅ <b>Userbot orqali xabar muvaffaqiyatli yuborildi!</b>\n\n"
-                    f"👤 <b>Qabul qiluvchi:</b> <code>{alt}</code>\n"
-                    f"💬 <b>Xabar matni:</b>\n<i>{html.escape(text)}</i>\n"
-                    f"🕒 <b>Vaqt:</b> {now_str}"
-                )
-            except Exception:
-                pass
-        return False, f"❌ Xabar yuborishda xatolik: {html.escape(str(e))}"
+        err_str = str(e)
+        if "Could not find the input entity" in err_str:
+            return False, (
+                f"❌ <b>Qabul qiluvchi topilmadi ({target}):</b>\n\n"
+                "Telegram MTProto qoidalariga ko'ra, ID raqam orqali xabar yuborish uchun u foydalanuvchi bilan "
+                "userbot o'rtasida avval muloqot bo'lgan bo'lishi yoki uning <b>@username</b> ini kiritishingiz kerak.\n"
+                "<i>Masalan:</i> <code>@xua202 ga Salom deb yoz</code>"
+            )
+        return False, f"❌ Xabar yuborishda xatolik: {html.escape(err_str)}"
 
 
 def userbot_schedule_message(target, text, run_at):
@@ -9220,8 +9315,7 @@ async def _userbot_join_channel_async(target):
             hash_val = clean_t.split("+")[-1].split("/")[-1]
             await userbot(ImportChatInviteRequest(hash_val))
         else:
-            clean_u = clean_t.lstrip("@").split("/")[-1]
-            ent = await userbot.get_entity(clean_u)
+            ent = await resolve_userbot_entity(target)
             await userbot(JoinChannelRequest(ent))
         return True, f"✅ Userbot <b>{target}</b> kanal/guruhiga muvaffaqiyatli a'zo bo'ldi!"
     except Exception as e:
@@ -9236,10 +9330,7 @@ async def _userbot_leave_channel_async(target):
     if not userbot or not userbot.is_connected():
         return False, "❌ Userbot faol emas."
     try:
-        clean_t = str(target).strip()
-        if clean_t.lstrip("-").isdigit():
-            clean_t = int(clean_t)
-        ent = await userbot.get_entity(clean_t)
+        ent = await resolve_userbot_entity(target)
         await userbot.delete_dialog(ent)
         return True, f"🚪 Userbot <b>{target}</b> kanal/guruhidan muvaffaqiyatli chiqdi."
     except Exception as e:
@@ -9251,22 +9342,20 @@ async def _userbot_get_info_async(target):
     if not userbot or not userbot.is_connected():
         return False, "❌ Userbot faol emas."
     try:
-        clean_t = str(target).strip()
-        if clean_t.lstrip("-").isdigit():
-            clean_t = int(clean_t)
-        ent = await userbot.get_entity(clean_t)
+        ent = await resolve_userbot_entity(target)
         first_name = getattr(ent, "first_name", "") or ""
         last_name = getattr(ent, "last_name", "") or ""
         username = getattr(ent, "username", "") or ""
         u_id = getattr(ent, "id", "")
         phone = getattr(ent, "phone", "") or "Yashirin"
         is_bot = "Ha" if getattr(ent, "bot", False) else "Yo'q"
+        full_name = f"{first_name} {last_name}".strip() or getattr(ent, "title", "Noma'lum")
 
         info = (
             f"👤 <b>Foydalanuvchi ma'lumotlari:</b>\n\n"
             f"🆔 <b>ID:</b> <code>{u_id}</code>\n"
-            f"📛 <b>Ism:</b> {html.escape(first_name + ' ' + last_name)}\n"
-            f"🔗 <b>Username:</b> @{username}\n"
+            f"📛 <b>Ism:</b> {html.escape(full_name)}\n"
+            f"🔗 <b>Username:</b> {'@' + username if username else 'Mavjud emas'}\n"
             f"📞 <b>Telefon:</b> {phone}\n"
             f"🤖 <b>Bot:</b> {is_bot}"
         )
@@ -9302,51 +9391,58 @@ def execute_userbot_direct_intent(question):
     Tezkor regex orqali userbot buyruqlarini aniqlash va darhol bajarish (0 soniya kechikish).
     """
     q = str(question or "").strip()
+    stop_words = {'men', 'biz', 'sen', 'siz', 'u', 'ular', 'bot', 'kanal', 'guruh', 'hamma', 'barcha', 'admin', 'faqat'}
 
-    # 1. Xabar yuborish: @user ga salom deb yoz / yubor
+    # 1. Xabar yuborish: @user ga salom deb yoz / yubor / jo'nat
     rx_send = re.compile(
-        r'^(?:/ai\s+)?(?:userbot\s+)?(?:orqali\s+)?(@[A-Za-z0-9_]{3,64}|\d{5,20})\s+ga\s+[\"\'«]?(.*?)[\"\'»]?\s*(?:deb|dib)?\s*(?:yoz|yubor|jo[\'‘`]?nat|yozib\s+yubor)[\.!\?]?$',
+        r'^(?:/ai\s+)?(?:(?:ai|yordamchi)\s+)?(?:userbot(?:ga|dan|da)?\s+)?(?:orqali\s+)?(@[A-Za-z0-9_]{3,64}|[A-Za-z0-9_]{4,64}|\d{5,20}|(?:https?://)?t\.me/[A-Za-z0-9_]{3,64})\s+ga\s+[\"\'«]?(.*?)[\"\'»]?\s*(?:deb|dib)?\s*(?:yoz|yubor|jo[\'‘`]?nat|yozib\s+yubor)[\.!\?]?$',
         re.IGNORECASE
     )
     m = rx_send.match(q)
     if m:
         target, text = m.group(1), m.group(2).strip()
-        if not text:
-            text = "Salom!"
-        ok, res = run_userbot_coro(_userbot_send_message_async(target, text))
-        return res
+        clean_target = target.lstrip("@").lower()
+        if clean_target not in stop_words:
+            if not text:
+                text = "Salom!"
+            ok, res = run_userbot_coro(_userbot_send_message_async(target, text))
+            return res
 
     # 1b. Xabar yubor: @user: xabar matni
     rx_send2 = re.compile(
-        r'^(?:/ai\s+)?(?:userbot\s+)?(?:orqali\s+)?(?:xabar\s+yoz|xabar\s+yubor)\s+(@[A-Za-z0-9_]{3,64}|\d{5,20})(?:\s*:\s*|\s+ga\s+)(.+)$',
+        r'^(?:/ai\s+)?(?:(?:ai|yordamchi)\s+)?(?:userbot(?:ga|dan|da)?\s+)?(?:orqali\s+)?(?:(?:xabar\s+)?(?:yoz|yubor|jo[\'‘`]?nat))\s+(@[A-Za-z0-9_]{3,64}|[A-Za-z0-9_]{4,64}|\d{5,20})(?:\s*:\s*|\s+ga\s+)(.+)$',
         re.IGNORECASE
     )
     m = rx_send2.match(q)
     if m:
         target, text = m.group(1), m.group(2).strip()
-        ok, res = run_userbot_coro(_userbot_send_message_async(target, text))
-        return res
+        clean_target = target.lstrip("@").lower()
+        if clean_target not in stop_words:
+            ok, res = run_userbot_coro(_userbot_send_message_async(target, text))
+            return res
 
     # 2. Rejalashtirilgan xabar: ertaga/bugun HH:MM da @user ga ...
     rx_sched = re.compile(
-        r'^(?:/ai\s+)?(ertaga|bugun)\s+(\d{1,2}:\d{2})\s*(?:da)?\s+(@[A-Za-z0-9_]{3,64}|\d{5,20})\s+ga\s+[\"\'«]?(.*?)[\"\'»]?\s*(?:deb|dib)?\s*(?:yoz|yubor|jo[\'‘`]?nat|eslatma)[\.!\?]?$',
+        r'^(?:/ai\s+)?(?:(?:ai|yordamchi)\s+)?(?:userbot(?:ga|dan|da)?\s+)?(?:orqali\s+)?(ertaga|bugun)\s+(\d{1,2}:\d{2})\s*(?:da)?\s+(@[A-Za-z0-9_]{3,64}|[A-Za-z0-9_]{4,64}|\d{5,20})\s+ga\s+[\"\'«]?(.*?)[\"\'»]?\s*(?:deb|dib)?\s*(?:yoz|yubor|jo[\'‘`]?nat|eslatma)[\.!\?]?$',
         re.IGNORECASE
     )
     m = rx_sched.match(q)
     if m:
         day_word, time_str, target, text = m.group(1).lower(), m.group(2), m.group(3), m.group(4).strip()
-        if not text:
-            text = "Salom!"
-        target_date = datetime.now()
-        if day_word == "ertaga":
-            target_date += timedelta(days=1)
-        run_at = f"{target_date.strftime('%Y-%m-%d')} {time_str}"
-        ok, res = userbot_schedule_message(target, text, run_at)
-        return res
+        clean_target = target.lstrip("@").lower()
+        if clean_target not in stop_words:
+            if not text:
+                text = "Salom!"
+            target_date = datetime.now()
+            if day_word == "ertaga":
+                target_date += timedelta(days=1)
+            run_at = f"{target_date.strftime('%Y-%m-%d')} {time_str}"
+            ok, res = userbot_schedule_message(target, text, run_at)
+            return res
 
     # 3. Userbot status
     rx_status = re.compile(
-        r'^(?:/ai\s+)?(?:userbot\s+)?(?:status|holati|ishlayaptimi|tekshir)[\.!\?]?$',
+        r'^(?:/ai\s+)?(?:(?:ai|yordamchi)\s+)?(?:userbot(?:ning)?\s+)?(?:status[a-z]*|holati|ishlayaptimi|tekshir)[\.!\?]?$',
         re.IGNORECASE
     )
     if rx_status.match(q):
@@ -9355,7 +9451,7 @@ def execute_userbot_direct_intent(question):
 
     # 4. User info: @user haqida ma'lumot
     rx_info = re.compile(
-        r'^(?:/ai\s+)?(?:userbot\s+)?(@[A-Za-z0-9_]{3,64}|\d{5,20})\s+(?:haqida\s+ma[\'‘`]?lumot|profilini\s+tekshir|profilini\s+ko[\'‘`]?r)[\.!\?]?$',
+        r'^(?:/ai\s+)?(?:(?:ai|yordamchi)\s+)?(?:userbot\s+)?(@[A-Za-z0-9_]{3,64}|\d{5,20})\s+(?:haqida\s+ma[\'‘`]?lumot|profilini\s+tekshir|profilini\s+ko[\'‘`]?r)[\.!\?]?$',
         re.IGNORECASE
     )
     m = rx_info.match(q)
@@ -9366,7 +9462,7 @@ def execute_userbot_direct_intent(question):
 
     # 5. Kanalga a'zo bo'lish: @kanal ga a'zo bo'l
     rx_join = re.compile(
-        r'^(?:/ai\s+)?(?:userbot\s+)?(?:kanalga\s+)?(@[A-Za-z0-9_]{3,64}|https?://t\.me/\S+)\s+(?:ga\s+)?(?:a[\'‘`]?zo\s+bo[\'‘`]?l|qo[\'‘`]?shil)[\.!\?]?$',
+        r'^(?:/ai\s+)?(?:(?:ai|yordamchi)\s+)?(?:userbot(?:ga|da)?\s+)?(?:kanalga\s+)?(@[A-Za-z0-9_]{3,64}|https?://t\.me/\S+)\s+(?:ga\s+)?(?:a[\'‘`]?zo\s+bo[\'‘`]?l|qo[\'‘`]?shil)[\.!\?]?$',
         re.IGNORECASE
     )
     m = rx_join.match(q)
@@ -9377,7 +9473,7 @@ def execute_userbot_direct_intent(question):
 
     # 6. Kanaldan chiqish: @kanal dan chiq
     rx_leave = re.compile(
-        r'^(?:/ai\s+)?(?:userbot\s+)?(?:kanaldan\s+)?(@[A-Za-z0-9_]{3,64}|https?://t\.me/\S+)\s+dan\s+chiq[\.!\?]?$',
+        r'^(?:/ai\s+)?(?:(?:ai|yordamchi)\s+)?(?:userbot(?:ga|da)?\s+)?(?:kanaldan\s+)?(@[A-Za-z0-9_]{3,64}|https?://t\.me/\S+)\s+dan\s+chiq[\.!\?]?$',
         re.IGNORECASE
     )
     m = rx_leave.match(q)
@@ -11335,6 +11431,10 @@ async def start_userbot():
                 await asyncio.sleep(300)
                 return
             connected = True
+            try:
+                asyncio.create_task(userbot.get_dialogs(limit=50))
+            except Exception:
+                pass
             break
         except Exception as e:
             log_debug(f"⚠️ USERBOT CONNECT urinish {attempt} xatosi: {type(e).__name__}: {e}")
@@ -12463,12 +12563,19 @@ def default_user_message(message):
         )
         try:
             result = ai_agent_execute(message.from_user.id, question)
-            bot.edit_message_text(
-                result,
-                message.chat.id,
-                wait.message_id,
-                parse_mode="HTML"
-            )
+            try:
+                bot.edit_message_text(
+                    result,
+                    message.chat.id,
+                    wait.message_id,
+                    parse_mode="HTML"
+                )
+            except Exception:
+                bot.edit_message_text(
+                    result,
+                    message.chat.id,
+                    wait.message_id
+                )
         except Exception as e:
             try:
                 bot.edit_message_text(
@@ -12569,9 +12676,8 @@ async def userbot_schedule_worker():
                 try:
                     if 'userbot' in globals() and userbot and userbot.is_connected():
                         target = row["target"]
-                        if isinstance(target, str) and (target.lstrip("-").isdigit()):
-                            target = int(target)
-                        await userbot.send_message(target, row["text"])
+                        ent = await resolve_userbot_entity(target)
+                        await userbot.send_message(ent, row["text"])
                         conn = db()
                         conn.execute(
                             "UPDATE userbot_schedules SET status = 'sent' WHERE id = ?",
