@@ -1154,12 +1154,8 @@ def send_start_screen(chat_id, user=None):
         f"👋 Salom! <b>{first_name}</b> "
         f"<a href=\"https://t.me/{bot_username}\">@{bot_username}</a> "
         "ga xush kelibsiz!\n\n"
-        "<blockquote>🤖 Ushbu bot orqali siz <b>Tekin AI</b> bilan bemalol suhbatlashishingiz, kanallaringizga avto buyurtmalar ulashingiz va SMM xizmatlaridan qulay foydalanishingiz mumkin.</blockquote>
-
-"
-        "<i>📌 Savolingiz bo'lsa xabar yuboring — AI darhol javob beradi yoki quyidagi menyudan foydalaning!</i>
-
-"
+        "<blockquote>🤖 Ushbu bot orqali siz <b>Tekin AI</b> bilan bemalol suhbatlashishingiz, kanallaringizga avto buyurtmalar ulashingiz va SMM xizmatlaridan qulay foydalanishingiz mumkin.</blockquote>\n\n"
+        "<i>📌 Savolingiz bo'lsa xabar yuboring — AI darhol javob beradi yoki quyidagi menyudan foydalaning!</i>\n\n"
         "🙌 Bizni tanlaganingizdan xursandmiz!\n"
         f"{now}"
     )
