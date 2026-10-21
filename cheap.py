@@ -4279,66 +4279,149 @@ def show_balance(chat_id, user_id):
 
 
 # ============================================================
-# BUYURTMALARIM
+# BUYURTMALARIM — BO'LIMLAR (SECTIONS) VA RO'YXAT
 # ============================================================
 
-def show_orders(chat_id, user_id):
+def get_user_order_stats(user_id):
+    """Foydalanuvchi buyurtmalarining umumiy va bo'limlar bo'yicha sonini hisoblash."""
     conn = db()
+    try:
+        rows = conn.execute("""
+            SELECT status FROM orders WHERE user_id = ?
+        """, (user_id,)).fetchall()
 
-    rows = conn.execute(
-        """
-        SELECT o.id, o.quantity, o.price, o.status, o.created_at,
-               COALESCE(s.name, 'SMM xizmati') AS service_name
-        FROM orders o
-        LEFT JOIN services s ON o.service_id = s.id
-        WHERE o.user_id = ?
-        ORDER BY o.id DESC
-        LIMIT 10
-        """,
-        (user_id,)
-    ).fetchall()
+        auto_rows = conn.execute("""
+            SELECT status FROM auto_orders WHERE owner_id = ?
+        """, (user_id,)).fetchall()
+    finally:
+        conn.close()
 
-    auto_rows = conn.execute(
-        """
-        SELECT ao.id, ao.quantity, ao.price, ao.status, ao.created_at,
-               COALESCE(s.name, 'Avto buyurtma') AS service_name
-        FROM auto_orders ao
-        LEFT JOIN services s ON ao.service_id = s.id
-        WHERE ao.owner_id = ?
-        ORDER BY ao.id DESC
-        LIMIT 10
-        """,
-        (user_id,)
-    ).fetchall()
+    total_manual = len(rows)
+    total_auto = len(auto_rows)
 
-    conn.close()
+    all_statuses = [str(r["status"] or "").lower() for r in rows] + [str(r["status"] or "").lower() for r in auto_rows]
 
-    all_orders = []
-    for r in rows:
-        all_orders.append({
-            "id": r["id"],
-            "type": "Oddiy",
-            "service": r["service_name"],
-            "qty": r["quantity"] or 0,
-            "price": float(r["price"] or 0),
-            "status": r["status"] or "Pending",
-            "time": (r["created_at"] or "")[:19]
+    in_progress = sum(1 for s in all_statuses if any(x in s for x in ['pend', 'progress', 'process']))
+    completed = sum(1 for s in all_statuses if 'complet' in s)
+    canceled = sum(1 for s in all_statuses if any(x in s for x in ['cancel', 'partial', 'error', 'fail']))
+    total = len(all_statuses)
+
+    return {
+        "all": total,
+        "in_progress": in_progress,
+        "completed": completed,
+        "auto": total_auto,
+        "manual": total_manual,
+        "canceled": canceled
+    }
+
+
+def orders_hub_keyboard(stats):
+    """Buyurtmalarim bo'limlar inline tugmalari."""
+    kb = types.InlineKeyboardMarkup(row_width=2)
+    kb.row(
+        types.InlineKeyboardButton(f"⚡️ Jarayonda ({stats['in_progress']})", callback_data="orders_sec:in_progress:0"),
+        types.InlineKeyboardButton(f"✅ Bajarilgan ({stats['completed']})", callback_data="orders_sec:completed:0")
+    )
+    kb.row(
+        types.InlineKeyboardButton(f"🤖 Avto ({stats['auto']})", callback_data="orders_sec:auto:0"),
+        types.InlineKeyboardButton(f"📦 Oddiy ({stats['manual']})", callback_data="orders_sec:manual:0")
+    )
+    kb.row(
+        types.InlineKeyboardButton(f"❌ Bekor / Xato ({stats['canceled']})", callback_data="orders_sec:canceled:0"),
+        types.InlineKeyboardButton(f"📋 Barchasi ({stats['all']})", callback_data="orders_sec:all:0")
+    )
+    kb.row(
+        types.InlineKeyboardButton("🔄 Yangilash", callback_data="orders_menu"),
+        types.InlineKeyboardButton("⬅️ Kabinetga qaytish", callback_data="cabinet_menu")
+    )
+    return kb
+
+
+def build_orders_hub_view(user_id):
+    """Buyurtmalarim bo'limlari asosiy menyusi matni va tugmalari."""
+    stats = get_user_order_stats(user_id)
+    text = (
+        "📦 <b>Buyurtmalarim bo'limi</b>\n\n"
+        f"Sizning jami buyurtmalaringiz: <b>{stats['all']} ta</b>\n\n"
+        "👇 Kerakli bo'limni tanlang:"
+    )
+    kb = orders_hub_keyboard(stats)
+    return text, kb
+
+
+def get_filtered_orders(user_id, section):
+    """Tanlangan bo'lim bo'yicha buyurtmalarni olish."""
+    conn = db()
+    try:
+        manual_rows = []
+        if section not in ("auto",):
+            manual_rows = conn.execute("""
+                SELECT o.id, o.quantity, o.price, o.status, o.created_at, o.link, '' AS error,
+                       COALESCE(s.name, 'SMM xizmati') AS service_name, 'Oddiy' AS order_type
+                FROM orders o
+                LEFT JOIN services s ON o.service_id = s.id
+                WHERE o.user_id = ?
+                ORDER BY o.id DESC
+            """, (user_id,)).fetchall()
+
+        auto_rows = []
+        if section not in ("manual",):
+            auto_rows = conn.execute("""
+                SELECT ao.id, ao.quantity, ao.price, ao.status, ao.created_at, ao.link, ao.error,
+                       COALESCE(s.name, 'Avto buyurtma') AS service_name, 'Avto' AS order_type
+                FROM auto_orders ao
+                LEFT JOIN services s ON ao.service_id = s.id
+                WHERE ao.owner_id = ?
+                ORDER BY ao.id DESC
+            """, (user_id,)).fetchall()
+    finally:
+        conn.close()
+
+    items = []
+    for r in list(manual_rows) + list(auto_rows):
+        st_raw = str(r['status'] or 'Pending').lower()
+        items.append({
+            'id': r['id'],
+            'type': r['order_type'],
+            'service': r['service_name'],
+            'qty': r['quantity'] or 0,
+            'price': float(r['price'] or 0),
+            'status': r['status'] or 'Pending',
+            'raw_status': st_raw,
+            'link': r['link'] or '',
+            'error': r['error'] or '',
+            'time': (r['created_at'] or '')[:19]
         })
 
-    for r in auto_rows:
-        all_orders.append({
-            "id": r["id"],
-            "type": "Avto",
-            "service": r["service_name"],
-            "qty": r["quantity"] or 0,
-            "price": float(r["price"] or 0),
-            "status": r["status"] or "Pending",
-            "time": (r["created_at"] or "")[:19]
-        })
+    if section == "in_progress":
+        filtered = [x for x in items if any(k in x['raw_status'] for k in ['pend', 'progress', 'process'])]
+    elif section == "completed":
+        filtered = [x for x in items if 'complet' in x['raw_status']]
+    elif section == "canceled":
+        filtered = [x for x in items if any(k in x['raw_status'] for k in ['cancel', 'partial', 'error', 'fail'])]
+    elif section == "auto":
+        filtered = [x for x in items if x['type'] == 'Avto']
+    elif section == "manual":
+        filtered = [x for x in items if x['type'] == 'Oddiy']
+    else:  # all
+        filtered = items
 
-    # Sort newest first
-    all_orders.sort(key=lambda x: str(x.get("time") or ""), reverse=True)
-    all_orders = all_orders[:10]
+    filtered.sort(key=lambda x: str(x.get('time') or ''), reverse=True)
+    return filtered
+
+
+def build_orders_section_view(user_id, section, page=0):
+    """Muayyan bo'lim ichidagi buyurtmalar ro'yxati va sahifalash (pagination)."""
+    section_titles = {
+        "in_progress": "⚡️ <b>Jarayondagi buyurtmalar</b>",
+        "completed": "✅ <b>Bajarilgan buyurtmalar</b>",
+        "auto": "🤖 <b>Avto buyurtmalar</b>",
+        "manual": "📦 <b>Oddiy buyurtmalar</b>",
+        "canceled": "❌ <b>Bekor qilingan / Xatoliklar</b>",
+        "all": "📋 <b>Barcha buyurtmalar</b>"
+    }
+    title = section_titles.get(section, "📦 <b>Buyurtmalar</b>")
 
     status_map = {
         "completed": "✅ Bajarilgan",
@@ -4346,33 +4429,80 @@ def show_orders(chat_id, user_id):
         "pending": "⏳ Kutilmoqda",
         "processing": "🔄 Jarayonda",
         "canceled": "❌ Bekor qilingan",
-        "partial": "⭕️ Qisman"
+        "cancelled": "❌ Bekor qilingan",
+        "partial": "⭕️ Qisman bajarilgan",
+        "error": "❌ Xatolik yuz bergan"
     }
 
-    if not all_orders:
+    orders = get_filtered_orders(user_id, section)
+    total_items = len(orders)
+    page_size = 5
+    total_pages = max(1, math.ceil(total_items / page_size))
+    page = max(0, min(page, total_pages - 1))
+
+    start = page * page_size
+    end = start + page_size
+    page_items = orders[start:end]
+
+    if not total_items:
         text = (
-            "📦 <b>Buyurtmalarim</b>\n\n"
-            "📭 Hozircha sizda faol yoki yakunlangan buyurtmalar mavjud emas."
+            f"{title}\n"
+            "━━━━━━━━━━━━━━━━━━\n\n"
+            "📭 Ushbu bo'limda hech qanday buyurtma topilmadi."
         )
     else:
-        parts = ["📦 <b>So'nggi buyurtmalaringiz ro'yxati:</b>\n"]
-        for o in all_orders:
+        parts = [
+            f"{title} (Jami: <b>{total_items} ta</b>)\n"
+            f"📄 Sahifa: <b>{page + 1}/{total_pages}</b>\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+        ]
+        for o in page_items:
             st = status_map.get(str(o["status"]).lower(), f"📌 {o['status']}")
+            err_line = f"\n⚠️ <b>Izoh:</b> <code>{html.escape(str(o['error'])[:90])}</code>" if o.get("error") else ""
+            link_line = f"\n🔗 <b>Havola:</b> {html.escape(str(o['link']))}" if o.get("link") else ""
+            service_name = html.escape(str(o['service']))
             parts.append(
                 f"🆔 <b>#{o['id']}</b> ({o['type']})\n"
-                f"🛠 <b>Xizmat:</b> {o['service']}\n"
+                f"🛠 <b>Xizmat:</b> {service_name}\n"
                 f"📊 <b>Miqdor:</b> {o['qty']} ta\n"
                 f"💰 <b>Narxi:</b> {format(o['price'], ',.2f').replace(',', ' ')} so'm\n"
                 f"📌 <b>Holati:</b> {st}\n"
+                f"🕒 <b>Vaqti:</b> {o['time']}"
+                f"{link_line}"
+                f"{err_line}\n"
             )
         text = "\n".join(parts)
 
-    kb = types.InlineKeyboardMarkup(row_width=2)
-    kb.row(
-        types.InlineKeyboardButton("🔄 Yangilash", callback_data="orders_menu"),
-        types.InlineKeyboardButton("⬅️ Kabinet", callback_data="cabinet_menu")
-    )
+    kb = types.InlineKeyboardMarkup(row_width=3)
+    if total_pages > 1:
+        nav = []
+        if page > 0:
+            nav.append(types.InlineKeyboardButton("⬅️ Oldingi", callback_data=f"orders_sec:{section}:{page-1}"))
+        else:
+            nav.append(types.InlineKeyboardButton("⏹", callback_data="ignore_btn"))
 
+        nav.append(types.InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data="ignore_btn"))
+
+        if page < total_pages - 1:
+            nav.append(types.InlineKeyboardButton("Keyingi ➡️", callback_data=f"orders_sec:{section}:{page+1}"))
+        else:
+            nav.append(types.InlineKeyboardButton("⏹", callback_data="ignore_btn"))
+
+        kb.row(*nav)
+
+    kb.row(
+        types.InlineKeyboardButton("📂 Bo'limlar", callback_data="orders_menu"),
+        types.InlineKeyboardButton("🔄 Yangilash", callback_data=f"orders_sec:{section}:{page}")
+    )
+    kb.row(
+        types.InlineKeyboardButton("⬅️ Kabinetga qaytish", callback_data="cabinet_menu")
+    )
+    return text, kb
+
+
+def show_orders(chat_id, user_id):
+    """Buyurtmalarim bo'limini yangi xabar sifatida chiqarish."""
+    text, kb = build_orders_hub_view(user_id)
     bot.send_message(
         chat_id,
         text,
@@ -10192,104 +10322,20 @@ def balance_callback(call):
 
 
 # ============================================================
-# INLINE BUYURTMALARIM
+# INLINE BUYURTMALARIM — BO'LIMLAR CALLBACK HANDLERS
 # ============================================================
+
+@bot.callback_query_handler(func=lambda call: call.data == "ignore_btn")
+def ignore_button_callback(call):
+    bot.answer_callback_query(call.id)
+
 
 @bot.callback_query_handler(
     func=lambda call: call.data == "orders_menu"
 )
 def orders_callback(call):
     bot.answer_callback_query(call.id)
-
-    conn = db()
-
-    rows = conn.execute(
-        """
-        SELECT o.id, o.quantity, o.price, o.status, o.created_at,
-               COALESCE(s.name, 'SMM xizmati') AS service_name
-        FROM orders o
-        LEFT JOIN services s ON o.service_id = s.id
-        WHERE o.user_id = ?
-        ORDER BY o.id DESC
-        LIMIT 10
-        """,
-        (call.from_user.id,)
-    ).fetchall()
-
-    auto_rows = conn.execute(
-        """
-        SELECT ao.id, ao.quantity, ao.price, ao.status, ao.created_at,
-               COALESCE(s.name, 'Avto buyurtma') AS service_name
-        FROM auto_orders ao
-        LEFT JOIN services s ON ao.service_id = s.id
-        WHERE ao.owner_id = ?
-        ORDER BY ao.id DESC
-        LIMIT 10
-        """,
-        (call.from_user.id,)
-    ).fetchall()
-
-    conn.close()
-
-    all_orders = []
-    for r in rows:
-        all_orders.append({
-            "id": r["id"],
-            "type": "Oddiy",
-            "service": r["service_name"],
-            "qty": r["quantity"] or 0,
-            "price": float(r["price"] or 0),
-            "status": r["status"] or "Pending",
-            "time": (r["created_at"] or "")[:19]
-        })
-
-    for r in auto_rows:
-        all_orders.append({
-            "id": r["id"],
-            "type": "Avto",
-            "service": r["service_name"],
-            "qty": r["quantity"] or 0,
-            "price": float(r["price"] or 0),
-            "status": r["status"] or "Pending",
-            "time": (r["created_at"] or "")[:19]
-        })
-
-    all_orders.sort(key=lambda x: str(x.get("time") or ""), reverse=True)
-    all_orders = all_orders[:10]
-
-    status_map = {
-        "completed": "✅ Bajarilgan",
-        "in progress": "⚡️ Bajarilmoqda",
-        "pending": "⏳ Kutilmoqda",
-        "processing": "🔄 Jarayonda",
-        "canceled": "❌ Bekor qilingan",
-        "partial": "⭕️ Qisman"
-    }
-
-    if not all_orders:
-        text = (
-            "📦 <b>Buyurtmalarim</b>\n\n"
-            "📭 Hozircha sizda faol yoki yakunlangan buyurtmalar mavjud emas."
-        )
-    else:
-        parts = ["📦 <b>So'nggi buyurtmalaringiz ro'yxati:</b>\n"]
-        for o in all_orders:
-            st = status_map.get(str(o["status"]).lower(), f"📌 {o['status']}")
-            parts.append(
-                f"🆔 <b>#{o['id']}</b> ({o['type']})\n"
-                f"🛠 <b>Xizmat:</b> {o['service']}\n"
-                f"📊 <b>Miqdor:</b> {o['qty']} ta\n"
-                f"💰 <b>Narxi:</b> {format(o['price'], ',.2f').replace(',', ' ')} so'm\n"
-                f"📌 <b>Holati:</b> {st}\n"
-            )
-        text = "\n".join(parts)
-
-    kb = types.InlineKeyboardMarkup(row_width=2)
-    kb.row(
-        types.InlineKeyboardButton("🔄 Yangilash", callback_data="orders_menu"),
-        types.InlineKeyboardButton("⬅️ Kabinetga qaytish", callback_data="cabinet_menu")
-    )
-
+    text, kb = build_orders_hub_view(call.from_user.id)
     try:
         bot.edit_message_text(
             text,
@@ -10304,6 +10350,38 @@ def orders_callback(call):
             text,
             parse_mode="HTML",
             reply_markup=kb
+        )
+
+
+@bot.callback_query_handler(
+    func=lambda call: call.data.startswith("orders_sec:")
+)
+def orders_section_callback(call):
+    bot.answer_callback_query(call.id)
+    parts = call.data.split(":")
+    section = parts[1] if len(parts) > 1 else "all"
+    try:
+        page = int(parts[2]) if len(parts) > 2 else 0
+    except ValueError:
+        page = 0
+
+    text, kb = build_orders_section_view(call.from_user.id, section, page)
+    try:
+        bot.edit_message_text(
+            text,
+            call.message.chat.id,
+            call.message.message_id,
+            parse_mode="HTML",
+            reply_markup=kb,
+            disable_web_page_preview=True
+        )
+    except Exception:
+        bot.send_message(
+            call.message.chat.id,
+            text,
+            parse_mode="HTML",
+            reply_markup=kb,
+            disable_web_page_preview=True
         )
 
 
