@@ -130,6 +130,53 @@ ORDERED_POSTS_CACHE = set()
 PROCESSING_POSTS = set()
 LAST_SEEN_CHANNEL_MSG_ID = {}
 FLOOD_RETRY_QUEUE = []
+POST_ORDER_ATTEMPTS = {}
+POST_LAST_ATTEMPT_TIME = {}
+
+def is_fatal_service_error(error_obj):
+    """Xizmat ID noto'g'ri yoki provayderda mavjud emasligini aniqlash."""
+    if not error_obj:
+        return False
+    msg = str(error_obj or "").lower()
+    fatal_keywords = [
+        "incorrect service id",
+        "bad service id",
+        "service not found",
+        "service is inactive",
+        "service inactive",
+        "invalid service",
+        "disabled service",
+        "service disabled",
+        "service not available",
+        "service does not exist",
+    ]
+    return any(k in msg for k in fatal_keywords)
+
+def disable_channel_service_due_to_error(channel_service_id=None, channel_id=None, service_id=None):
+    """Xato xizmatni kanaldan avtomatik faolsizlantirish."""
+    try:
+        conn = db()
+        if channel_service_id:
+            conn.execute("UPDATE channel_services SET active = 0 WHERE id = ?", (int(channel_service_id),))
+        elif channel_id and service_id:
+            clean_cid = clean_channel_id(channel_id)
+            target_cids = [str(channel_id), clean_cid, f"-100{clean_cid}", f"-{clean_cid}"]
+            if clean_cid.isdigit():
+                target_cids.append(int(clean_cid))
+                target_cids.append(-int(f"100{clean_cid}"))
+                target_cids.append(-int(clean_cid))
+            placeholders = ",".join("?" for _ in target_cids)
+            conn.execute(
+                f"UPDATE channel_services SET active = 0 WHERE channel_id IN ({placeholders}) AND service_id = ?",
+                target_cids + [int(service_id)]
+            )
+        conn.commit()
+        conn.close()
+        log_debug(f"🛑 channel_service #{channel_service_id} (svc={service_id}) xatolik sababli faolsizlantirildi.")
+        return True
+    except Exception as e:
+        log_debug(f"⚠️ disable_channel_service_due_to_error xatosi: {e}")
+        return False
 
 class ApiFloodWaitError(Exception):
     def __init__(self, message, wait_seconds=5):
@@ -603,6 +650,21 @@ def init_core_tables(conn):
         pass
 
     try:
+        ao_cols = {row["name"] for row in conn.execute("PRAGMA table_info(auto_orders)").fetchall()}
+        if "attempts" not in ao_cols:
+            conn.execute("ALTER TABLE auto_orders ADD COLUMN attempts INTEGER DEFAULT 0")
+            conn.commit()
+        # Qotib qolgan yoki takroriy xatoga uchragan eski Error holatidagi buyurtmalarni to'xtatish
+        conn.execute("""
+            UPDATE auto_orders
+            SET status = 'Failed', attempts = 3
+            WHERE status = 'Error' AND (attempts IS NULL OR attempts = 0)
+        """)
+        conn.commit()
+    except Exception as e:
+        log_debug(f"⚠️ auto_orders attempts migration xatosi: {e}")
+
+    try:
         tashkent_migrated = conn.execute("SELECT value FROM system_settings WHERE key = 'orders_tashkent_tz_v1'").fetchone()
         if not tashkent_migrated:
             # Mavjud UTC buyurtmalarni Toshkent vaqtiga (+5 soat) moslash
@@ -654,6 +716,8 @@ def is_post_already_ordered(channel_id, message_id, service_id=None):
     Kanal posti uchun buyurtma bajarilganmi yoki yo'qligini tekshiradi.
     service_id berilsa - shu xizmat bo'yicha tekshiradi.
     service_id None bo'lsa - kanal postiga umumiy biror buyurtma berilganmi tekshiradi.
+    Agar buyurtma 3 marta xatolikka uchragan bo'lsa yoki bekor qilingan bo'lsa,
+    qayta yuborilmasligi uchun True qaytaradi.
     """
     clean_cid = clean_channel_id(channel_id)
     try:
@@ -668,6 +732,8 @@ def is_post_already_ordered(channel_id, message_id, service_id=None):
             sid = None
         if (clean_cid, mid, sid) in ORDERED_POSTS_CACHE:
             return True
+        if POST_ORDER_ATTEMPTS.get((clean_cid, mid, sid), 0) >= 3:
+            return True
 
     target_cids = [str(channel_id), clean_cid, f"-100{clean_cid}", f"-{clean_cid}"]
     if clean_cid.isdigit():
@@ -681,13 +747,14 @@ def is_post_already_ordered(channel_id, message_id, service_id=None):
         if service_id is not None:
             row = conn.execute(
                 f"""
-                SELECT id, external_order_id, status FROM auto_orders
+                SELECT id, external_order_id, status, attempts FROM auto_orders
                 WHERE channel_id IN ({placeholders})
                   AND message_id = ?
                   AND service_id = ?
                   AND (
                       (external_order_id IS NOT NULL AND TRIM(external_order_id) != '')
-                      OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success', 'floodwait', 'retrying')
+                      OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success', 'floodwait', 'retrying', 'failed', 'max_retries', 'canceled')
+                      OR COALESCE(attempts, 0) >= 3
                   )
                 LIMIT 1
                 """,
@@ -696,12 +763,13 @@ def is_post_already_ordered(channel_id, message_id, service_id=None):
         else:
             row = conn.execute(
                 f"""
-                SELECT id, external_order_id, status FROM auto_orders
+                SELECT id, external_order_id, status, attempts FROM auto_orders
                 WHERE channel_id IN ({placeholders})
                   AND message_id = ?
                   AND (
                       (external_order_id IS NOT NULL AND TRIM(external_order_id) != '')
-                      OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success', 'floodwait', 'retrying')
+                      OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success', 'floodwait', 'retrying', 'failed', 'max_retries', 'canceled')
+                      OR COALESCE(attempts, 0) >= 3
                   )
                 LIMIT 1
                 """,
@@ -720,17 +788,68 @@ def is_post_already_ordered(channel_id, message_id, service_id=None):
         conn.close()
 
 
+def is_channel_post_fully_ordered(channel_id, message_id):
+    """
+    Kanalning barcha faol xizmatlari ushbu post uchun
+    bajarilganmi yoki 3 marta urinishdan so'ng to'xtatilganmi tekshiradi.
+    """
+    clean_cid = clean_channel_id(channel_id)
+    try:
+        mid = int(message_id)
+    except Exception:
+        return True
+
+    target_cids = [str(channel_id), clean_cid, f"-100{clean_cid}", f"-{clean_cid}"]
+    if clean_cid.isdigit():
+        target_cids.append(int(clean_cid))
+        target_cids.append(-int(f"100{clean_cid}"))
+        target_cids.append(-int(clean_cid))
+
+    placeholders = ",".join("?" for _ in target_cids)
+    conn = db()
+    try:
+        active_services = conn.execute(
+            f"""
+            SELECT cs.service_id
+            FROM channel_services cs
+            JOIN services s ON s.id = cs.service_id
+            JOIN apis a ON a.id = s.api_id
+            WHERE cs.channel_id IN ({placeholders})
+              AND cs.active = 1
+              AND s.active = 1
+              AND a.active = 1
+            """,
+            target_cids
+        ).fetchall()
+
+        if not active_services:
+            return True
+
+        for s_row in active_services:
+            sid = int(s_row["service_id"])
+            if not is_post_already_ordered(channel_id, mid, sid):
+                return False
+
+        return True
+    except Exception as e:
+        log_debug(f"⚠️ is_channel_post_fully_ordered xatosi: {e}")
+        return False
+    finally:
+        conn.close()
+
+
 def init_ordered_posts_cache():
     """Bot ishga tushganda bazadagi mavjud buyurtmalarni in-memory keshga yuklaydi."""
-    global ORDERED_POSTS_CACHE
+    global ORDERED_POSTS_CACHE, POST_ORDER_ATTEMPTS
     try:
         conn = db()
         rows = conn.execute(
             """
-            SELECT channel_id, message_id, service_id
+            SELECT channel_id, message_id, service_id, attempts, status
             FROM auto_orders
             WHERE (external_order_id IS NOT NULL AND TRIM(external_order_id) != '')
-               OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success', 'floodwait', 'retrying')
+               OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success', 'floodwait', 'retrying', 'failed', 'max_retries', 'canceled')
+               OR COALESCE(attempts, 0) >= 3
             """
         ).fetchall()
         for r in rows:
@@ -738,10 +857,13 @@ def init_ordered_posts_cache():
             try:
                 mid = int(r["message_id"] or 0)
                 sid = int(r["service_id"] or 0)
+                att = int(r["attempts"] or 0) if "attempts" in r.keys() else 0
             except Exception:
                 continue
             if cid and mid and sid:
                 ORDERED_POSTS_CACHE.add((cid, mid, sid))
+                if att > 0:
+                    POST_ORDER_ATTEMPTS[(cid, mid, sid)] = att
         conn.close()
         log_debug(f"📦 ORDERED_POSTS_CACHE yuklandi: {len(ORDERED_POSTS_CACHE)} ta mavjud buyurtma")
     except Exception as e:
@@ -11807,26 +11929,63 @@ def update_auto_order_success(
 
 def update_auto_order_error(
     internal_id,
-    error
+    error,
+    attempts=None,
+    final_failure=False
 ):
     conn = db()
 
     try:
-        conn.execute(
-            """
-            UPDATE auto_orders
-            SET
-                status = 'Error',
-                error = ?
-            WHERE id = ?
-            """,
-            (
-                str(error)[:1000],
-                internal_id
+        new_status = 'Failed' if final_failure else 'Error'
+        if attempts is not None:
+            conn.execute(
+                """
+                UPDATE auto_orders
+                SET
+                    status = ?,
+                    error = ?,
+                    attempts = ?
+                WHERE id = ?
+                """,
+                (
+                    new_status,
+                    str(error)[:1000],
+                    int(attempts),
+                    internal_id
+                )
             )
-        )
+        else:
+            conn.execute(
+                """
+                UPDATE auto_orders
+                SET
+                    status = ?,
+                    error = ?,
+                    attempts = COALESCE(attempts, 0) + 1
+                WHERE id = ?
+                """,
+                (
+                    new_status,
+                    str(error)[:1000],
+                    internal_id
+                )
+            )
 
         conn.commit()
+
+        if final_failure:
+            row = conn.execute(
+                "SELECT channel_id, message_id, service_id FROM auto_orders WHERE id = ?",
+                (internal_id,)
+            ).fetchone()
+            if row:
+                cid = clean_channel_id(row["channel_id"])
+                try:
+                    mid = int(row["message_id"])
+                    sid = int(row["service_id"])
+                    ORDERED_POSTS_CACHE.add((cid, mid, sid))
+                except Exception:
+                    pass
 
     finally:
         conn.close()
@@ -12113,6 +12272,13 @@ async def process_real_auto_order(
         log_debug(f"⏭️ AUTO ORDER ALLAQACHON MAVJUD (kesh): ch={clean_cid}, msg={mid}, svc={sid}")
         return
 
+    # Urinishlar soni tekshiruvi: 3 marta qaytgan bo'lsa boshqa yuborilmasin
+    curr_att = POST_ORDER_ATTEMPTS.get((clean_cid, mid, sid), 0)
+    if curr_att >= 3:
+        log_debug(f"⏭️ AUTO ORDER 3 MARTA QAYTGAN (xotira limit): ch={clean_cid}, msg={mid}, svc={sid}")
+        ORDERED_POSTS_CACHE.add((clean_cid, mid, sid))
+        return
+
     # 2. Bazadan barcha ID formatlari bilan tekshirish
     target_cids = [str(channel_id), clean_cid, f"-100{clean_cid}", f"-{clean_cid}"]
     if clean_cid.isdigit():
@@ -12151,6 +12317,18 @@ async def process_real_auto_order(
             log_debug(f"⏭️ AUTO ORDER ALLAQACHON JARAYONDA: id={existing['id']}, status={existing['status']}")
             ORDERED_POSTS_CACHE.add((clean_cid, mid, sid))
             return
+
+        db_att = int(existing["attempts"] or 0) if "attempts" in existing.keys() else 0
+        curr_att = max(curr_att, db_att)
+        if curr_att >= 3 or str(existing["status"] or "").lower() in ("failed", "max_retries", "canceled"):
+            log_debug(f"⏭️ AUTO ORDER 3 MARTA QAYTGAN (baza limit): id={existing['id']}, status={existing['status']}, att={curr_att}")
+            ORDERED_POSTS_CACHE.add((clean_cid, mid, sid))
+            return
+
+    # Urinishni hisobga olish
+    curr_att += 1
+    POST_ORDER_ATTEMPTS[(clean_cid, mid, sid)] = curr_att
+    POST_LAST_ATTEMPT_TIME[(clean_cid, mid)] = time.time()
 
     # ========================================================
     # 💰 BALANS TEKSHIRUVI
@@ -12329,23 +12507,60 @@ async def process_real_auto_order(
                 estimated_price
             )
 
+        is_fatal = is_fatal_service_error(error_text)
+        final_failure = (curr_att >= 3) or is_fatal
+
+        if final_failure:
+            POST_ORDER_ATTEMPTS[(clean_cid, mid, sid)] = max(3, curr_att)
+            ORDERED_POSTS_CACHE.add((clean_cid, mid, sid))
+
         update_auto_order_error(
             internal_id,
-            error_text
+            error_text,
+            attempts=curr_att,
+            final_failure=final_failure
         )
 
-        log_debug(f"❌ REAL AUTO ORDER XATOSI: {repr(e)}")
+        log_debug(f"❌ REAL AUTO ORDER XATOSI (#{internal_id}, urinish {curr_att}/3): {repr(e)}")
 
-        send_auto_order_message(
-            owner_id,
-            (
-                "❌ <b>Avtomatik buyurtma berilmadi</b>\n\n"
-                f"🛠 Xizmat: {service['name']}\n"
-                f"🔢 Miqdor: <b>{quantity}</b>\n"
-                f"💰 Rezerv qaytarildi: <b>{estimated_price:,.2f} so'm</b>\n"
-                f"❗ Xato: <code>{error_text[:500]}</code>"
+        # Xizmat provayderda mavjud bo'lmasa (Incorrect service ID), kanaldan vaqtincha to'xtatish
+        cs_id = service.get("channel_service_id") if isinstance(service, dict) else None
+        if is_fatal:
+            disable_channel_service_due_to_error(
+                channel_service_id=cs_id,
+                channel_id=channel_id,
+                service_id=sid
             )
-        )
+
+        if final_failure:
+            if is_fatal:
+                extra_note = "\n\n⚠️ <i>Xizmat provayder panelida mavjud emas (Incorrect service ID). 3 marta qaytganligi sababli qayta yuborish to'xtatildi hamda kanaldan o'chirildi.</i>"
+            else:
+                extra_note = "\n\n⚠️ <i>Ushbu post uchun 3 marta xatolik qaytdi. Boshqa qayta yuborilmaydi.</i>"
+
+            send_auto_order_message(
+                owner_id,
+                (
+                    "❌ <b>Avtomatik buyurtma berilmadi</b>\n\n"
+                    f"🛠 Xizmat: {service['name']}\n"
+                    f"🔢 Miqdor: <b>{quantity}</b>\n"
+                    f"💰 Rezerv qaytarildi: <b>{estimated_price:,.2f} so'm</b>\n"
+                    f"❗ Xato: <code>{error_text[:500]}</code>"
+                    f"{extra_note}"
+                )
+            )
+        else:
+            send_auto_order_message(
+                owner_id,
+                (
+                    "❌ <b>Avtomatik buyurtma berilmadi</b>\n\n"
+                    f"🛠 Xizmat: {service['name']}\n"
+                    f"🔢 Miqdor: <b>{quantity}</b>\n"
+                    f"💰 Rezerv qaytarildi: <b>{estimated_price:,.2f} so'm</b>\n"
+                    f"❗ Xato: <code>{error_text[:500]}</code>\n"
+                    f"🔄 <i>Urinish: {curr_att}/3</i>"
+                )
+            )
 
 
 def get_pending_auto_orders():
@@ -13105,7 +13320,11 @@ async def auto_order_flood_retry_worker():
                     log_debug(f"❌ FLOOD RETRY XATOSI #{item['internal_id']}: {ex}")
                     if item["estimated_price"] > 0:
                         refund_auto_order_balance(item["owner_id"], item["estimated_price"])
-                    update_auto_order_error(item["internal_id"], str(ex))
+                    is_fatal = is_fatal_service_error(str(ex))
+                    update_auto_order_error(item["internal_id"], str(ex), attempts=3, final_failure=True)
+                    ORDERED_POSTS_CACHE.add((item["clean_cid"], item["mid"], item["sid"]))
+                    if is_fatal:
+                        disable_channel_service_due_to_error(channel_id=item["clean_cid"], service_id=item["sid"])
 
         except Exception as e:
             log_debug(f"⚠️ auto_order_flood_retry_worker xatosi: {e}")
@@ -13169,8 +13388,13 @@ async def missed_posts_sync_worker():
                                 if mid > current_max:
                                     LAST_SEEN_CHANNEL_MSG_ID[clean_cid] = mid
 
-                                # Post allaqachon buyurtma qilinganmi
-                                if is_post_already_ordered(cid, mid):
+                                # Post barcha xizmatlar bo'yicha buyurtma qilinganmi yoki 3 marta urinishdan so'ng to'xtatilganmi
+                                if is_channel_post_fully_ordered(cid, mid):
+                                    continue
+
+                                # Oxirgi urinishdan so'ng kamida 20 soniya tanaffus bo'lsin
+                                last_try = POST_LAST_ATTEMPT_TIME.get((clean_cid, mid), 0)
+                                if time.time() - last_try < 20:
                                     continue
 
                                 # Qolib ketgan post aniqlandi -> darhol buyurtma berish!
