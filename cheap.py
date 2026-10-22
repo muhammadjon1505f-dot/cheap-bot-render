@@ -11035,6 +11035,47 @@ def get_active_channel_ids():
         conn.close()
 
 
+def calculate_auto_order_quantity(min_qty, max_qty, s_min=None, s_max=None):
+    """
+    Kanal posti uchun avtomatik buyurtma miqdorini aniq va to'g'ri hisoblaydi:
+    - min 15 max 15 -> aniq 15 ta buyurtma bersin (har xil emas).
+    - 10 min 15 max -> 10 bilan 15 oralig'idagi sonlardan buyurtma bersin.
+    - 50 min 50 max -> aniq 50 ta (agar API max 50 bo'lsa ham 50 tadan oshmaydi).
+    """
+    try:
+        min_q = int(min_qty or 0)
+    except Exception:
+        min_q = 0
+    try:
+        max_q = int(max_qty or 0)
+    except Exception:
+        max_q = 0
+
+    if min_q <= 0 and max_q <= 0:
+        qty = s_min or 1
+    elif min_q > 0 and max_q <= 0:
+        qty = min_q
+    elif max_q > 0 and min_q <= 0:
+        qty = max_q
+    elif min_q == max_q:
+        # min va max bir xil bo'lsa -> har xil emas, aynan shu son berilsin!
+        qty = min_q
+    elif min_q < max_q:
+        # min < max bo'lsa -> oraliqdagi tasodifiy son
+        qty = random.randint(min_q, max_q)
+    else:
+        # min > max bo'lib qolgan bo'lsa
+        qty = random.randint(max_q, min_q)
+
+    # API ning limitlariga moslash (agar bo'lsa)
+    if s_min and int(s_min) > 0 and qty < int(s_min):
+        qty = int(s_min)
+    if s_max and int(s_max) > 0 and qty > int(s_max):
+        qty = int(s_max)
+
+    return int(qty)
+
+
 async def process_channel_post(
     channel_id,
     message_id,
@@ -11140,6 +11181,8 @@ async def process_channel_post(
                         cs.service_id,
                         cs.min_qty,
                         cs.max_qty,
+                        s.min_qty AS s_min_qty,
+                        s.max_qty AS s_max_qty,
                         s.name,
                         s.category,
                         s.api_id,
@@ -11253,30 +11296,25 @@ async def process_channel_post(
 
                 order_tasks = []
                 for service in pending_services:
+                    if hasattr(service, "keys"):
+                        service = dict(service)
 
-                    min_qty = int(
-                        service["min_qty"] or 0
-                    )
+                    min_qty = int(service.get("min_qty") or 0)
+                    max_qty = int(service.get("max_qty") or 0)
+                    s_min = int(service.get("s_min_qty") or 0)
+                    s_max = int(service.get("s_max_qty") or 0)
 
-                    max_qty = int(
-                        service["max_qty"] or 0
-                    )
-
-                    if min_qty <= 0 or max_qty <= 0 or max_qty < min_qty:
+                    auto_quantity = calculate_auto_order_quantity(min_qty, max_qty, s_min, s_max)
+                    if auto_quantity <= 0:
                         continue
 
-                    auto_quantity = random.randint(
-                        min_qty,
-                        max_qty
-                    )
-
-                    owner_id = service["owner_id"]
+                    owner_id = service.get("owner_id")
 
                     if not owner_id:
                         print("❌ Kanal egasi topilmadi:", channel_id)
                         continue
 
-                    log_debug(f"🚀 REAL API ORDER TAYYORLANDI (PARALLEL): svc={service['service_id']}, qty={auto_quantity}, link={post_link}")
+                    log_debug(f"🚀 REAL API ORDER TAYYORLANDI (PARALLEL): svc={service.get('service_id')}, min={min_qty}, max={max_qty} => qty={auto_quantity}, link={post_link}")
 
                     order_tasks.append(
                         process_real_auto_order(
@@ -11589,7 +11627,7 @@ async def start_userbot():
 def get_auto_order_api(service_id):
     conn = db()
     try:
-        return conn.execute(
+        row = conn.execute(
             """
             SELECT
                 s.id,
@@ -11610,6 +11648,9 @@ def get_auto_order_api(service_id):
             """,
             (service_id,)
         ).fetchone()
+        if row:
+            return dict(row)
+        return None
     finally:
         conn.close()
 
@@ -11815,18 +11856,27 @@ def send_real_auto_order(
     service,
     link,
     quantity,
-    internal_id
+    internal_id,
+    max_retries=5
 ):
+    if hasattr(service, "keys"):
+        service = dict(service)
+    elif not isinstance(service, dict):
+        try:
+            service = dict(service)
+        except Exception:
+            pass
+
     api_url = (
-        str(service["url"] or "").strip()
+        str(service.get("url") or "").strip()
     )
 
     api_key = (
-        str(service["api_key"] or "").strip()
+        str(service.get("api_key") or "").strip()
     )
 
     external_service_id = (
-        str(service["external_id"] or "").strip().strip("'").strip('"')
+        str(service.get("external_id") or "").strip().strip("'").strip('"')
     )
 
     if not api_url:
@@ -11844,7 +11894,8 @@ def send_real_auto_order(
             "External service ID mavjud emas"
         )
 
-    if not service.get("api_active", 1):
+    api_active = service.get("api_active", 1)
+    if api_active is not None and not int(api_active):
         raise RuntimeError(
             "API faol emas"
         )
@@ -12034,6 +12085,9 @@ async def process_real_auto_order(
     link,
     quantity
 ):
+    if hasattr(service, "keys"):
+        service = dict(service)
+
     service_id = int(
         service["service_id"]
     )
