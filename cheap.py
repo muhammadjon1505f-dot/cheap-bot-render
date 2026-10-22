@@ -1,4 +1,5 @@
 import os
+import time
 import asyncio
 import sqlite3
 import math
@@ -9,8 +10,34 @@ import json
 import re
 import random
 import html
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+# ============================================================
+# VAQT VA TIZIM SOZLAMLARI (TOSHKENT VAQTI — ASIA/TASHKENT UTC+5)
+# ============================================================
+os.environ["TZ"] = "Asia/Tashkent"
+try:
+    time.tzset()
+except Exception:
+    pass
+
+TZ_TASHKENT = timezone(timedelta(hours=5))
+
+def get_tashkent_now():
+    """Toshkent vaqti (UTC+5 / Asia/Tashkent)."""
+    return datetime.now(TZ_TASHKENT)
+
+def tashkent_now_str(fmt="%Y-%m-%d %H:%M:%S"):
+    """Toshkent vaqtini ko'rsatilgan formatda matn sifatida qaytaradi."""
+    return get_tashkent_now().strftime(fmt)
+
+def format_order_time_str(val):
+    """Buyurtma vaqtini to'g'ri Toshkent vaqtida ko'rsatish."""
+    if not val:
+        return ""
+    val_str = str(val).strip().replace("T", " ")
+    return val_str[:19]
 
 # ============================================================
 # HTTP SESSION & POOLING (MUKAMMAL ALOQA TIZIMI)
@@ -66,7 +93,7 @@ else:
     USERBOT_SESSION = DEFAULT_USERBOT_SESSION
 
 def log_debug(msg):
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ts = tashkent_now_str("%Y-%m-%d %H:%M:%S")
     line = f"[{ts}] {msg}\n"
     print(line, end="", flush=True)
     try:
@@ -532,6 +559,19 @@ def init_core_tables(conn):
         conn.commit()
     except Exception:
         pass
+
+    try:
+        tashkent_migrated = conn.execute("SELECT value FROM system_settings WHERE key = 'orders_tashkent_tz_v1'").fetchone()
+        if not tashkent_migrated:
+            # Mavjud UTC buyurtmalarni Toshkent vaqtiga (+5 soat) moslash
+            conn.execute("UPDATE auto_orders SET created_at = datetime(created_at, '+5 hours') WHERE created_at IS NOT NULL AND created_at != ''")
+            conn.execute("UPDATE orders SET created_at = datetime(created_at, '+5 hours') WHERE created_at IS NOT NULL AND created_at != ''")
+            conn.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('orders_tashkent_tz_v1', '1')")
+            conn.commit()
+            log_debug("✅ Buyurtmalar vaqti Toshkent vaqtiga (UTC+5) muvaffaqiyatli moslandi")
+    except Exception as e:
+        log_debug(f"⚠️ orders_tashkent_tz migration xatosi: {e}")
+
     conn.commit()
 
 
@@ -685,7 +725,7 @@ def get_user(user):
                 user.id,
                 user.username or "",
                 user.first_name or "",
-                datetime.now().isoformat()
+                tashkent_now_str("%Y-%m-%d %H:%M:%S")
             )
         )
         conn.commit()
@@ -813,7 +853,7 @@ def admin_balance_alert(
             f"💵 Qo'shilgan: <b>{float(amount):,.2f}</b> so'm\n"
             f"💰 Yangi balans: <b>{float(new_balance):,.2f}</b> so'm\n"
             f"🧾 To'lov ID: <code>{charge_short}</code>\n"
-            f"🕐 Vaqt: <code>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</code>"
+            f"🕐 Vaqt: <code>{tashkent_now_str('%Y-%m-%d %H:%M:%S')}</code>"
         )
 
         admin_alert(text)
@@ -1101,9 +1141,7 @@ def send_start_screen(chat_id, user=None):
     except Exception:
         bot_username = "bot"
 
-    from datetime import timezone, timedelta
-    tz_uz = timezone(timedelta(hours=5))
-    now = datetime.now(tz_uz).strftime("%Y-%m-%d %H:%M:%S")
+    now = tashkent_now_str("%Y-%m-%d %H:%M:%S")
 
     keyboard = types.ReplyKeyboardMarkup(
         resize_keyboard=True,
@@ -1213,7 +1251,7 @@ def main_menu_text(message=None):
     except Exception:
         bot_username = "bot"
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = tashkent_now_str("%Y-%m-%d %H:%M:%S")
 
     return (
         f'👋 Salom! <b>{first_name}</b> '
@@ -2332,7 +2370,7 @@ def receive_channel(message):
                     active,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, 1, datetime('now'))
+                VALUES (?, ?, ?, ?, 1, datetime('now', 'localtime'))
                 """,
                 (
                     message.from_user.id,
@@ -3782,7 +3820,7 @@ def receive_auto_max(message):
                     active,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
+                VALUES (?, ?, ?, ?, ?, 1, datetime('now', 'localtime'))
                 """,
                 (
                     user_id,
@@ -4414,7 +4452,7 @@ def get_filtered_orders(user_id, section):
             'raw_status': st_raw,
             'link': r['link'] or '',
             'error': r['error'] or '',
-            'time': (r['created_at'] or '')[:19]
+            'time': format_order_time_str(r['created_at'])
         })
 
     if section == "in_progress":
@@ -4484,11 +4522,12 @@ def build_orders_view(user_id, section="all", page=0, auto_sync=True):
             st = status_map.get(str(o["status"]).lower(), f"📌 {o['status']}")
             err = f" (⚠️ {html.escape(str(o['error'])[:35])})" if o.get("error") else ""
             service_name = html.escape(str(o['service']))
+            o_time = o.get('time') or tashkent_now_str('%Y-%m-%d %H:%M:%S')
             parts.append(
                 f"🆔 <b>#{o['id']}</b> ({o['type']}) | {st}\n"
                 f"🛠 <b>{service_name}</b>\n"
                 f"📊 {o['qty']} ta • 💰 {format(o['price'], ',.2f').replace(',', ' ')} so'm{err}\n"
-                f"🕒 {o['time']}\n"
+                f"🕒 {o_time}\n"
             )
         text = "\n".join(parts)
 
@@ -5057,7 +5096,7 @@ def admin_stats_callback(call):
             """
             SELECT COUNT(*)
             FROM users
-            WHERE datetime(created_at) >= datetime('now', '-7 days')
+            WHERE datetime(created_at) >= datetime('now', '-7 days', 'localtime')
             """
         ).fetchone()[0]
 
@@ -5065,22 +5104,20 @@ def admin_stats_callback(call):
         # 📦 BUYURTMALAR
         # =========================
         orders_count = conn.execute(
-            "SELECT COUNT(*) FROM orders"
+            "SELECT (SELECT COUNT(*) FROM orders) + (SELECT COUNT(*) FROM auto_orders)"
         ).fetchone()[0]
 
         today_orders = conn.execute(
             """
-            SELECT COUNT(*)
-            FROM orders
-            WHERE date(created_at) = date('now', 'localtime')
+            SELECT (SELECT COUNT(*) FROM orders WHERE date(created_at) = date('now', 'localtime')) +
+                   (SELECT COUNT(*) FROM auto_orders WHERE date(created_at) = date('now', 'localtime'))
             """
         ).fetchone()[0]
 
         week_orders = conn.execute(
             """
-            SELECT COUNT(*)
-            FROM orders
-            WHERE datetime(created_at) >= datetime('now', '-7 days')
+            SELECT (SELECT COUNT(*) FROM orders WHERE datetime(created_at) >= datetime('now', '-7 days', 'localtime')) +
+                   (SELECT COUNT(*) FROM auto_orders WHERE datetime(created_at) >= datetime('now', '-7 days', 'localtime'))
             """
         ).fetchone()[0]
 
@@ -5182,7 +5219,7 @@ def admin_stats_callback(call):
         # =========================
         # 🕐 VAQT
         # =========================
-        now = datetime.now().strftime("%H:%M:%S")
+        now = tashkent_now_str("%H:%M:%S")
 
     except Exception as e:
         print("❌ ADMIN STATS XATOSI:", repr(e))
@@ -5592,8 +5629,8 @@ def show_admin_user(bot_chat_id, message_id, user_id):
         orders_count = 0
         try:
             oc = conn.execute(
-                "SELECT COUNT(*) FROM orders WHERE user_id = ?",
-                (user_id,)
+                "SELECT (SELECT COUNT(*) FROM orders WHERE user_id = ?) + (SELECT COUNT(*) FROM auto_orders WHERE owner_id = ?)",
+                (user_id, user_id)
             ).fetchone()
             if oc:
                 orders_count = oc[0] or 0
@@ -5636,7 +5673,7 @@ def show_admin_user(bot_chat_id, message_id, user_id):
                 (user_id, username, first_name, balance, banned, created_at)
                 VALUES (?, ?, ?, 0, 0, ?)
                 """,
-                (user_id, tg_username or "", tg_name or "", datetime.now().isoformat())
+                (user_id, tg_username or "", tg_name or "", tashkent_now_str("%Y-%m-%d %H:%M:%S"))
             )
             conn.commit()
             row = conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
@@ -5649,7 +5686,7 @@ def show_admin_user(bot_chat_id, message_id, user_id):
     total_deposited = float(row["total_deposited"] or 0) if row else 0.0
     banned = int(row["banned"] or 0) if row else 0
     role = (row["role"] if row else "") or "user"
-    created_at = (row["created_at"] if row else "") or "-"
+    created_at = format_order_time_str(row["created_at"]) if row else "-"
 
     status = "🔴 Bloklangan" if banned else "🟢 Faol"
     username_text = f"@{username.lstrip('@')}" if username else "Mavjud emas"
@@ -7094,7 +7131,7 @@ def api_add_input(message):
                     name,
                     url,
                     api_key,
-                    datetime.now().strftime(
+                    tashkent_now_str(
                         "%Y-%m-%d %H:%M:%S"
                     )
                 )
@@ -8741,7 +8778,7 @@ def save_message_history(
                 int(message_id),
                 str(direction),
                 str(text)[:4000],
-                datetime.now().isoformat()
+                tashkent_now_str("%Y-%m-%d %H:%M:%S")
             )
         )
 
@@ -8778,7 +8815,7 @@ def ai_save_memory(admin_id, memory):
     conn = db()
 
     try:
-        now = datetime.now().isoformat()
+        now = tashkent_now_str("%Y-%m-%d %H:%M:%S")
 
         conn.execute(
             """
@@ -9252,7 +9289,7 @@ async def _userbot_send_message_async(target, text):
     try:
         entity = await resolve_userbot_entity(target)
         msg = await userbot.send_message(entity, text)
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now_str = tashkent_now_str("%Y-%m-%d %H:%M:%S")
 
         disp = str(target)
         if hasattr(entity, "username") and entity.username:
@@ -9290,7 +9327,7 @@ def userbot_schedule_message(target, text, run_at):
             INSERT INTO userbot_schedules (target, text, run_at, status, created_at)
             VALUES (?, ?, ?, 'pending', ?)
             """,
-            (str(target), str(text), str(run_at), datetime.now().isoformat())
+            (str(target), str(text), str(run_at), tashkent_now_str("%Y-%m-%d %H:%M:%S"))
         )
         conn.commit()
         return True, (
@@ -9433,7 +9470,7 @@ def execute_userbot_direct_intent(question):
         if clean_target not in stop_words:
             if not text:
                 text = "Salom!"
-            target_date = datetime.now()
+            target_date = get_tashkent_now()
             if day_word == "ertaga":
                 target_date += timedelta(days=1)
             run_at = f"{target_date.strftime('%Y-%m-%d')} {time_str}"
@@ -9580,7 +9617,7 @@ Agar admin oddiy savol bersa yoki tahlil so'rasa, JSON chiqarmang, o'zbek tilida
             elif action_type == "userbot_schedule_message":
                 target = act_data.get("target")
                 text = act_data.get("text", "Salom!")
-                run_at = act_data.get("run_at", datetime.now().strftime("%Y-%m-%d %H:%M"))
+                run_at = act_data.get("run_at", tashkent_now_str("%Y-%m-%d %H:%M"))
                 ok, res = userbot_schedule_message(target, text, run_at)
                 ai_save_memory(admin_id, f"Admin: {question[:300]}\nNatija: {res[:500]}")
                 return res
@@ -9611,7 +9648,7 @@ Agar admin oddiy savol bersa yoki tahlil so'rasa, JSON chiqarmang, o'zbek tilida
             INSERT INTO ai_agent_runs (admin_id, question, plan, result, created_at)
             VALUES (?, ?, ?, ?, ?)
             """,
-            (int(admin_id), question, "AI_ANALYSIS", raw_res[:10000], datetime.now().isoformat())
+            (int(admin_id), question, "AI_ANALYSIS", raw_res[:10000], tashkent_now_str("%Y-%m-%d %H:%M:%S"))
         )
         conn.commit()
     finally:
@@ -10594,7 +10631,7 @@ def stars_successful_payment(message):
                     comment,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, datetime('now'))
+                VALUES (?, ?, ?, ?, ?, datetime('now', 'localtime'))
                 """,
                 (
                     message.from_user.id,
@@ -11622,7 +11659,7 @@ def create_auto_order_record(
         if existing:
             return existing
 
-        now = datetime.now().strftime(
+        now = tashkent_now_str(
             "%Y-%m-%d %H:%M:%S"
         )
 
@@ -12198,7 +12235,8 @@ async def process_real_auto_order(
                 f"🛠 Xizmat: {service['name']}\n"
                 f"🔢 Miqdor: <b>{quantity}</b>\n"
                 f"💰 Yechildi: <b>{estimated_price:,.2f} so'm</b>\n"
-                f"🔗 <a href=\"{link}\">Post</a>\n\n"
+                f"🔗 <a href=\"{link}\">Post</a>\n"
+                f"🕒 Vaqt: <code>{tashkent_now_str('%Y-%m-%d %H:%M:%S')}</code>\n\n"
                 "⏳ Buyurtma bajarilishi kutilmoqda."
             )
         )
@@ -12398,7 +12436,8 @@ async def auto_order_status_worker():
                                 f"🔢 Buyurtma: <code>#{row['external_order_id']}</code>\n"
                                 f"🛠 Xizmat: {row['service_name']}\n"
                                 f"🔢 Miqdor: <b>{row['quantity']}</b>\n"
-                                f"🔗 <a href=\"{row['link']}\">Post</a>"
+                                f"🔗 <a href=\"{row['link']}\">Post</a>\n"
+                                f"🕒 Vaqt: <code>{tashkent_now_str('%Y-%m-%d %H:%M:%S')}</code>"
                             )
                         )
 
@@ -12422,7 +12461,8 @@ async def auto_order_status_worker():
                             (
                                 "⚠️ <b>Buyurtma bekor qilindi</b>\n\n"
                                 f"🔢 Buyurtma: <code>#{row['external_order_id']}</code>\n"
-                                f"🛠 Xizmat: {row['service_name']}"
+                                f"🛠 Xizmat: {row['service_name']}\n"
+                                f"🕒 Vaqt: <code>{tashkent_now_str('%Y-%m-%d %H:%M:%S')}</code>"
                             )
                         )
 
@@ -12465,7 +12505,7 @@ async def auto_order_status_worker():
                             await asyncio.to_thread(
                                 send_auto_order_message,
                                 mrow["user_id"],
-                                f"✅ <b>Buyurtmangiz bajarildi!</b>\n\n🔢 Buyurtma: <code>#{mrow['id']}</code>\n🛠 Xizmat: {mrow['service_name']}\n🔢 Miqdor: <b>{mrow['quantity']}</b>"
+                                f"✅ <b>Buyurtmangiz bajarildi!</b>\n\n🔢 Buyurtma: <code>#{mrow['id']}</code>\n🛠 Xizmat: {mrow['service_name']}\n🔢 Miqdor: <b>{mrow['quantity']}</b>\n🕒 Vaqt: <code>{tashkent_now_str('%Y-%m-%d %H:%M:%S')}</code>"
                             )
                         elif mnorm in ("canceled", "cancelled"):
                             c = db()
@@ -12655,7 +12695,7 @@ async def userbot_schedule_worker():
     """Har 10 soniyada rejalashtirilgan userbot xabarlarini tekshiradi."""
     while True:
         try:
-            now = datetime.now().strftime("%Y-%m-%d %H:%M")
+            now = tashkent_now_str("%Y-%m-%d %H:%M")
             conn = db()
             try:
                 rows = conn.execute(

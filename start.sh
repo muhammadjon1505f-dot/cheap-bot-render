@@ -1,4 +1,5 @@
 #!/bin/bash
+export TZ="Asia/Tashkent"
 export PYTHONUNBUFFERED=1
 export PORT="${PORT:-3000}"
 
