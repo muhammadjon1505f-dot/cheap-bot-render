@@ -49,7 +49,7 @@ _http_retries = Retry(
     status_forcelist=[500, 502, 503, 504],
     allowed_methods=["HEAD", "GET", "POST", "OPTIONS"]
 )
-_http_adapter = HTTPAdapter(max_retries=_http_retries, pool_connections=30, pool_maxsize=60)
+_http_adapter = HTTPAdapter(max_retries=_http_retries, pool_connections=50, pool_maxsize=100)
 HTTP_SESSION.mount("http://", _http_adapter)
 HTTP_SESSION.mount("https://", _http_adapter)
 
@@ -128,6 +128,48 @@ userbot = None
 # Postlar bir marta buyurtma qilinishi uchun in-memory kesh va lock
 ORDERED_POSTS_CACHE = set()
 PROCESSING_POSTS = set()
+LAST_SEEN_CHANNEL_MSG_ID = {}
+FLOOD_RETRY_QUEUE = []
+
+class ApiFloodWaitError(Exception):
+    def __init__(self, message, wait_seconds=5):
+        super().__init__(message)
+        self.wait_seconds = wait_seconds
+
+def is_flood_or_rate_limit(error_obj, status_code=None):
+    if status_code in (429, 502, 503, 504, 520, 521, 522, 524):
+        return True
+    msg = str(error_obj or "").lower()
+    flood_keywords = [
+        "flood", "rate limit", "too many requests", "429",
+        "slow down", "try again later", "please wait", "action flood",
+        "retry after", "seconds before", "wait a few", "frequent",
+        "cooldown", "limit exceeded", "wait for previous", "busy",
+        "spaming", "spam"
+    ]
+    return any(k in msg for k in flood_keywords)
+
+def enqueue_flood_retry_order(
+    internal_id, owner_id, service, link, quantity, estimated_price, clean_cid, mid, sid, retry_after=None
+):
+    global FLOOD_RETRY_QUEUE
+    if any(q["internal_id"] == internal_id for q in FLOOD_RETRY_QUEUE):
+        return
+    item = {
+        "internal_id": internal_id,
+        "owner_id": owner_id,
+        "service": service,
+        "link": link,
+        "quantity": quantity,
+        "estimated_price": estimated_price,
+        "clean_cid": clean_cid,
+        "mid": mid,
+        "sid": sid,
+        "attempts": 0,
+        "retry_after": retry_after or (time.time() + 8)
+    }
+    FLOOD_RETRY_QUEUE.append(item)
+    log_debug(f"📋 FLOOD_RETRY_QUEUE ga qo'shildi: #{internal_id} | Post={mid} | Svc={sid}")
 
 def clean_channel_id(cid):
     if cid is None:
@@ -645,7 +687,7 @@ def is_post_already_ordered(channel_id, message_id, service_id=None):
                   AND service_id = ?
                   AND (
                       (external_order_id IS NOT NULL AND TRIM(external_order_id) != '')
-                      OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success')
+                      OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success', 'floodwait', 'retrying')
                   )
                 LIMIT 1
                 """,
@@ -659,7 +701,7 @@ def is_post_already_ordered(channel_id, message_id, service_id=None):
                   AND message_id = ?
                   AND (
                       (external_order_id IS NOT NULL AND TRIM(external_order_id) != '')
-                      OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success')
+                      OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success', 'floodwait', 'retrying')
                   )
                 LIMIT 1
                 """,
@@ -688,7 +730,7 @@ def init_ordered_posts_cache():
             SELECT channel_id, message_id, service_id
             FROM auto_orders
             WHERE (external_order_id IS NOT NULL AND TRIM(external_order_id) != '')
-               OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success')
+               OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success', 'floodwait', 'retrying')
             """
         ).fetchall()
         for r in rows:
@@ -4487,6 +4529,8 @@ def build_orders_view(user_id, section="all", page=0, auto_sync=True):
         "in progress": "⚡️ Bajarilmoqda",
         "pending": "⏳ Kutilmoqda",
         "processing": "🔄 Jarayonda",
+        "floodwait": "⏳ Flood kutish (qayta yuborilmoqda)",
+        "retrying": "🔄 Qayta urinilmoqda",
         "canceled": "❌ Bekor qilingan",
         "cancelled": "❌ Bekor qilingan",
         "partial": "⭕️ Qisman",
@@ -11007,6 +11051,17 @@ async def process_channel_post(
         channel_id_clean = clean_channel_id(channel_id)
         message_id = int(message_id)
 
+        # 1. Tezkor oraliqda qolib ketgan postlarni aniqlash va qamrab olish (Gap detector)
+        last_id = LAST_SEEN_CHANNEL_MSG_ID.get(channel_id_clean)
+        if last_id is not None and message_id > last_id + 1 and (message_id - last_id) <= 60:
+            missed_count = message_id - last_id - 1
+            log_debug(f"⚡ TEZKOR ORALIKDA QOB KETGAN POSTLAR ANIQLANDI ({missed_count} ta): ch={channel_id_clean}, {last_id + 1} dan {message_id - 1} gacha")
+            for skipped_id in range(last_id + 1, message_id):
+                asyncio.create_task(process_channel_post(channel_id, skipped_id, title, username))
+
+        if last_id is None or message_id > last_id:
+            LAST_SEEN_CHANNEL_MSG_ID[channel_id_clean] = message_id
+
         post_key = (channel_id_clean, message_id)
         if post_key in PROCESSING_POSTS:
             log_debug(f"⏳ POST HOZIRDA QAYTA ISHLANMOQDA (o'tkazib yuborildi): {post_key}")
@@ -11196,6 +11251,7 @@ async def process_channel_post(
                 print("🤖 AVTOMATIK BUYURTMA HISOBI")
                 print("--------------------------------------------")
 
+                order_tasks = []
                 for service in pending_services:
 
                     min_qty = int(
@@ -11206,75 +11262,12 @@ async def process_channel_post(
                         service["max_qty"] or 0
                     )
 
-                    if min_qty <= 0:
-                        print(
-                            "⚠️ Service #%s: min quantity noto'g'ri"
-                            % service["service_id"]
-                        )
-                        continue
-
-                    if max_qty <= 0:
-                        print(
-                            "⚠️ Service #%s: max quantity noto'g'ri"
-                            % service["service_id"]
-                        )
-                        continue
-
-                    if max_qty < min_qty:
-                        print(
-                            "⚠️ Service #%s: max < min"
-                            % service["service_id"]
-                        )
+                    if min_qty <= 0 or max_qty <= 0 or max_qty < min_qty:
                         continue
 
                     auto_quantity = random.randint(
                         min_qty,
                         max_qty
-                    )
-
-                    price_per_1000 = float(
-                        service["price"] or 0
-                    )
-
-                    estimated_price = (
-                        auto_quantity / 1000
-                    ) * price_per_1000
-
-                    print()
-                    print(
-                        "🛠 Xizmat:",
-                        service["name"]
-                    )
-
-                    print(
-                        "🆔 Service ID:",
-                        service["service_id"]
-                    )
-
-                    print(
-                        "🔢 Min:",
-                        min_qty
-                    )
-
-                    print(
-                        "🔢 Max:",
-                        max_qty
-                    )
-
-                    print(
-                        "🎯 Avtomatik quantity:",
-                        auto_quantity
-                    )
-
-                    print(
-                        "💰 Taxminiy narx:",
-                        f"{estimated_price:,.2f}",
-                        "so'm"
-                    )
-
-                    print(
-                        "🔗 Link:",
-                        post_link
                     )
 
                     owner_id = service["owner_id"]
@@ -11283,10 +11276,10 @@ async def process_channel_post(
                         print("❌ Kanal egasi topilmadi:", channel_id)
                         continue
 
-                    log_debug(f"🚀 REAL API ORDER YUBORILMOQDA: svc={service['service_id']}, qty={auto_quantity}, link={post_link}")
+                    log_debug(f"🚀 REAL API ORDER TAYYORLANDI (PARALLEL): svc={service['service_id']}, qty={auto_quantity}, link={post_link}")
 
-                    try:
-                        await process_real_auto_order(
+                    order_tasks.append(
+                        process_real_auto_order(
                             channel_id=channel_id,
                             message_id=message_id,
                             owner_id=int(owner_id),
@@ -11294,8 +11287,10 @@ async def process_channel_post(
                             link=post_link,
                             quantity=auto_quantity
                         )
-                    except Exception as s_err:
-                        log_debug(f"❌ Xizmat #{service.get('service_id')} buyurtma berish xatosi: {s_err}")
+                    )
+
+                if order_tasks:
+                    await asyncio.gather(*order_tasks, return_exceptions=True)
 
                 print("--------------------------------------------")
 
@@ -11446,11 +11441,13 @@ async def start_userbot():
 
             log_debug(f"📨 YANGI KANAL POSTI: {title} (@{username}) | ch_id={channel_id} | msg_id={event.id}")
 
-            await process_channel_post(
-                channel_id,
-                event.id,
-                title,
-                username
+            asyncio.create_task(
+                process_channel_post(
+                    channel_id,
+                    event.id,
+                    title,
+                    username
+                )
             )
 
         except Exception as e:
@@ -11847,7 +11844,7 @@ def send_real_auto_order(
             "External service ID mavjud emas"
         )
 
-    if not service["api_active"]:
+    if not service.get("api_active", 1):
         raise RuntimeError(
             "API faol emas"
         )
@@ -11860,90 +11857,88 @@ def send_real_auto_order(
         "quantity": int(quantity)
     }
 
-    print()
-    print("🚀 REAL API ORDER")
-    print("--------------------------------------------")
-    print(
-        "🛠 Service:",
-        service["name"]
-    )
-    print(
-        "🆔 External service:",
-        external_service_id
-    )
-    print(
-        "🔢 Quantity:",
-        quantity
-    )
-    print(
-        "🔗 Link:",
-        link
-    )
-    print(
-        "🌐 API:",
-        service["api_name"]
-    )
+    log_debug(f"🚀 REAL API ORDER YUBORILMOQDA: svc={external_service_id}, qty={quantity}, link={link}")
 
-    response = HTTP_SESSION.post(
-        api_url,
-        data=payload,
-        timeout=30
-    )
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = HTTP_SESSION.post(
+                api_url,
+                data=payload,
+                timeout=25
+            )
 
-    response.raise_for_status()
+            # 429 Too Many Requests yoki server flood
+            if response.status_code == 429 or response.status_code in (502, 503, 504):
+                if attempt < max_retries:
+                    wait_sec = attempt * 2 + random.uniform(0.5, 1.5)
+                    log_debug(f"⚠️ API FLOOD/RATE LIMIT (HTTP {response.status_code}) #{internal_id}. {wait_sec:.1f}s kutilmoqda ({attempt}/{max_retries})...")
+                    time.sleep(wait_sec)
+                    continue
+                else:
+                    raise ApiFloodWaitError(f"API Rate limit (HTTP {response.status_code})", wait_seconds=15)
 
-    try:
-        data = response.json()
-    except Exception:
-        raise RuntimeError(
-            "API JSON format qaytarmadi: "
-            + response.text[:500]
-        )
+            response.raise_for_status()
 
-    print(
-        "📥 API RESPONSE:",
-        data
-    )
+            try:
+                data = response.json()
+            except Exception:
+                raise RuntimeError(
+                    "API JSON format qaytarmadi: "
+                    + response.text[:500]
+                )
 
-    if not isinstance(data, dict):
-        raise RuntimeError(
-            f"API noto'g'ri javob qaytardi: {data}"
-        )
+            if not isinstance(data, dict):
+                raise RuntimeError(
+                    f"API noto'g'ri javob qaytardi: {data}"
+                )
 
-    if data.get("error"):
-        raise RuntimeError(
-            str(data["error"])
-        )
+            if data.get("error"):
+                err_str = str(data["error"])
+                if is_flood_or_rate_limit(err_str):
+                    if attempt < max_retries:
+                        m_wait = re.search(r"(\d+)\s*(?:second|sec|soniya|s\b)", err_str, re.IGNORECASE)
+                        wait_sec = (float(m_wait.group(1)) + 1) if m_wait else (attempt * 2 + 1)
+                        log_debug(f"⚠️ API FLOOD XATOSI ('{err_str}') #{internal_id}. {wait_sec:.1f}s kutilmoqda ({attempt}/{max_retries})...")
+                        time.sleep(wait_sec)
+                        continue
+                    else:
+                        raise ApiFloodWaitError(f"API Flood: {err_str}", wait_seconds=15)
+                else:
+                    raise RuntimeError(err_str)
 
-    external_order_id = (
-        data.get("order")
-        or data.get("order_id")
-        or data.get("id")
-    )
+            external_order_id = (
+                data.get("order")
+                or data.get("order_id")
+                or data.get("id")
+            )
 
-    if not external_order_id:
-        raise RuntimeError(
-            f"API order ID qaytarmadi: {data}"
-        )
+            if not external_order_id:
+                raise RuntimeError(
+                    f"API order ID qaytarmadi: {data}"
+                )
 
-    api_price = (
-        data.get("charge")
-        or data.get("price")
-        or 0
-    )
+            api_price = (
+                data.get("charge")
+                or data.get("price")
+                or 0
+            )
 
-    update_auto_order_success(
-        internal_id,
-        external_order_id,
-        api_price
-    )
+            update_auto_order_success(
+                internal_id,
+                external_order_id,
+                api_price
+            )
 
-    print(
-        "✅ REAL ORDER YARATILDI:",
-        external_order_id
-    )
+            log_debug(f"✅ REAL ORDER YARATILDI: #{external_order_id} (internal_id={internal_id})")
+            return str(external_order_id)
 
-    return str(external_order_id)
+        except (requests.exceptions.RequestException, requests.exceptions.Timeout) as net_err:
+            if attempt < max_retries:
+                wait_sec = attempt * 2
+                log_debug(f"⚠️ API Tarmoq xatosi ({net_err}) #{internal_id}. {wait_sec}s dan so'ng qayta uriniladi ({attempt}/{max_retries})...")
+                time.sleep(wait_sec)
+                continue
+            raise net_err
 
 
 
@@ -12213,10 +12208,11 @@ async def process_real_auto_order(
             )
 
         # ====================================================
-        # 🚀 FAQAT BALANS TASDIQLANGANDAN KEYIN API
+        # 🚀 FAQAT BALANS TASDIQLANGANDAN KEYIN API (NON-BLOCKING THREAD)
         # ====================================================
 
-        external_order_id = send_real_auto_order(
+        external_order_id = await asyncio.to_thread(
+            send_real_auto_order,
             api,
             link,
             quantity,
@@ -12238,6 +12234,34 @@ async def process_real_auto_order(
                 f"🔗 <a href=\"{link}\">Post</a>\n"
                 f"🕒 Vaqt: <code>{tashkent_now_str('%Y-%m-%d %H:%M:%S')}</code>\n\n"
                 "⏳ Buyurtma bajarilishi kutilmoqda."
+            )
+        )
+
+    except ApiFloodWaitError as fe:
+        log_debug(f"⏳ API FLOOD TUSHDI #{internal_id}: {fe}. Buyurtma navbatga qo'yildi va orqa fonda qayta yuboriladi.")
+        update_auto_order_status(internal_id, "FloodWait")
+        ORDERED_POSTS_CACHE.add((clean_cid, mid, service_id))
+        enqueue_flood_retry_order(
+            internal_id=internal_id,
+            owner_id=owner_id,
+            service=service,
+            link=link,
+            quantity=quantity,
+            estimated_price=estimated_price,
+            clean_cid=clean_cid,
+            mid=mid,
+            sid=service_id,
+            retry_after=time.time() + getattr(fe, 'wait_seconds', 15)
+        )
+        send_auto_order_message(
+            owner_id,
+            (
+                "⏳ <b>Buyurtma qabul qilindi (Flood navbatida)</b>\n\n"
+                f"🛠 Xizmat: {service['name']}\n"
+                f"🔢 Miqdor: <b>{quantity}</b>\n"
+                f"🔗 <a href=\"{link}\">Post</a>\n"
+                f"🕒 Vaqt: <code>{tashkent_now_str('%Y-%m-%d %H:%M:%S')}</code>\n\n"
+                "ℹ️ <i>API qisqa vaqtli flood cheklovida, buyurtma avtomatik navbatga qo'yildi va bir necha soniyada yuboriladi.</i>"
             )
         )
 
@@ -12927,6 +12951,194 @@ async def supervised_worker(coro_fn, name):
             await asyncio.sleep(5)
 
 
+async def auto_order_flood_retry_worker():
+    """
+    Flood yoki Rate limit tufayli kutishga tushgan buyurtmalarni
+    orqa fonda avtomatik ravishda qayta yuboradi va muvaffaqiyatli yakunlaydi.
+    """
+    global FLOOD_RETRY_QUEUE
+    while True:
+        try:
+            now = time.time()
+
+            # Shuningdek bazadagi FloodWait holatidagi buyurtmalarni navbatga qo'shish
+            conn = db()
+            try:
+                flood_rows = conn.execute("""
+                    SELECT ao.*, s.name as service_name, s.external_id, s.api_id, s.price as s_price,
+                           a.url as api_url, a.api_key, a.active as api_active, a.name as api_name
+                    FROM auto_orders ao
+                    JOIN services s ON s.id = ao.service_id
+                    JOIN apis a ON a.id = s.api_id
+                    WHERE ao.status IN ('FloodWait', 'Retrying')
+                    ORDER BY ao.id ASC
+                    LIMIT 20
+                """).fetchall()
+                for fr in flood_rows:
+                    if not any(q["internal_id"] == fr["id"] for q in FLOOD_RETRY_QUEUE):
+                        svc_dict = {
+                            "service_id": fr["service_id"],
+                            "name": fr["service_name"],
+                            "url": fr["api_url"],
+                            "api_key": fr["api_key"],
+                            "external_id": fr["external_id"],
+                            "api_active": fr["api_active"],
+                            "api_name": fr["api_name"],
+                            "price": fr["s_price"]
+                        }
+                        enqueue_flood_retry_order(
+                            internal_id=fr["id"],
+                            owner_id=fr["owner_id"],
+                            service=svc_dict,
+                            link=fr["link"],
+                            quantity=fr["quantity"],
+                            estimated_price=float(fr["price"] or 0),
+                            clean_cid=clean_channel_id(fr["channel_id"]),
+                            mid=fr["message_id"],
+                            sid=fr["service_id"],
+                            retry_after=now + 5
+                        )
+            finally:
+                conn.close()
+
+            ready_items = [item for item in FLOOD_RETRY_QUEUE if item["retry_after"] <= now]
+            for item in ready_items:
+                if item in FLOOD_RETRY_QUEUE:
+                    FLOOD_RETRY_QUEUE.remove(item)
+                item["attempts"] += 1
+                try:
+                    log_debug(f"🔄 FLOOD RETRY QAYTA URINISH #{item['internal_id']} (urinish: {item['attempts']})...")
+                    api = get_auto_order_api(item["sid"])
+                    if not api:
+                        raise RuntimeError("API topilmadi")
+
+                    external_order_id = await asyncio.to_thread(
+                        send_real_auto_order,
+                        api,
+                        item["link"],
+                        item["quantity"],
+                        item["internal_id"],
+                        max_retries=3
+                    )
+
+                    ORDERED_POSTS_CACHE.add((item["clean_cid"], item["mid"], item["sid"]))
+                    log_debug(f"🎉 FLOOD RETRY MUVAFFAQIYATLI O'TDI: #{external_order_id} | internal_id={item['internal_id']}")
+
+                    send_auto_order_message(
+                        item["owner_id"],
+                        (
+                            "✅ <b>Buyurtma berildi!</b>\n\n"
+                            f"🔢 Buyurtma: <code>#{external_order_id}</code>\n"
+                            f"🛠 Xizmat: {item['service']['name']}\n"
+                            f"🔢 Miqdor: <b>{item['quantity']}</b>\n"
+                            f"💰 Yechildi: <b>{item['estimated_price']:,.2f} so'm</b>\n"
+                            f"🔗 <a href=\"{item['link']}\">Post</a>\n"
+                            f"🕒 Vaqt: <code>{tashkent_now_str('%Y-%m-%d %H:%M:%S')}</code>\n\n"
+                            "ℹ️ <i>API flood cheklovi tugagach avtomatik buyurtma berildi.</i>"
+                        )
+                    )
+                except ApiFloodWaitError as fe:
+                    if item["attempts"] < 30:
+                        item["retry_after"] = time.time() + getattr(fe, "wait_seconds", 12)
+                        FLOOD_RETRY_QUEUE.append(item)
+                        log_debug(f"⏳ FLOOD RETRY HAMON FLOOD BERMOQDA #{item['internal_id']}, {item['retry_after'] - time.time():.1f}s dan so'ng yana uriniladi...")
+                    else:
+                        log_debug(f"❌ FLOOD RETRY LIMIT TUGADI #{item['internal_id']}. Bekor qilinadi.")
+                        if item["estimated_price"] > 0:
+                            refund_auto_order_balance(item["owner_id"], item["estimated_price"])
+                        update_auto_order_error(item["internal_id"], "API flood vaqt limiti tugadi (30 ta urinish)")
+                except Exception as ex:
+                    log_debug(f"❌ FLOOD RETRY XATOSI #{item['internal_id']}: {ex}")
+                    if item["estimated_price"] > 0:
+                        refund_auto_order_balance(item["owner_id"], item["estimated_price"])
+                    update_auto_order_error(item["internal_id"], str(ex))
+
+        except Exception as e:
+            log_debug(f"⚠️ auto_order_flood_retry_worker xatosi: {e}")
+
+        await asyncio.sleep(4)
+
+
+async def missed_posts_sync_worker():
+    """
+    Kanalga qancha tez yoki qancha ko'p post tashlansa ham,
+    o'tkazib yuborilgan yoki qolib ketgan har qanday postni
+    orqa fonda muntazam tekshirib, darhol buyurtma beradi.
+    """
+    global userbot
+    await asyncio.sleep(5)
+
+    while True:
+        try:
+            if userbot and userbot.is_connected():
+                conn = db()
+                try:
+                    channels = conn.execute("""
+                        SELECT DISTINCT ch.channel_id, ch.username, ch.title
+                        FROM channels ch
+                        JOIN channel_services cs ON cs.channel_id = ch.channel_id
+                        JOIN services s ON s.id = cs.service_id
+                        JOIN apis a ON a.id = s.api_id
+                        WHERE ch.active = 1
+                          AND cs.active = 1
+                          AND s.active = 1
+                          AND a.active = 1
+                    """).fetchall()
+                finally:
+                    conn.close()
+
+                for ch in channels:
+                    cid = ch["channel_id"]
+                    clean_cid = clean_channel_id(cid)
+                    username = (ch["username"] or "").strip().lstrip("@")
+                    title = ch["title"] or "Kanal"
+
+                    target_entity = None
+                    if username:
+                        target_entity = f"@{username}"
+                    else:
+                        try:
+                            target_entity = int(cid)
+                        except Exception:
+                            target_entity = cid
+
+                    try:
+                        # Oxirgi 15 ta xabarni olish
+                        msgs = await userbot.get_messages(target_entity, limit=15)
+                        if msgs:
+                            for msg in msgs:
+                                if not msg or not getattr(msg, "id", None):
+                                    continue
+                                mid = int(msg.id)
+
+                                current_max = LAST_SEEN_CHANNEL_MSG_ID.get(clean_cid, 0)
+                                if mid > current_max:
+                                    LAST_SEEN_CHANNEL_MSG_ID[clean_cid] = mid
+
+                                # Post allaqachon buyurtma qilinganmi
+                                if is_post_already_ordered(cid, mid):
+                                    continue
+
+                                # Qolib ketgan post aniqlandi -> darhol buyurtma berish!
+                                log_debug(f"🎯 QOLIB KETGAN POST TOPILDI VA BUYURTMA BERILMOQDA: {title} (@{username}) | ch={cid} | msg_id={mid}")
+                                asyncio.create_task(
+                                    process_channel_post(cid, mid, title, username)
+                                )
+                    except Exception as ch_err:
+                        err_str = str(ch_err).lower()
+                        if "flood" in err_str:
+                            log_debug(f"⚠️ Userbot get_messages flood kutish: {ch_err}")
+                            await asyncio.sleep(10)
+                        pass
+
+                    await asyncio.sleep(0.5)
+
+        except Exception as e:
+            log_debug(f"⚠️ missed_posts_sync_worker xatosi: {e}")
+
+        await asyncio.sleep(5)
+
+
 async def run_all():
     global MAIN_LOOP
 
@@ -12946,6 +13158,8 @@ async def run_all():
         supervised_worker(api_auto_sync_worker, "api_auto_sync"),
         supervised_worker(userbot_schedule_worker, "userbot_schedule"),
         supervised_worker(auto_order_status_worker, "auto_order_status"),
+        supervised_worker(auto_order_flood_retry_worker, "flood_retry"),
+        supervised_worker(missed_posts_sync_worker, "missed_posts_sync"),
         supervised_worker(keep_alive_worker, "keep_alive"),
         supervised_worker(auto_group_post_worker, "auto_group_post"),
         return_exceptions=True
