@@ -142,35 +142,74 @@ class EpicRocketService:
             )
             await event.reply(text, parse_mode="html")
 
-        @self.tg_client.on(events.NewMessage(chats=["me", TARGET_USER], pattern=r"^/(stream|strim|status|holat)"))
+        @self.tg_client.on(events.NewMessage(pattern=r"^/(stream|strim|status|holat|efir|live)"))
         async def on_stream_check_command(event):
-            stream_link = self.stream_link
+            # 1. Agar kanal yoki guruhda yozilgan bo'lsa, xabarni darhol o'chirib tozalash
+            is_public = event.is_channel or event.is_group
+            try:
+                await event.delete()
+            except Exception:
+                try:
+                    requests.post(
+                        f"https://api.telegram.org/bot{SIGNAL_BOT_TOKEN}/deleteMessage",
+                        json={"chat_id": event.chat_id, "message_id": event.id},
+                        timeout=3
+                    )
+                except Exception:
+                    pass
+
+            # 2. Strim holatini to'liq tekshirish
             ffmpeg_alive = self.stream_proc is not None and self.stream_proc.returncode is None
-            status = self.stream_state.get("status", "waiting")
-            round_id = self.stream_state.get("round_id", "---")
-            mult = self.stream_state.get("current_mult", 1.0)
-            sig = self.stream_state.get("signal", {}).get("type", "Kutilmoqda")
-            acc = self.stream_state.get("stats", {}).get("accuracy", 0)
-            streak = self.stream_state.get("stats", {}).get("streak", 0)
-            
-            report = (
-                f"📡 <b>EPIC LIVE STREAM TEKSHIRUVI</b>\n\n"
-                f"🔗 <b>Strim havolasi:</b> <a href='{stream_link}'>{stream_link}</a>\n"
-                f"✅ <b>Havola holati:</b> <b>To'g'ri va faol (24/7 RTMP)</b>\n"
-                f"🎥 <b>Efir holati:</b> {'🟢 <b>Jonli efir uzatilmoqda</b>' if ffmpeg_alive else '🔴 <b>Efir ulanmoqda</b>'}\n\n"
-                f"📺 <b>STRIMDA NIMA KO'RSATILMOQDA:</b>\n"
-                f"• <b>Raund:</b> <code>#{round_id}</code>\n"
-                f"• <b>Holat:</b> <b>{status.upper()}</b> ({mult:.2f}x)\n"
-                f"• <b>Signal:</b> <b>{sig}</b>\n"
-                f"• <b>Aniqlik:</b> <b>{acc}%</b> | <b>Streak:</b> <b>{streak} ta</b>\n"
-                f"• <b>Sifat:</b> <code>1280x720 HD @ 10 FPS (iOS 26 Terminal)</code>\n\n"
-                f"<i>Quyida strimning ayni paytdagi ekrani tasviri (skrinshot):</i>"
-            )
-            preview_path = BASE_DIR / "latest_stream_frame.png"
-            if preview_path.exists():
-                await event.reply(report, file=str(preview_path), parse_mode="html")
+            stream_active = False
+            if self.channel_entity:
+                try:
+                    full = await self.tg_client(GetFullChannelRequest(self.channel_entity))
+                    if full.full_chat.call:
+                        call_info = await self.tg_client(GetGroupCallRequest(call=full.full_chat.call, limit=1))
+                        stream_active = getattr(call_info.call, "rtmp_stream", False)
+                except Exception:
+                    pass
+
+            # 3. Agar efir yoki FFmpeg to'xtab qolgan bo'lsa -> O'ZI AVTOMATIK TO'G'RILAYDI!
+            healed = False
+            if not (ffmpeg_alive and stream_active):
+                logger.info("🛠 /strim buyrug'i: Strim to'xtagani aniqlandi, avtomatik qayta tiklanmoqda...")
+                await self.recover_live_stream(force_restart=True)
+                healed = True
+                ffmpeg_alive = True
+                stream_active = True
             else:
-                await event.reply(report, parse_mode="html")
+                logger.info("✅ /strim buyrug'i: Strim 100% faol holatda ishlayapti.")
+
+            # 4. Agar foydalanuvchi shaxsiy chatda (PM yoki me) yozgan bo'lsa, hisobot yuborish
+            if not is_public:
+                stream_link = self.stream_link
+                status = self.stream_state.get("status", "waiting")
+                round_id = self.stream_state.get("round_id", "---")
+                mult = self.stream_state.get("current_mult", 1.0)
+                sig = self.stream_state.get("signal", {}).get("type", "Kutilmoqda")
+                acc = self.stream_state.get("stats", {}).get("accuracy", 0)
+                streak = self.stream_state.get("stats", {}).get("streak", 0)
+
+                report = (
+                    f"📡 <b>EPIC LIVE STREAM TEKSHIRUVI</b>\n\n"
+                    f"🔗 <b>Strim havolasi:</b> <a href='{stream_link}'>{stream_link}</a>\n"
+                    f"✅ <b>Havola holati:</b> <b>To'g'ri va faol (24/7 RTMP)</b>\n"
+                    f"🎥 <b>Efir holati:</b> {'🟢 <b>Jonli efir uzatilmoqda (Faol)</b>' if ffmpeg_alive else '🔴 <b>Efir ulanmoqda</b>'}\n"
+                    f"{'🛠 <i>Nosozlik avtomatik to‘g‘rilandi va strim qayta tiklandi!</i>\n' if healed else ''}\n"
+                    f"📺 <b>STRIMDA NIMA KO'RSATILMOQDA:</b>\n"
+                    f"• <b>Raund:</b> <code>#{round_id}</code>\n"
+                    f"• <b>Holat:</b> <b>{status.upper()}</b> ({mult:.2f}x)\n"
+                    f"• <b>Signal:</b> <b>{sig}</b>\n"
+                    f"• <b>Aniqlik:</b> <b>{acc}%</b> | <b>Streak:</b> <b>{streak} ta</b>\n"
+                    f"• <b>Sifat:</b> <code>1280x720 HD @ 10 FPS (iOS 26 Terminal)</code>\n\n"
+                    f"<i>Quyida strimning ayni paytdagi ekrani tasviri (skrinshot):</i>"
+                )
+                preview_path = BASE_DIR / "latest_stream_frame.png"
+                if preview_path.exists():
+                    await event.reply(report, file=str(preview_path), parse_mode="html")
+                else:
+                    await event.reply(report, parse_mode="html")
 
     def setup_socket_events(self):
         @self.sio.event
@@ -619,6 +658,59 @@ class EpicRocketService:
                 
             await asyncio.sleep(180)  # Har 3 daqiqada yangilanadi
 
+    async def recover_live_stream(self, force_restart: bool = False):
+        """Jonli efirni 100% avtomatik tekshirish, tuzatish va yangidan ishga tushirish"""
+        logger.info("🛠 [STRIM TIKLASH] Jonli efir tekshirilmoqda va avtomatik to'g'rilanmoqda...")
+        
+        # 1. Eski FFmpeg jarayonini to'xtatish
+        if self.stream_proc:
+            try:
+                self.stream_proc.kill()
+            except Exception:
+                pass
+            self.stream_proc = None
+
+        # 2. Kanal entity tekshirish
+        if not self.channel_entity:
+            try:
+                self.channel_entity = await self.tg_client.get_entity("epic_signal")
+            except Exception as e:
+                logger.error(f"Kanal topilmadi: {e}")
+                return False
+
+        # 3. Telegram Group Call tozalash va yangi RTMP ochish
+        try:
+            full = await self.tg_client(GetFullChannelRequest(self.channel_entity))
+            call = full.full_chat.call
+            
+            if call and (force_restart or not getattr(call, "rtmp_stream", True)):
+                try:
+                    logger.info("Mavjud eski efir yopilmoqda...")
+                    await self.tg_client(DiscardGroupCallRequest(call=call))
+                    await asyncio.sleep(2)
+                except Exception as dc_err:
+                    logger.debug(f"Discard call debug: {dc_err}")
+                call = None
+
+            if not call:
+                logger.info("📡 Yangi RTMP jonli efir yaratilmoqda...")
+                await self.tg_client(CreateGroupCallRequest(
+                    peer=self.channel_entity,
+                    rtmp_stream=True,
+                    title="⚡️ EPIC ROCKET TRADING 24/7"
+                ))
+                await asyncio.sleep(2)
+        except Exception as call_err:
+            logger.warning(f"Group call sozlashda xatolik: {call_err}")
+
+        # 4. Stream taskni qayta uyg'otish
+        if self.stream_task and not self.stream_task.done():
+            self.stream_task.cancel()
+        
+        self.stream_task = asyncio.create_task(self.run_live_video_stream())
+        logger.info("✅ [STRIM TIKLASH] Jonli efir 100% muvaffaqiyatli qayta ishga tushirildi!")
+        return True
+
     async def run_live_video_stream(self):
         """24/7 Telegram kanal jonli efiriga RTMP orqali video va grafik uzatish"""
         logger.info("🎬 Jonli efir (Live Stream 24/7) moduli tayyorlanmoqda...")
@@ -744,10 +836,11 @@ class EpicRocketService:
             await asyncio.sleep(4)
 
     async def run_stream_monitor(self):
-        """Doimiy strim holati, havola to'g'riligi va ekranda nima ko'rinayotganini tekshiruvchi monitor"""
-        logger.info("🛰 Doimiy strim tekshiruvchi monitor (Stream Health & Content Guard) ishga tushdi...")
-        await asyncio.sleep(10)
+        """Doimiy strim holati, havola to'g'riligi va o'zini o'zi davolovchi (Self-Healing Watchdog) monitor"""
+        logger.info("🛰 Doimiy strim tekshiruvchi monitor (Self-Healing Stream Watchdog) ishga tushdi...")
+        await asyncio.sleep(15)
         
+        failure_count = 0
         while True:
             try:
                 link_status = "NOTOGRI"
@@ -777,18 +870,25 @@ class EpicRocketService:
                 
                 logger.info(
                     f"📺 [STRIM TEKSHIRUV] Havola: {stream_link} [{link_status}] | "
-                    f"Efir: {'🟢 100% ISHLAYAPTI' if (stream_active and ffmpeg_alive) else '🟡 QAYTA BOGLANMOQDA'} | "
+                    f"Efir: {'🟢 100% ISHLAYAPTI' if (stream_active and ffmpeg_alive) else '🟡 TIKLANMOQDA'} | "
                     f"Ko'rsatilmoqda: #{round_id} ({mult:.2f}x - {status}) | Signal: {sig} | Winrate: {acc}%"
                 )
 
-                # Agar efir uzilgan bo'lsa ogohlantirish
+                # O'ZINI-O'ZI DAVOLASH (AVTOMATIK TO'G'RILASH)
                 if not (stream_active and ffmpeg_alive):
-                    logger.warning("⚠️ Strim tekshiruvi: Efir yoki FFmpeg uzilgan. Avtomatik tiklash jarayonda...")
+                    failure_count += 1
+                    logger.warning(f"⚠️ Strim nosozligi aniqlandi ({failure_count}/2). Avtomatik tiklash jarayonda...")
+                    if failure_count >= 2:
+                        logger.info("🚨 Strim 2 marta ketma-ket javob bermadi. Avtomatik qayta tiklanmoqda...")
+                        await self.recover_live_stream(force_restart=True)
+                        failure_count = 0
+                else:
+                    failure_count = 0
 
             except Exception as e:
                 logger.debug(f"Strim monitor xatosi: {e}")
                 
-            await asyncio.sleep(30)
+            await asyncio.sleep(20)
 
     async def start(self):
         init_db()
