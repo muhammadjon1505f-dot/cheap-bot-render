@@ -753,8 +753,8 @@ def is_post_already_ordered(channel_id, message_id, service_id=None):
                   AND service_id = ?
                   AND (
                       (external_order_id IS NOT NULL AND TRIM(external_order_id) != '')
-                      OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success', 'floodwait', 'retrying', 'failed', 'max_retries', 'canceled')
-                      OR COALESCE(attempts, 0) >= 3
+                      OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success', 'floodwait', 'retrying', 'failed', 'max_retries', 'canceled', 'error')
+                      OR COALESCE(attempts, 0) >= 1
                   )
                 LIMIT 1
                 """,
@@ -768,8 +768,8 @@ def is_post_already_ordered(channel_id, message_id, service_id=None):
                   AND message_id = ?
                   AND (
                       (external_order_id IS NOT NULL AND TRIM(external_order_id) != '')
-                      OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success', 'floodwait', 'retrying', 'failed', 'max_retries', 'canceled')
-                      OR COALESCE(attempts, 0) >= 3
+                      OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success', 'floodwait', 'retrying', 'failed', 'max_retries', 'canceled', 'error')
+                      OR COALESCE(attempts, 0) >= 1
                   )
                 LIMIT 1
                 """,
@@ -848,8 +848,8 @@ def init_ordered_posts_cache():
             SELECT channel_id, message_id, service_id, attempts, status
             FROM auto_orders
             WHERE (external_order_id IS NOT NULL AND TRIM(external_order_id) != '')
-               OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success', 'floodwait', 'retrying', 'failed', 'max_retries', 'canceled')
-               OR COALESCE(attempts, 0) >= 3
+               OR LOWER(COALESCE(status, '')) IN ('pending', 'processing', 'completed', 'in progress', 'in_progress', 'success', 'floodwait', 'retrying', 'failed', 'max_retries', 'canceled', 'error')
+               OR COALESCE(attempts, 0) >= 1
             """
         ).fetchall()
         for r in rows:
@@ -9714,7 +9714,7 @@ def ai_agent_execute(admin_id, question):
     memory = ai_get_memory(admin_id)
 
     system_prompt = """
-Siz CheapReaction Telegram botining administrator AI yordamchisisiz.
+Siz Tekin AI (@Tekin_aiuzbot) Telegram botining administrator AI yordamchisisiz.
 Admin sizga bot bo'yicha tahliliy savollar berishi yoki USERBOT orqali amallarni bajarishni buyurishi mumkin.
 
 SIZDA USERBOT BOSHQARUVI MAVJUD:
@@ -13384,6 +13384,15 @@ async def missed_posts_sync_worker():
                                     continue
                                 mid = int(msg.id)
 
+                                # 2 soatdan eski postlarga qayta-qayta buyurtma berilmasin
+                                if getattr(msg, "date", None):
+                                    try:
+                                        msg_age = (datetime.now(timezone.utc) - msg.date).total_seconds()
+                                        if msg_age > 7200:
+                                            continue
+                                    except Exception:
+                                        pass
+
                                 current_max = LAST_SEEN_CHANNEL_MSG_ID.get(clean_cid, 0)
                                 if mid > current_max:
                                     LAST_SEEN_CHANNEL_MSG_ID[clean_cid] = mid
@@ -13446,7 +13455,7 @@ async def run_all():
 
 if __name__ == "__main__":
     print("============================================")
-    print("🤖 CheapReaction | Avto")
+    print("🤖 Tekin AI (@Tekin_aiuzbot) | Avto")
     print("🐍 Python:", __import__("sys").version.split()[0])
     print("💾 DB:", DB_FILE)
     print("============================================")
