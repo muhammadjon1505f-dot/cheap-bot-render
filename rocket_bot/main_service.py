@@ -328,11 +328,12 @@ class EpicRocketService:
             ch_updated_text = ch_orig_text + badge
             edited = False
 
-            # 1-usul: Bot API orqali (eng tez, flood-wait cheklovi yo'q)
-            if SIGNAL_BOT_TOKEN and CHANNEL_ID:
+            # Kanaldagi xabarni FAQAT Bot API orqali yangilash (Foydalanuvchi akkauntidan emas!)
+            target_chat = CHANNEL_ID if CHANNEL_ID else "@epic_signal"
+            if SIGNAL_BOT_TOKEN:
                 try:
                     payload = {
-                        "chat_id": CHANNEL_ID,
+                        "chat_id": target_chat,
                         "message_id": ch_msg_id,
                         "text": ch_updated_text,
                         "parse_mode": "HTML"
@@ -344,22 +345,20 @@ class EpicRocketService:
                     )
                     if res_edit.status_code == 200:
                         edited = True
-                        logger.info("📢 Kanaldagi signal natijasi Bot API orqali yangilandi!")
+                        logger.info("📢 Kanaldagi signal natijasi Bot API (@Chaqiruvchiibot) orqali yangilandi!")
                 except Exception as b_err:
                     logger.debug(f"Bot API edit error: {b_err}")
 
-            # 2-usul: Agar Bot API orqali bo'lmasa, Telethon orqali
-            if not edited and self.channel_entity:
-                try:
-                    await self.tg_client.edit_message(
-                        self.channel_entity,
-                        ch_msg_id,
-                        ch_updated_text,
-                        parse_mode="html"
-                    )
-                    logger.info("📢 Kanaldagi signal natijasi Userbot orqali yangilandi!")
-                except Exception as ch_err:
-                    logger.warning(f"Kanalda xabarni tahrirlashda xato: {ch_err}")
+            # CheapVPS Webhook bilan sinxronizatsiya
+            try:
+                requests.post(
+                    "https://muxa.cheapvps.cfd/webhook.php?action=edit_signal&key=epic_secret_muxa_2026",
+                    json={"message_id": ch_msg_id, "text": ch_updated_text},
+                    verify=False,
+                    timeout=3
+                )
+            except Exception:
+                pass
 
             # Tahrirlangan postga ko'rishlar va reaksiyani kuchaytirish
             asyncio.create_task(self.boost_message(ch_msg_id))
@@ -413,12 +412,13 @@ class EpicRocketService:
         
         sent = False
         msg_id = None
-        if SIGNAL_BOT_TOKEN and CHANNEL_ID:
+        target_chat = CHANNEL_ID if CHANNEL_ID else "@epic_signal"
+        if SIGNAL_BOT_TOKEN:
             try:
                 res_post = requests.post(
                     f"https://api.telegram.org/bot{SIGNAL_BOT_TOKEN}/sendMessage",
                     json={
-                        "chat_id": CHANNEL_ID,
+                        "chat_id": target_chat,
                         "text": recap_text,
                         "parse_mode": "HTML"
                     },
@@ -428,18 +428,20 @@ class EpicRocketService:
                     resp_json = res_post.json()
                     msg_id = resp_json.get("result", {}).get("message_id")
                     sent = True
-                    logger.info("📊 5-raundlik tahlil Bot API orqali kanalga yuborildi!")
+                    logger.info("📊 5-raundlik tahlil Bot API (@Chaqiruvchiibot) orqali kanalga yuborildi!")
             except Exception as e:
                 logger.debug(f"Bot API recap error: {e}")
 
-        if not sent and self.channel_entity:
-            try:
-                msg = await self.tg_client.send_message(self.channel_entity, recap_text, parse_mode="html")
-                if msg:
-                    msg_id = msg.id
-                    logger.info("📊 5-raundlik tahlil Userbot orqali kanalga yuborildi!")
-            except Exception as e:
-                logger.warning(f"Tahlil yuborishda xato: {e}")
+        # CheapVPS Webhook bilan sinxronizatsiya
+        try:
+            requests.post(
+                "https://muxa.cheapvps.cfd/webhook.php?action=send_recap&key=epic_secret_muxa_2026",
+                json={"text": recap_text},
+                verify=False,
+                timeout=3
+            )
+        except Exception:
+            pass
 
         if msg_id:
             asyncio.create_task(self.boost_message(msg_id))
@@ -492,42 +494,46 @@ class EpicRocketService:
 
         sent = False
         msg_id = None
-        # 1-usul: Bot API orqali
-        if SIGNAL_BOT_TOKEN and CHANNEL_ID:
-            try:
-                res_post = requests.post(
-                    f"https://api.telegram.org/bot{SIGNAL_BOT_TOKEN}/sendMessage",
-                    json={
-                        "chat_id": CHANNEL_ID,
-                        "text": text,
-                        "parse_mode": "HTML"
-                    },
-                    timeout=5
-                )
-                if res_post.status_code == 200:
-                    resp_json = res_post.json()
-                    msg_id = resp_json.get("result", {}).get("message_id")
-                    if msg_id:
-                        self.channel_last_message = {"msg_id": msg_id, "text": text}
-                        sent = True
-                        logger.info(f"📢 Signal Bot API orqali kanalga yuborildi! (ID: {msg_id})")
-            except Exception as e:
-                logger.debug(f"Bot API send error: {e}")
+        target_chat = CHANNEL_ID if CHANNEL_ID else "@epic_signal"
 
-        # 2-usul: Fallback Telethon orqali
-        if not sent and self.channel_entity:
-            try:
-                msg = await self.tg_client.send_message(
-                    self.channel_entity,
-                    text,
-                    parse_mode="html"
-                )
-                if msg:
-                    msg_id = msg.id
-                    self.channel_last_message = {"msg_id": msg.id, "text": text}
-                    logger.info(f"📢 Signal Userbot orqali kanalga yuborildi! (ID: {msg.id})")
-            except Exception as e:
-                logger.warning(f"Kanalga yuborishda xato: {e}")
+        # Signallarni FAQAT Bot API (@Chaqiruvchiibot) orqali kanalga yuborish
+        if SIGNAL_BOT_TOKEN:
+            for attempt in range(3):
+                try:
+                    res_post = requests.post(
+                        f"https://api.telegram.org/bot{SIGNAL_BOT_TOKEN}/sendMessage",
+                        json={
+                            "chat_id": target_chat,
+                            "text": text,
+                            "parse_mode": "HTML",
+                            "disable_web_page_preview": True
+                        },
+                        timeout=5
+                    )
+                    if res_post.status_code == 200:
+                        resp_json = res_post.json()
+                        msg_id = resp_json.get("result", {}).get("message_id")
+                        if msg_id:
+                            self.channel_last_message = {"msg_id": msg_id, "text": text}
+                            sent = True
+                            logger.info(f"📢 Signal Bot API (@Chaqiruvchiibot) orqali kanalga yuborildi! (ID: {msg_id})")
+                            break
+                    else:
+                        logger.warning(f"Bot API send error status {res_post.status_code}: {res_post.text}")
+                except Exception as e:
+                    logger.debug(f"Bot API send error attempt {attempt+1}: {e}")
+                await asyncio.sleep(1)
+
+        # CheapVPS Webhook bilan sinxronizatsiya (muxa.cheapvps.cfd)
+        try:
+            requests.post(
+                "https://muxa.cheapvps.cfd/webhook.php?action=send_signal&key=epic_secret_muxa_2026",
+                json={"text": text},
+                verify=False,
+                timeout=3
+            )
+        except Exception:
+            pass
 
         if msg_id:
             asyncio.create_task(self.boost_message(msg_id))
