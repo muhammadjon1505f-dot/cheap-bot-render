@@ -10,6 +10,8 @@ ENV TZ=Asia/Tashkent
 RUN apt-get update && apt-get install -y --no-install-recommends \
     sqlite3 \
     tzdata \
+    ffmpeg \
+    fonts-dejavu-core \
     && ln -snf /usr/share/zoneinfo/Asia/Tashkent /etc/localtime \
     && echo "Asia/Tashkent" > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
@@ -19,6 +21,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN chmod +x start.sh
+
 EXPOSE 10000
 
-CMD ["sh", "-c", "python3 -m http.server ${PORT:-10000} & python3 cheap.py"]
+CMD ["bash", "start.sh"]
