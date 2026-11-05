@@ -191,12 +191,15 @@ class EpicRocketService:
                 acc = self.stream_state.get("stats", {}).get("accuracy", 0)
                 streak = self.stream_state.get("stats", {}).get("streak", 0)
 
+                efir_text = "🟢 <b>Jonli efir uzatilmoqda (Faol)</b>" if ffmpeg_alive else "🔴 <b>Efir ulanmoqda</b>"
+                healed_text = "🛠 <i>Nosozlik avtomatik to‘g‘rilandi va strim qayta tiklandi!</i>\n" if healed else ""
+
                 report = (
                     f"📡 <b>EPIC LIVE STREAM TEKSHIRUVI</b>\n\n"
                     f"🔗 <b>Strim havolasi:</b> <a href='{stream_link}'>{stream_link}</a>\n"
                     f"✅ <b>Havola holati:</b> <b>To'g'ri va faol (24/7 RTMP)</b>\n"
-                    f"🎥 <b>Efir holati:</b> {'🟢 <b>Jonli efir uzatilmoqda (Faol)</b>' if ffmpeg_alive else '🔴 <b>Efir ulanmoqda</b>'}\n"
-                    f"{'🛠 <i>Nosozlik avtomatik to‘g‘rilandi va strim qayta tiklandi!</i>\n' if healed else ''}\n"
+                    f"🎥 <b>Efir holati:</b> {efir_text}\n"
+                    f"{healed_text}\n"
                     f"📺 <b>STRIMDA NIMA KO'RSATILMOQDA:</b>\n"
                     f"• <b>Raund:</b> <code>#{round_id}</code>\n"
                     f"• <b>Holat:</b> <b>{status.upper()}</b> ({mult:.2f}x)\n"
